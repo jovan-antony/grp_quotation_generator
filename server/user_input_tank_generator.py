@@ -1367,9 +1367,14 @@ class TankInvoiceGenerator:
         self._create_quotation_header()
         
         # Calculate number of rows needed
-        # Header + common row + tank rows + 3 footer rows
+        # Header + common row + tank rows + footer rows (based on which totals are enabled)
+        show_sub = getattr(self, 'show_sub_total', True)
+        show_vat = getattr(self, 'show_vat', True)
+        show_grand = getattr(self, 'show_grand_total', True)
+        num_footer_rows = sum([show_sub, show_vat, show_grand])
+        
         num_tank_rows = len(self.tanks)
-        total_rows = 1 + 1 + num_tank_rows + 3
+        total_rows = 1 + 1 + num_tank_rows + num_footer_rows
         
         # Add a paragraph break before the table if template has content
         # Then immediately remove it to avoid Aptos font gap
@@ -1788,9 +1793,8 @@ class TankInvoiceGenerator:
                 # Don't add brackets if it's in the common row
                 common_text += f" - {element_value}"
         
-        # Add ladder information if needed
-        if self.needs_ladder:
-            common_text += " - INTERNAL SS 316 AND EXTERNAL HDG SUPPORT SYSTEM "
+        # Add INTERNAL SS 316 text (permanent for all quotations)
+        common_text += " - INTERNAL SS 316 AND EXTERNAL HDG SUPPORT SYSTEM "
         
         # Set the text in the merged cell
         cell = self.table.rows[1].cells[0]
@@ -1939,23 +1943,35 @@ class TankInvoiceGenerator:
         run.font.size = Pt(11)
         
         # Total Capacity (aligned format with tabs for colon alignment)
-        run = size_para.add_run(f"Total Capacity\t:\t{tank['volume_m3']:.2f} M³ ({tank['gallons']:.0f} {self.gallon_type})\n")
+        capacity_text = f"Total Capacity\t:\t{tank['volume_m3']:.2f} M³ ({tank['gallons']:.0f} {self.gallon_type})"
+        
+        # Only show Free Board and Net Volume if needFreeBoard is enabled
+        need_free_board = tank.get('need_free_board', False)
+        if need_free_board:
+            capacity_text += "\n"
+        
+        run = size_para.add_run(capacity_text)
         run.font.bold = True
         run.font.name = 'Calibri'
         run.font.size = Pt(11)
         
-        # Free Board (aligned format with tabs for colon alignment)
-        run = size_para.add_run(f"Free Board\t:\t30 cm (0.3 M)\n")
-        run.font.bold = True
-        run.font.name = 'Calibri'
-        run.font.size = Pt(11)
-        
-        # Net Volume (just show final calculated value with tabs for colon alignment)
-        net_volume_calculated = tank['length'] * tank['width'] * (tank['height'] - 0.3)
-        run = size_para.add_run(f"Net Volume\t:\t{net_volume_calculated:.2f} M³")
-        run.font.bold = True
-        run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        # Show Free Board and Net Volume only if needFreeBoard is enabled
+        if need_free_board:
+            free_board_m = tank.get('free_board', 0.3)
+            free_board_cm = free_board_m * 100  # Convert meters to cm
+            
+            # Free Board (aligned format with tabs for colon alignment)
+            run = size_para.add_run(f"Free Board\t:\t{free_board_cm:.0f} cm ({free_board_m:.2f} M)\n")
+            run.font.bold = True
+            run.font.name = 'Calibri'
+            run.font.size = Pt(11)
+            
+            # Net Volume (use pre-calculated value from tank data)
+            net_volume_m3 = tank.get('net_volume_m3', tank['volume_m3'])
+            run = size_para.add_run(f"Net Volume\t:\t{net_volume_m3:.2f} M³")
+            run.font.bold = True
+            run.font.name = 'Calibri'
+            run.font.size = Pt(11)
         
         # Unit (center alignment both horizontal and vertical)
         cell = row.cells[2]
@@ -2025,8 +2041,18 @@ class TankInvoiceGenerator:
     
     def _create_footer(self, start_row):
         """Create footer rows with totals"""
+        # Count how many total rows to show
+        show_sub = getattr(self, 'show_sub_total', True)
+        show_vat = getattr(self, 'show_vat', True)
+        show_grand = getattr(self, 'show_grand_total', True)
+        
+        rows_to_show = sum([show_sub, show_vat, show_grand])
+        
+        if rows_to_show == 0:
+            return  # Don't create footer if no totals to show
+        
         # Merge SL. NO. and ITEM DESCRIPTION columns for footer rows
-        self._merge_cells(start_row, 0, start_row + 2, 1)
+        self._merge_cells(start_row, 0, start_row + rows_to_show - 1, 1)
         
         # Remove left border and bottom border for the merged cell
         merged_cell = self.table.rows[start_row].cells[0]
@@ -2078,90 +2104,117 @@ class TankInvoiceGenerator:
         vat = subtotal * 0.05
         grand_total = subtotal + vat
         
-        # Row 1: SUB TOTAL
-        self._merge_cells(start_row, 2, start_row, 3)
-        cell = self.table.rows[start_row].cells[2]
-        cell.text = 'SUB TOTAL:'
-        cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.LEFT
-        cell.paragraphs[0].paragraph_format.space_after = Pt(0)
+        # Get flags for showing totals
+        show_sub = getattr(self, 'show_sub_total', True)
+        show_vat = getattr(self, 'show_vat', True)
+        show_grand = getattr(self, 'show_grand_total', True)
         
-        # Make AED bold and center aligned
-        cell = self.table.rows[start_row].cells[4]
-        cell.text = ""
-        cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-        cell.paragraphs[0].paragraph_format.space_after = Pt(0)
-        run = cell.paragraphs[0].add_run('AED')
-        run.font.bold = True
-        run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        current_row = start_row
         
-        # Make subtotal bold and right-aligned
-        cell = self.table.rows[start_row].cells[5]
-        cell.text = ""
-        cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
-        cell.paragraphs[0].paragraph_format.space_after = Pt(0)
-        run = cell.paragraphs[0].add_run(f'{subtotal:.2f}')
-        run.font.bold = True
-        run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        # Row 1: SUB TOTAL (if enabled)
+        if show_sub:
+            self._merge_cells(current_row, 2, current_row, 3)
+            cell = self.table.rows[current_row].cells[2]
+            cell.text = 'SUB TOTAL:'
+            cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.LEFT
+            cell.paragraphs[0].paragraph_format.space_after = Pt(0)
+            
+            # Make AED bold and center aligned
+            cell = self.table.rows[current_row].cells[4]
+            cell.text = ""
+            cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            cell.paragraphs[0].paragraph_format.space_after = Pt(0)
+            run = cell.paragraphs[0].add_run('AED')
+            run.font.bold = True
+            run.font.name = 'Calibri'
+            run.font.size = Pt(11)
+            
+            # Make subtotal bold and right-aligned
+            cell = self.table.rows[current_row].cells[5]
+            cell.text = ""
+            cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
+            cell.paragraphs[0].paragraph_format.space_after = Pt(0)
+            run = cell.paragraphs[0].add_run(f'{subtotal:.2f}')
+            run.font.bold = True
+            run.font.name = 'Calibri'
+            run.font.size = Pt(11)
+            
+            # Apply bold to label
+            for paragraph in self.table.rows[current_row].cells[2].paragraphs:
+                for run in paragraph.runs:
+                    run.font.bold = True
+                    run.font.name = 'Calibri'
+                    run.font.size = Pt(11)
+            
+            current_row += 1
         
-        # Row 2: VAT 5%
-        self._merge_cells(start_row + 1, 2, start_row + 1, 3)
-        cell = self.table.rows[start_row + 1].cells[2]
-        cell.text = 'VAT 5%:'
-        cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.LEFT
-        cell.paragraphs[0].paragraph_format.space_after = Pt(0)
+        # Row 2: VAT 5% (if enabled)
+        if show_vat:
+            self._merge_cells(current_row, 2, current_row, 3)
+            cell = self.table.rows[current_row].cells[2]
+            cell.text = 'VAT 5%:'
+            cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.LEFT
+            cell.paragraphs[0].paragraph_format.space_after = Pt(0)
+            
+            # Make AED bold and center aligned
+            cell = self.table.rows[current_row].cells[4]
+            cell.text = ""
+            cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            cell.paragraphs[0].paragraph_format.space_after = Pt(0)
+            run = cell.paragraphs[0].add_run('AED')
+            run.font.bold = True
+            run.font.name = 'Calibri'
+            run.font.size = Pt(11)
+            
+            # Make VAT bold and right-aligned
+            cell = self.table.rows[current_row].cells[5]
+            cell.text = ""
+            cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
+            cell.paragraphs[0].paragraph_format.space_after = Pt(0)
+            run = cell.paragraphs[0].add_run(f'{vat:.2f}')
+            run.font.bold = True
+            run.font.name = 'Calibri'
+            run.font.size = Pt(11)
+            
+            # Apply bold to label
+            for paragraph in self.table.rows[current_row].cells[2].paragraphs:
+                for run in paragraph.runs:
+                    run.font.bold = True
+                    run.font.name = 'Calibri'
+                    run.font.size = Pt(11)
+            
+            current_row += 1
         
-        # Make AED bold and center aligned
-        cell = self.table.rows[start_row + 1].cells[4]
-        cell.text = ""
-        cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-        cell.paragraphs[0].paragraph_format.space_after = Pt(0)
-        run = cell.paragraphs[0].add_run('AED')
-        run.font.bold = True
-        run.font.name = 'Calibri'
-        run.font.size = Pt(11)
-        
-        # Make VAT bold and right-aligned
-        cell = self.table.rows[start_row + 1].cells[5]
-        cell.text = ""
-        cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
-        cell.paragraphs[0].paragraph_format.space_after = Pt(0)
-        run = cell.paragraphs[0].add_run(f'{vat:.2f}')
-        run.font.bold = True
-        run.font.name = 'Calibri'
-        run.font.size = Pt(11)
-        
-        # Row 3: GRAND TOTAL
-        self._merge_cells(start_row + 2, 2, start_row + 2, 3)
-        cell = self.table.rows[start_row + 2].cells[2]
-        cell.text = 'GRAND TOTAL:'
-        cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.LEFT
-        cell.paragraphs[0].paragraph_format.space_after = Pt(0)
-        
-        # Make AED bold and center aligned
-        cell = self.table.rows[start_row + 2].cells[4]
-        cell.text = ""
-        cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-        cell.paragraphs[0].paragraph_format.space_after = Pt(0)
-        run = cell.paragraphs[0].add_run('AED')
-        run.font.bold = True
-        run.font.name = 'Calibri'
-        run.font.size = Pt(11)
-        
-        # Make grand total bold and right-aligned
-        cell = self.table.rows[start_row + 2].cells[5]
-        cell.text = ""
-        cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
-        cell.paragraphs[0].paragraph_format.space_after = Pt(0)
-        run = cell.paragraphs[0].add_run(f'{grand_total:.2f}')
-        run.font.bold = True
-        run.font.name = 'Calibri'
-        run.font.size = Pt(11)
-        
-        # Apply bold to footer labels
-        for i in range(3):
-            for paragraph in self.table.rows[start_row + i].cells[2].paragraphs:
+        # Row 3: GRAND TOTAL (if enabled)
+        if show_grand:
+            self._merge_cells(current_row, 2, current_row, 3)
+            cell = self.table.rows[current_row].cells[2]
+            cell.text = 'GRAND TOTAL:'
+            cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.LEFT
+            cell.paragraphs[0].paragraph_format.space_after = Pt(0)
+            
+            # Make AED bold and center aligned
+            cell = self.table.rows[current_row].cells[4]
+            cell.text = ""
+            cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+            cell.paragraphs[0].paragraph_format.space_after = Pt(0)
+            run = cell.paragraphs[0].add_run('AED')
+            run.font.bold = True
+            run.font.name = 'Calibri'
+            run.font.size = Pt(11)
+            
+            # Make grand total bold and right-aligned
+            cell = self.table.rows[current_row].cells[5]
+            cell.text = ""
+            cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
+            cell.paragraphs[0].paragraph_format.space_after = Pt(0)
+            run = cell.paragraphs[0].add_run(f'{grand_total:.2f}')
+            run.font.bold = True
+            run.font.name = 'Calibri'
+            run.font.size = Pt(11)
+            
+            # Apply bold to label
+            for paragraph in self.table.rows[current_row].cells[2].paragraphs:
                 for run in paragraph.runs:
                     run.font.bold = True
                     run.font.name = 'Calibri'
@@ -2822,7 +2875,6 @@ class TankInvoiceGenerator:
         print(f"✓ Document saved as: {full_path}")
         print(f"✓ Template content preserved with table added")
         return full_path
-
 
 def main():
     """Main function to run the generator"""

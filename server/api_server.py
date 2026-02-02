@@ -95,7 +95,7 @@ async def generate_quotation(request: QuotationRequest):
         company_code_map = {
             "GRP TANKS TRADING L.L.C": "GRPT",
             "GRP PIPECO TANKS TRADING L.L.C": "GRPPT",
-            "COLEX TANKS TRADING L.L.C": "CT",
+            "COLEX TANKS TRADING L.L.C": "COL",
         }
         company_code = company_code_map.get(request.fromCompany, "GRPT")
         
@@ -119,8 +119,15 @@ async def generate_quotation(request: QuotationRequest):
         constructed_quote_number = f"{company_code}/{yymm}/{sales_code}/{request.quotationNumber}"
         
         # Set header data
-        generator.recipient_name = request.recipientName
-        generator.recipient_company = request.companyName
+        # Add role to recipient name with hyphen if role is provided
+        recipient_name_with_role = request.recipientName
+        if request.role and request.role.strip():
+            recipient_name_with_role = f"{request.recipientName} - {request.role}"
+        generator.recipient_name = recipient_name_with_role
+        
+        # Add M/S. prefix to company name
+        company_name_with_prefix = f"M/S. {request.companyName}"
+        generator.recipient_company = company_name_with_prefix
         generator.recipient_location = request.location or ""
         generator.recipient_phone = request.phoneNumber
         generator.recipient_email = request.email
@@ -155,6 +162,19 @@ async def generate_quotation(request: QuotationRequest):
                 else:
                     gallons = volume_m3 * 219.969
                 
+                # Handle free board - user inputs in cm, convert to meters
+                free_board_m = 0.3  # Default 30cm
+                need_free_board = option.needFreeBoard if option.needFreeBoard else False
+                if need_free_board and option.freeBoardSize:
+                    try:
+                        free_board_cm = float(option.freeBoardSize)
+                        free_board_m = free_board_cm / 100.0  # Convert cm to meters
+                    except ValueError:
+                        free_board_m = 0.3  # Default if conversion fails
+                
+                # Calculate net volume based on free board
+                net_volume_m3 = length * width * (height - free_board_m)
+                
                 # Determine skid based on height
                 if 2.0 <= height <= 3.0:
                     skid = "SKID BASE - HDG HOLLOW SECTION 50 X 50 X 3 MM (SQUARE TUBE)"
@@ -177,16 +197,16 @@ async def generate_quotation(request: QuotationRequest):
                     "height": height,
                     "volume_m3": volume_m3,
                     "gallons": gallons,
-                    "free_board": 0.3,
-                    "net_height": height - 0.3,
+                    "free_board": free_board_m,
+                    "need_free_board": need_free_board,
+                    "net_volume_m3": net_volume_m3,
+                    "net_height": height - free_board_m,
                     "skid": skid,
                     "unit": option.unit,
                     "qty": float(option.quantity),
                     "unit_price": float(option.unitPrice) if option.unitPrice else 0.0,
                     "total_price": float(option.quantity) * (float(option.unitPrice) if option.unitPrice else 0.0)
                 }
-                generator.tanks.append(tank)
-                sl_no += 1
                 generator.tanks.append(tank)
                 sl_no += 1
         
@@ -197,6 +217,11 @@ async def generate_quotation(request: QuotationRequest):
         
         # Check if ladder is needed
         generator.needs_ladder = any(float(tank.get('height', 0)) > 2.0 for tank in generator.tanks)
+        
+        # Set flags for showing totals
+        generator.show_sub_total = request.showSubTotal
+        generator.show_vat = request.showVat
+        generator.show_grand_total = request.showGrandTotal
         
         # Set sections configuration based on terms
         generator.sections = {

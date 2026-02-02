@@ -143,7 +143,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
     const companyCodeMap: Record<string, string> = {
       'GRP TANKS TRADING L.L.C': 'GRPT',
       'GRP PIPECO TANKS TRADING L.L.C': 'GRPPT',
-      'COLEX TANKS TRADING L.L.C': 'CT',
+      'COLEX TANKS TRADING L.L.C': 'COL',
     };
     const companyCode = fromCompany ? companyCodeMap[fromCompany] || '' : '';
     

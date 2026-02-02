@@ -305,20 +305,31 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
 
       toast.success('Generating document...');
 
+
       // Format data for Python backend
       const formattedRecipientName = `${recipientTitle} ${recipientName}`;
       const formattedPhone = phoneNumber ? `Phone: ${phoneNumber}` : '';
       const formattedEmail = email ? `Email: ${email}` : '';
-      
+
       // Convert date from YYYY-MM-DD to DD/MM/YY
       const dateObj = new Date(quotationDate);
       const day = String(dateObj.getDate()).padStart(2, '0');
       const month = String(dateObj.getMonth() + 1).padStart(2, '0');
       const year = String(dateObj.getFullYear()).slice(-2);
       const formattedDate = `${day}/${month}/${year}`;
-      
+
       // Convert gallon type to Python format (USG or IMG)
       const formattedGallonType = gallonType === 'US Gallons' ? 'USG' : gallonType === 'Imperial Gallons' ? 'IMG' : gallonType;
+
+      // Convert terms.action boolean to 'yes'/'no' string for backend
+      const formattedTerms = Object.fromEntries(
+        Object.entries(terms).map(([key, value]) => ({
+          [key]: {
+            ...value,
+            action: value.action ? 'yes' : 'no',
+          }
+        })).flatMap(obj => Object.entries(obj))
+      );
 
       // Save to database via backend API for record keeping (optional - won't block if it fails)
       try {
@@ -348,7 +359,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
             showVat,
             showGrandTotal,
             tanks,
-            terms,
+            terms: formattedTerms,
           })
         });
 
@@ -388,7 +399,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
           showVat,
           showGrandTotal,
           tanks,
-          terms,
+          terms: formattedTerms,
         }),
       });
 
@@ -805,6 +816,17 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                 value={quotationFrom}
                 onValueChange={setQuotationFrom}
                 placeholder="Type source..."
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      if (quotationFrom === 'Sales') {
+                        const next = document.querySelector('#salesPerson');
+                        if (next) (next as HTMLElement).focus();
+                      } else if (quotationFrom === 'Office') {
+                        const next = document.querySelector('#officePerson');
+                        if (next) (next as HTMLElement).focus();
+                      }
+                    }
+                  }}
               />
             </div>
 
@@ -824,6 +846,13 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                   value={salesPersonName}
                   onValueChange={setSalesPersonName}
                   placeholder="Type sales person name..."
+                    id="salesPerson"
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        const next = document.querySelector('#quotationNumber');
+                        if (next) (next as HTMLElement).focus();
+                      }
+                    }}
                 />
               </div>
             )}
@@ -836,6 +865,12 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                   value={salesPersonName}
                   onChange={(e) => setSalesPersonName(e.target.value)}
                   placeholder="Type office person name..."
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        const next = document.querySelector('#quotationNumber');
+                        if (next) (next as HTMLElement).focus();
+                      }
+                    }}
                 />
               </div>
             )}

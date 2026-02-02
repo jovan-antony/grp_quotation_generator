@@ -15,6 +15,8 @@ interface AutocompleteInputProps {
   onValueChange?: (value: string) => void
   placeholder?: string
   className?: string
+  id?: string
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void
 }
 
 export function AutocompleteInput({
@@ -23,6 +25,8 @@ export function AutocompleteInput({
   onValueChange,
   placeholder = "Type here...",
   className,
+  id,
+  onKeyDown: customOnKeyDown,
 }: AutocompleteInputProps) {
   const [inputValue, setInputValue] = React.useState(value)
   const [showSuggestions, setShowSuggestions] = React.useState(false)
@@ -76,6 +80,8 @@ export function AutocompleteInput({
     if (!showSuggestions || filteredOptions.length === 0) {
       if (e.key === "Enter") {
         e.preventDefault()
+        setShowSuggestions(false)
+        customOnKeyDown?.(e)
       }
       return
     }
@@ -97,6 +103,7 @@ export function AutocompleteInput({
           handleSelectOption(filteredOptions[selectedIndex])
         } else {
           setShowSuggestions(false)
+          customOnKeyDown?.(e)
         }
         break
       case "Escape":
@@ -110,6 +117,7 @@ export function AutocompleteInput({
     <div ref={containerRef} className="relative w-full">
       <Input
         ref={inputRef}
+        id={id}
         value={inputValue}
         onChange={handleInputChange}
         onFocus={() => setShowSuggestions(true)}

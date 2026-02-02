@@ -4,18 +4,11 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, Trash2, FileDown } from 'lucide-react';
 import TankForm from './TankForm';
-import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 
 interface NewQuotationFormProps {
@@ -209,7 +202,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
     const grandTotal = showGrandTotal ? subTotal + vat : subTotal;
 
     const previewHtml = `
-      <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px;">
+      <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 4px;">
         <div style="background: linear-gradient(to right, #2563eb, #1e40af); color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
           <h2 style="margin: 0 0 10px 0;">${fromCompany || 'Company Name'}</h2>
           <p style="margin: 0; opacity: 0.9;">QUOTATION</p>
@@ -327,34 +320,41 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
       // Convert gallon type to Python format (USG or IMG)
       const formattedGallonType = gallonType === 'US Gallons' ? 'USG' : gallonType === 'Imperial Gallons' ? 'IMG' : gallonType;
 
-      // Try to save to Supabase for record keeping (optional - won't block if it fails)
+      // Save to database via backend API for record keeping (optional - won't block if it fails)
       try {
-        const { data: quotationData, error: quotationError } = await supabase
-          .from('quotations')
-          .insert({
-            from_company: fromCompany,
-            recipient_title: recipientTitle,
-            recipient_name: formattedRecipientName,
-            recipient_role: role,
-            recipient_company: companyName,
-            recipient_location: location,
-            recipient_phone: formattedPhone,
-            recipient_email: formattedEmail,
-            quotation_date: formattedDate,
-            quotation_from: quotationFrom,
-            sales_person_name: quotationFrom === 'Sales' ? salesPersonName : null,
-            sales_person_code: salesPersonName ? salesPersonName.match(/\(([^)]+)\)/)?.[1] : null,
-            quotation_number: quotationNumber,
-            revision_number: revisionEnabled ? parseInt(revisionNumber) : 0,
-            subject: subject,
-            project_location: projectLocation,
-            gallon_type: formattedGallonType,
+        const saveResponse = await fetch('http://localhost:8000/api/quotations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fromCompany,
+            recipientTitle,
+            recipientName: formattedRecipientName,
+            role,
+            companyName,
+            location,
+            phoneNumber: formattedPhone,
+            email: formattedEmail,
+            quotationDate: formattedDate,
+            quotationFrom,
+            salesPersonName,
+            quotationNumber,
+            revisionEnabled,
+            revisionNumber,
+            subject,
+            projectLocation,
+            gallonType: formattedGallonType,
+            numberOfTanks: tanks.length,
+            showSubTotal,
+            showVat,
+            showGrandTotal,
+            tanks,
+            terms,
           })
-          .select()
-          .single();
+        });
 
-        if (!quotationError) {
-          console.log('Quotation saved to database:', quotationData?.id);
+        if (saveResponse.ok) {
+          const savedData = await saveResponse.json();
+          console.log('Quotation saved to database:', savedData.id);
         }
       } catch (dbError) {
         // Database save failed, but continue with document generation
@@ -537,13 +537,13 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
   ];
 
   const [terms, setTerms] = useState<Record<string, {
-    action: string;
+    action: boolean;
     details: string[];
     custom: string[];
     newPoint?: string;
   }>>(
     Object.fromEntries(termsList.map(term => [term.key, {
-      action: term.default,
+      action: term.default === 'yes',
       details: term.details,
       custom: [],
     }]))
@@ -581,8 +581,8 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
     }));
   };
 
-  // Change Yes/No for each section
-  const handleTermActionChange = (key: string, action: string) => {
+  // Change checkbox state for each section
+  const handleTermActionChange = (key: string, action: boolean) => {
     setTerms(prev => ({
       ...prev,
       [key]: {
@@ -637,45 +637,39 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
   };
 
   return (
-    <div className="space-y-6">
-      <Card className="shadow-lg border-0">
-        <CardHeader className="bg-white text-black t-xl border-b-2 border-black-200">
+    <div className="space-y-6 pt-4">
+      <Card className="border-0 rounded-lg">
+        <CardHeader className="bg-white text-black border-b-2 border-slate-200 rounded-t-lg">
           <CardTitle>Company & Recipient Details</CardTitle>
         </CardHeader>
         <CardContent className="pt-6 space-y-4">
           <div>
             <Label htmlFor="fromCompany">From Company</Label>
-            <Select value={fromCompany} onValueChange={setFromCompany}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select company" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="GRP TANKS TRADING L.L.C">
-                  GRP TANKS TRADING L.L.C
-                </SelectItem>
-                <SelectItem value="GRP PIPECO TANKS TRADING L.L.C">
-                  GRP PIPECO TANKS TRADING L.L.C
-                </SelectItem>
-                <SelectItem value="COLEX TANKS TRADING L.L.C">
-                  COLEX TANKS TRADING L.L.C
-                </SelectItem>
-              </SelectContent>
-            </Select>
+            <AutocompleteInput
+              options={[
+                { value: 'GRP TANKS TRADING L.L.C', label: 'GRP TANKS TRADING L.L.C' },
+                { value: 'GRP PIPECO TANKS TRADING L.L.C', label: 'GRP PIPECO TANKS TRADING L.L.C' },
+                { value: 'COLEX TANKS TRADING L.L.C', label: 'COLEX TANKS TRADING L.L.C' },
+              ]}
+              value={fromCompany}
+              onValueChange={setFromCompany}
+              placeholder="Type company name..."
+            />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2 grid grid-cols-4 gap-2">
               <div className="col-span-1">
                 <Label>Title</Label>
-                <Select value={recipientTitle} onValueChange={setRecipientTitle}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Mr.">Mr.</SelectItem>
-                    <SelectItem value="Ms.">Ms.</SelectItem>
-                  </SelectContent>
-                </Select>
+                <AutocompleteInput
+                  options={[
+                    { value: 'Mr.', label: 'Mr.' },
+                    { value: 'Ms.', label: 'Ms.' },
+                  ]}
+                  value={recipientTitle}
+                  onValueChange={setRecipientTitle}
+                  placeholder="Type title..."
+                />
               </div>
               <div className="col-span-3">
                 <Label htmlFor="recipientName">Recipient Name</Label>
@@ -782,6 +776,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                 type="date"
                 value={quotationDate}
                 onChange={(e) => setQuotationDate(e.target.value)}
+                className="[&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert-[40%] [&::-webkit-calendar-picker-indicator]:sepia-[100%] [&::-webkit-calendar-picker-indicator]:saturate-[3000%] [&::-webkit-calendar-picker-indicator]:hue-rotate-[180deg] [&::-webkit-calendar-picker-indicator]:brightness-[95%]"
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
                     const next = document.querySelector('#quotationFrom');
@@ -794,53 +789,54 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
         </CardContent>
       </Card>
 
-      <Card className="shadow-lg border-0">
-        <CardHeader className="bg-white text-black t-xl border-b-2 border-gray-200">
+      <Card className="border-0 rounded-lg">
+        <CardHeader className="bg-white text-black border-b-2 border-slate-200 rounded-t-lg">
           <CardTitle>Quotation Information</CardTitle>
         </CardHeader>
         <CardContent className="pt-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="quotationFrom">Quotation From</Label>
-              <Select value={quotationFrom} onValueChange={setQuotationFrom}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select source" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Sales">Sales</SelectItem>
-                  <SelectItem value="Office">Office</SelectItem>
-                </SelectContent>
-              </Select>
+              <AutocompleteInput
+                options={[
+                  { value: 'Sales', label: 'Sales' },
+                  { value: 'Office', label: 'Office' },
+                ]}
+                value={quotationFrom}
+                onValueChange={setQuotationFrom}
+                placeholder="Type source..."
+              />
             </div>
+
 
             {quotationFrom === 'Sales' && (
               <div>
                 <Label htmlFor="salesPerson">Sales Person Name</Label>
-                <Select value={salesPersonName} onValueChange={setSalesPersonName}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select sales person" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Viwin Varghese (VM)">
-                      Viwin Varghese (VM)
-                    </SelectItem>
-                    <SelectItem value="Midhun Murali (MM)">
-                      Midhun Murali (MM)
-                    </SelectItem>
-                    <SelectItem value="Somiya Joy (SJ)">
-                      Somiya Joy (SJ)
-                    </SelectItem>
-                    <SelectItem value="AKSHAYA SHAJI (AS)">
-                      AKSHAYA SHAJI (AS)
-                    </SelectItem>
-                    <SelectItem value="Vismay Krishnan (VK)">
-                      Vismay Krishnan (VK)
-                    </SelectItem>
-                    <SelectItem value="LEYON PAUL (LP)">
-                      LEYON PAUL (LP)
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+                <AutocompleteInput
+                  options={[
+                    { value: 'Viwin Varghese (VM)', label: 'Viwin Varghese (VM)' },
+                    { value: 'Midhun Murali (MM)', label: 'Midhun Murali (MM)' },
+                    { value: 'Somiya Joy (SJ)', label: 'Somiya Joy (SJ)' },
+                    { value: 'AKSHAYA SHAJI (AS)', label: 'AKSHAYA SHAJI (AS)' },
+                    { value: 'Vismay Krishnan (VK)', label: 'Vismay Krishnan (VK)' },
+                    { value: 'LEYON PAUL (LP)', label: 'LEYON PAUL (LP)' },
+                  ]}
+                  value={salesPersonName}
+                  onValueChange={setSalesPersonName}
+                  placeholder="Type sales person name..."
+                />
+              </div>
+            )}
+
+            {quotationFrom === 'Office' && (
+              <div>
+                <Label htmlFor="officePerson">Office Person Name</Label>
+                <Input
+                  id="officePerson"
+                  value={salesPersonName}
+                  onChange={(e) => setSalesPersonName(e.target.value)}
+                  placeholder="Type office person name..."
+                />
               </div>
             )}
 
@@ -862,13 +858,14 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
 
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="revision"
-                  checked={revisionEnabled}
-                  onCheckedChange={(checked) =>
-                    setRevisionEnabled(checked as boolean)
-                  }
-                />
+                  <Checkbox
+                    id="revision"
+                    checked={revisionEnabled}
+                    onCheckedChange={(checked) =>
+                      setRevisionEnabled(checked as boolean)
+                    }
+                    className="accent-blue-600"
+                  />
                 <Label htmlFor="revision" className="cursor-pointer">
                   Enable Revision
                 </Label>
@@ -919,8 +916,8 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
         </CardContent>
       </Card>
 
-      <Card className="shadow-lg border-0">
-        <CardHeader className="bg-white text-black t-xl border-b-2 border-gray-200">
+      <Card className="border-0 rounded-lg">
+        <CardHeader className="bg-white text-black border-b-2 border-slate-200 rounded-t-lg">
           <CardTitle>Tank Details</CardTitle>
         </CardHeader>
         <CardContent className="pt-6 space-y-4">
@@ -937,15 +934,15 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
               />
               <div className="flex flex-row gap-6 mt-4">
                 <div className="flex items-center gap-2">
-                  <Checkbox id="showSubTotal" checked={showSubTotal} onCheckedChange={(checked) => setShowSubTotal(checked === true)} />
+                  <Checkbox id="showSubTotal" checked={showSubTotal} onCheckedChange={(checked) => setShowSubTotal(checked === true)} className="accent-blue-600" />
                   <Label htmlFor="showSubTotal" className="text-black cursor-pointer whitespace-nowrap">Show Sub Total</Label>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Checkbox id="showVat" checked={showVat} onCheckedChange={(checked) => setShowVat(checked === true)} />
+                  <Checkbox id="showVat" checked={showVat} onCheckedChange={(checked) => setShowVat(checked === true)} className="accent-blue-600" />
                   <Label htmlFor="showVat" className="text-black cursor-pointer whitespace-nowrap">Show VAT 5%</Label>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Checkbox id="showGrandTotal" checked={showGrandTotal} onCheckedChange={(checked) => setShowGrandTotal(checked === true)} />
+                  <Checkbox id="showGrandTotal" checked={showGrandTotal} onCheckedChange={(checked) => setShowGrandTotal(checked === true)} className="accent-blue-600" />
                   <Label htmlFor="showGrandTotal" className="text-black cursor-pointer whitespace-nowrap">Show Grand Total</Label>
                 </div>
               </div>
@@ -953,15 +950,15 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
 
             <div>
               <Label htmlFor="gallonType">Gallon Type</Label>
-              <Select value={gallonType} onValueChange={setGallonType}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select gallon type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="US Gallons">US Gallons</SelectItem>
-                  <SelectItem value="Imperial Gallons">Imperial Gallons</SelectItem>
-                </SelectContent>
-              </Select>
+              <AutocompleteInput
+                options={[
+                  { value: 'US Gallons', label: 'US Gallons' },
+                  { value: 'Imperial Gallons', label: 'Imperial Gallons' },
+                ]}
+                value={gallonType}
+                onValueChange={setGallonType}
+                placeholder="Type gallon type..."
+              />
             </div>
           </div>
 
@@ -979,30 +976,23 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
       </Card>
 
       {/* Contractual Terms & Specifications Section */}
-      <Card className="shadow-lg border-0">
-        <CardHeader className="bg-white text-black t-xl border-b-2 border-gray-200">
+      <Card className="border-0 rounded-lg">
+        <CardHeader className="bg-white text-black border-b-2 border-slate-200 rounded-t-lg">
           <CardTitle>Contractual Terms & Specifications</CardTitle>
         </CardHeader>
         <CardContent className="pt-6 space-y-4">
           <div className="space-y-6">
             {termsList.map(term => (
-              <div key={term.key} className="flex flex-col gap-2 p-4 border rounded-md bg-gray-50">
-                <div className="font-semibold text-black mb-1">{term.label}</div>
-                <div className="flex gap-4 items-center mb-2">
-                  <Select
-                    value={terms[term.key].action}
-                    onValueChange={action => handleTermActionChange(term.key, action)}
-                  >
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="yes">Yes</SelectItem>
-                      <SelectItem value="no">No</SelectItem>
-                    </SelectContent>
-                  </Select>
+              <div key={term.key} className="flex flex-col gap-2 p-4 border rounded-md">
+                <div className="flex items-center gap-3 mb-2">
+                  <Checkbox
+                    id={term.key}
+                    checked={terms[term.key].action}
+                    onCheckedChange={(checked) => handleTermActionChange(term.key, checked as boolean)}
+                  />
+                  <Label htmlFor={term.key} className="font-semibold text-black cursor-pointer">{term.label}</Label>
                 </div>
-                {terms[term.key].action === 'yes' && (
+                {terms[term.key].action && (
                   <div className="space-y-2">
                     {/* Existing details, editable */}
                     {terms[term.key].details.map((detail, idx) => (
@@ -1022,10 +1012,10 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                         <button
                           type="button"
                           onClick={() => handleRemoveDetail(term.key, idx)}
-                          className="p-2 text-red-600 hover:text-red-800"
+                          className="p-2 text-blue-600 hover:text-blue-800"
                           aria-label="Delete point"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-4 h-4 text-blue-600" />
                         </button>
                       </div>
                     ))}
@@ -1047,10 +1037,10 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                         <button
                           type="button"
                           onClick={() => handleRemoveCustom(term.key, idx)}
-                          className="p-2 text-red-600 hover:text-red-800"
+                          className="p-2 text-blue-600 hover:text-blue-800"
                           aria-label="Delete custom point"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-4 h-4 text-blue-600" />
                         </button>
                       </div>
                     ))}
@@ -1076,6 +1066,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                       />
                       <Button
                         size="sm"
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
                         onClick={() => {
                           const newPoint = terms[term.key].newPoint;
                           if (newPoint && newPoint.trim() !== '') {
@@ -1090,7 +1081,9 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                           }
                         }}
                       >
-                        Add
+                        <span className="flex items-center gap-1">
+                          <Plus className="w-4 h-4 text-white" /> Add
+                        </span>
                       </Button>
                     </div>
                   </div>
@@ -1104,9 +1097,9 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
       <div className="flex justify-end">
         <Button
           onClick={handleExport}
-          className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white px-8 py-6 text-lg shadow-lg"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 text-lg rounded-md"
         >
-          <FileDown className="mr-2 h-5 w-5" />
+          <FileDown className="mr-2 h-5 w-5 text-white" />
           Export Quotation
         </Button>
       </div>

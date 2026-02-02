@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -7,11 +7,19 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
+from sqlmodel import Session, select
 
 # Import the generator class
 from user_input_tank_generator import TankInvoiceGenerator
+from database import create_db_and_tables, get_session, engine
+from models import Quotation, QuotationTank
 
 app = FastAPI()
+
+# Create database tables on startup
+@app.on_event("startup")
+def on_startup():
+    create_db_and_tables()
 
 # Enable CORS
 app.add_middleware(
@@ -315,19 +323,163 @@ async def generate_quotation(request: QuotationRequest):
             customer_data = request.terms['customerScope']
             generator.section_content['customer_scope'] = customer_data.details + customer_data.custom
         
-        # Set signature info based on sales person
+        # Set signature info based on sales person or office person
         if generator.sections['signature']:
+            import pandas as pd
+            
+            # Map frontend values to backend signature type
+            # User's requirement: Sales → 'o' (office in Python), Office → 's' (sales in Python)
+            sig_type = 'o' if request.quotationFrom == 'Sales' else 's'
+            
+            left_name = ""
+            left_title = ""
+            left_mobile = ""
+            left_email = ""
+            right_name = ""
+            right_title = ""
+            right_mobile = ""
+            right_email = ""
+            signature_image = ""
+            seal_image = ""
+            
+            try:
+                if sig_type == 's':
+                    # Frontend "Office" → Backend reads from sales_person_details.xlsx
+                    sales_df = pd.read_excel('sales_person_details.xlsx')
+                    
+                    # Find the person by name in salesPersonName field
+                    if request.salesPersonName:
+                        person_name = request.salesPersonName.split('(')[0].strip() if '(' in request.salesPersonName else request.salesPersonName.strip()
+                        person_row = sales_df[sales_df['NAME'].str.strip() == person_name]
+                        
+                        if not person_row.empty:
+                            selected_row = person_row.iloc[0]
+                            
+                            # Determine email column based on template
+                            if template_filename.lower().endswith("template_grp.docx"):
+                                email_col = 'EMAIL-GRPTANKS'
+                            elif template_filename.lower().endswith("template_pipeco.docx"):
+                                email_col = 'EMAIL-PIPECO'
+                            elif template_filename.lower().endswith("template_colex.docx"):
+                                email_col = 'EMAIL-COLEX'
+                            else:
+                                email_col = 'EMAIL-GRPTANKS'
+                            
+                            left_name = str(selected_row['NAME'])
+                            left_title = str(selected_row['DESIGNATION']) if 'DESIGNATION' in sales_df.columns else "Sales Executive"
+                            left_mobile = str(selected_row['MOB']) if 'MOB' in sales_df.columns else ""
+                            left_email = str(selected_row[email_col]) if email_col in sales_df.columns else ""
+                            
+                            # Get CODE for signature images
+                            if 'CODE' in sales_df.columns:
+                                code = str(selected_row['CODE'])
+                                # Look for signature image
+                                for ext in ['.png', '.jpg', '.jpeg']:
+                                    sign_path = f"signs&seals/{code}_sign{ext}"
+                                    if os.path.exists(sign_path):
+                                        signature_image = sign_path
+                                        break
+                                # Look for seal image
+                                for ext in ['.png', '.jpg', '.jpeg']:
+                                    seal_path = f"signs&seals/{code}_seal{ext}"
+                                    if os.path.exists(seal_path):
+                                        seal_image = seal_path
+                                        break
+                    
+                    # Right signatory from Project_manager_details.xlsx
+                    pm_df = pd.read_excel('Project_manager_details.xlsx')
+                    if len(pm_df) > 0:
+                        selected_pm = pm_df.iloc[0]  # Use first project manager
+                        
+                        # Determine email column for project manager
+                        if template_filename.lower().endswith("template_grp.docx"):
+                            pm_email_col = 'EMAIL-GRPTANKS'
+                        elif template_filename.lower().endswith("template_pipeco.docx"):
+                            pm_email_col = 'EMAIL-PIPECO'
+                        elif template_filename.lower().endswith("template_colex.docx"):
+                            pm_email_col = 'EMAIL-COLEX'
+                        else:
+                            pm_email_col = 'EMAIL-GRPTANKS'
+                        
+                        right_name = str(selected_pm['NAME'])
+                        right_title = str(selected_pm['DESIGNATION']) if 'DESIGNATION' in pm_df.columns else "Manager - Projects"
+                        right_mobile = str(selected_pm['MOB']) if 'MOB' in pm_df.columns else ""
+                        right_email = str(selected_pm[pm_email_col]) if pm_email_col in pm_df.columns else ""
+                    
+                else:  # sig_type == 'o'
+                    # Frontend "Sales" → Backend reads from Project_manager_details.xlsx
+                    pm_df = pd.read_excel('Project_manager_details.xlsx')
+                    
+                    # Find the person by name in salesPersonName field
+                    if request.salesPersonName:
+                        person_name = request.salesPersonName.split('(')[0].strip() if '(' in request.salesPersonName else request.salesPersonName.strip()
+                        person_row = pm_df[pm_df['NAME'].str.strip() == person_name]
+                        
+                        if not person_row.empty:
+                            selected_pm = person_row.iloc[0]
+                        else:
+                            # Use first project manager as fallback
+                            selected_pm = pm_df.iloc[0] if len(pm_df) > 0 else None
+                    else:
+                        # Use first project manager as default
+                        selected_pm = pm_df.iloc[0] if len(pm_df) > 0 else None
+                    
+                    if selected_pm is not None:
+                        # Determine email column
+                        if template_filename.lower().endswith("template_grp.docx"):
+                            pm_email_col = 'EMAIL-GRPTANKS'
+                        elif template_filename.lower().endswith("template_pipeco.docx"):
+                            pm_email_col = 'EMAIL-PIPECO'
+                        elif template_filename.lower().endswith("template_colex.docx"):
+                            pm_email_col = 'EMAIL-COLEX'
+                        else:
+                            pm_email_col = 'EMAIL-GRPTANKS'
+                        
+                        left_name = str(selected_pm['NAME'])
+                        left_title = str(selected_pm['DESIGNATION']) if 'DESIGNATION' in pm_df.columns else "Manager - Projects"
+                        left_mobile = str(selected_pm['MOB']) if 'MOB' in pm_df.columns else ""
+                        left_email = str(selected_pm[pm_email_col]) if pm_email_col in pm_df.columns else ""
+                        
+                        # Get CODE for signature images
+                        if 'CODE' in pm_df.columns:
+                            code = str(selected_pm['CODE'])
+                            # Look for signature image
+                            for ext in ['.png', '.jpg', '.jpeg']:
+                                sign_path = f"signs&seals/{code}_sign{ext}"
+                                if os.path.exists(sign_path):
+                                    signature_image = sign_path
+                                    break
+                            # Look for seal image
+                            for ext in ['.png', '.jpg', '.jpeg']:
+                                seal_path = f"signs&seals/{code}_seal{ext}"
+                                if os.path.exists(seal_path):
+                                    seal_image = seal_path
+                                    break
+                    
+                    # No right signatory for office
+                    right_name = ""
+                    right_title = ""
+                    right_mobile = ""
+                    right_email = ""
+                    
+            except Exception as e:
+                print(f"⚠ Error reading Excel files for signature: {e}")
+                # Fallback to extracting name from salesPersonName
+                if request.salesPersonName:
+                    left_name = request.salesPersonName.split('(')[0].strip()
+                    left_title = 'Sales Executive' if request.quotationFrom == 'Sales' else 'Manager - Projects'
+            
             generator.section_content['signature'] = {
-                'left_name': request.salesPersonName.split('(')[0].strip() if request.salesPersonName else '',
-                'left_title': 'Sales Executive' if request.quotationFrom == 'Sales' else 'Manager - Projects',
-                'left_mobile': '',
-                'left_email': '',
-                'right_name': '',
-                'right_title': '',
-                'right_mobile': '',
-                'right_email': '',
-                'signature_image': '',
-                'seal_image': '',
+                'left_name': left_name,
+                'left_title': left_title,
+                'left_mobile': left_mobile,
+                'left_email': left_email,
+                'right_name': right_name,
+                'right_title': right_title,
+                'right_mobile': right_mobile,
+                'right_email': right_email,
+                'signature_image': signature_image,
+                'seal_image': seal_image,
             }
         
         # Closing paragraph content
@@ -369,6 +521,242 @@ async def generate_quotation(request: QuotationRequest):
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
+
+
+# ==================== QUOTATION DATABASE ENDPOINTS ====================
+
+@app.post("/api/quotations")
+async def create_quotation(
+    request: QuotationRequest,
+    session: Session = Depends(get_session)
+):
+    """Save quotation data to database"""
+    try:
+        # Create quotation record
+        quotation = Quotation(
+            from_company=request.fromCompany,
+            recipient_title=request.recipientTitle,
+            recipient_name=request.recipientName,
+            recipient_role=request.role or "",
+            recipient_company=request.companyName,
+            recipient_location=request.location or "",
+            recipient_phone=request.phoneNumber or "",
+            recipient_email=request.email or "",
+            quotation_date=request.quotationDate,
+            quotation_from=request.quotationFrom,
+            sales_person_name=request.salesPersonName or "",
+            sales_person_code=request.salesPersonName.split('(')[1].split(')')[0] if request.salesPersonName and '(' in request.salesPersonName else "",
+            quotation_number=request.quotationNumber,
+            revision_number=int(request.revisionNumber) if request.revisionEnabled and request.revisionNumber else 0,
+            subject=request.subject,
+            project_location=request.projectLocation,
+            gallon_type=request.gallonType
+        )
+        
+        session.add(quotation)
+        session.commit()
+        session.refresh(quotation)
+        
+        # Save tanks data
+        for tank_data in request.tanks:
+            for option in tank_data.options:
+                tank = QuotationTank(
+                    quotation_id=quotation.id,
+                    tank_number=tank_data.tankNumber,
+                    tank_name=option.tankName,
+                    quantity=option.quantity,
+                    has_partition=option.hasPartition,
+                    tank_type=option.tankType,
+                    length=option.length,
+                    width=option.width,
+                    height=option.height,
+                    unit=option.unit,
+                    unit_price=option.unitPrice,
+                    need_freeboard=option.needFreeBoard if option.needFreeBoard else False,
+                    freeboard_size=option.freeBoardSize if option.freeBoardSize else None
+                )
+                session.add(tank)
+        
+        session.commit()
+        
+        return {"id": quotation.id, "message": "Quotation saved successfully"}
+    
+    except Exception as e:
+        print(f"Error saving quotation: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error saving quotation: {str(e)}")
+
+
+@app.get("/api/quotations")
+async def get_quotations(
+    recipient_name: Optional[str] = None,
+    company_name: Optional[str] = None,
+    date: Optional[str] = None,
+    quotation_number: Optional[str] = None,
+    session: Session = Depends(get_session)
+):
+    """Search and retrieve quotations with filters"""
+    try:
+        # Build query
+        statement = select(Quotation)
+        
+        # Apply filters
+        if recipient_name:
+            statement = statement.where(Quotation.recipient_name.contains(recipient_name))
+        
+        if company_name:
+            statement = statement.where(Quotation.recipient_company.contains(company_name))
+        
+        if date:
+            statement = statement.where(Quotation.quotation_date == date)
+        
+        if quotation_number:
+            statement = statement.where(Quotation.quotation_number.contains(quotation_number))
+        
+        # Execute query with ordering
+        statement = statement.order_by(Quotation.created_at.desc())
+        results = session.exec(statement).all()
+        
+        # Convert to dict
+        quotations = []
+        for q in results:
+            quotations.append({
+                "id": q.id,
+                "from_company": q.from_company,
+                "recipient_title": q.recipient_title,
+                "recipient_name": q.recipient_name,
+                "recipient_role": q.recipient_role,
+                "recipient_company": q.recipient_company,
+                "recipient_location": q.recipient_location,
+                "recipient_phone": q.recipient_phone,
+                "recipient_email": q.recipient_email,
+                "quotation_date": q.quotation_date,
+                "quotation_from": q.quotation_from,
+                "sales_person_name": q.sales_person_name,
+                "sales_person_code": q.sales_person_code,
+                "quotation_number": q.quotation_number,
+                "revision_number": q.revision_number,
+                "subject": q.subject,
+                "project_location": q.project_location,
+                "gallon_type": q.gallon_type,
+                "created_at": q.created_at.isoformat(),
+                "updated_at": q.updated_at.isoformat()
+            })
+        
+        return {"quotations": quotations, "count": len(quotations)}
+    
+    except Exception as e:
+        print(f"Error fetching quotations: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error fetching quotations: {str(e)}")
+
+
+@app.get("/api/quotations/{quotation_id}")
+async def get_quotation_by_id(
+    quotation_id: int,
+    session: Session = Depends(get_session)
+):
+    """Get a specific quotation with its tanks"""
+    try:
+        # Get quotation
+        quotation = session.get(Quotation, quotation_id)
+        if not quotation:
+            raise HTTPException(status_code=404, detail="Quotation not found")
+        
+        # Get tanks
+        statement = select(QuotationTank).where(QuotationTank.quotation_id == quotation_id)
+        tanks = session.exec(statement).all()
+        
+        # Format response
+        return {
+            "quotation": {
+                "id": quotation.id,
+                "from_company": quotation.from_company,
+                "recipient_title": quotation.recipient_title,
+                "recipient_name": quotation.recipient_name,
+                "recipient_role": quotation.recipient_role,
+                "recipient_company": quotation.recipient_company,
+                "recipient_location": quotation.recipient_location,
+                "recipient_phone": quotation.recipient_phone,
+                "recipient_email": quotation.recipient_email,
+                "quotation_date": quotation.quotation_date,
+                "quotation_from": quotation.quotation_from,
+                "sales_person_name": quotation.sales_person_name,
+                "sales_person_code": quotation.sales_person_code,
+                "quotation_number": quotation.quotation_number,
+                "revision_number": quotation.revision_number,
+                "subject": quotation.subject,
+                "project_location": quotation.project_location,
+                "gallon_type": quotation.gallon_type,
+                "created_at": quotation.created_at.isoformat(),
+                "updated_at": quotation.updated_at.isoformat()
+            },
+            "tanks": [
+                {
+                    "id": tank.id,
+                    "tank_number": tank.tank_number,
+                    "tank_name": tank.tank_name,
+                    "quantity": tank.quantity,
+                    "has_partition": tank.has_partition,
+                    "tank_type": tank.tank_type,
+                    "length": tank.length,
+                    "width": tank.width,
+                    "height": tank.height,
+                    "unit": tank.unit,
+                    "unit_price": tank.unit_price,
+                    "need_freeboard": tank.need_freeboard,
+                    "freeboard_size": tank.freeboard_size
+                }
+                for tank in tanks
+            ]
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error fetching quotation: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error fetching quotation: {str(e)}")
+
+
+@app.put("/api/quotations/{quotation_id}")
+async def update_quotation_revision(
+    quotation_id: int,
+    revision_number: int,
+    session: Session = Depends(get_session)
+):
+    """Update quotation revision number"""
+    try:
+        quotation = session.get(Quotation, quotation_id)
+        if not quotation:
+            raise HTTPException(status_code=404, detail="Quotation not found")
+        
+        quotation.revision_number = revision_number
+        quotation.updated_at = datetime.utcnow()
+        session.add(quotation)
+        session.commit()
+        session.refresh(quotation)
+        
+        return {
+            "id": quotation.id,
+            "quotation_number": quotation.quotation_number,
+            "revision_number": quotation.revision_number,
+            "message": "Revision updated successfully"
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error updating quotation: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error updating quotation: {str(e)}")
+
+
+# ==================== END QUOTATION DATABASE ENDPOINTS ====================
 
 
 if __name__ == "__main__":

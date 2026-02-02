@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Search, FileDown, Filter } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 
@@ -40,39 +39,42 @@ export default function QuotationRevisionForm({
 
   const handleSearch = async () => {
     try {
-      let query = supabase.from('quotations').select('*');
-
+      // Build query parameters
+      const params = new URLSearchParams();
+      
       if (filters.recipientName && searchValues.recipientName) {
-        query = query.ilike('recipient_name', `%${searchValues.recipientName}%`);
+        params.append('recipient_name', searchValues.recipientName);
       }
-
+      
       if (filters.companyName && searchValues.companyName) {
-        query = query.ilike('recipient_company', `%${searchValues.companyName}%`);
+        params.append('company_name', searchValues.companyName);
       }
-
+      
       if (filters.date && searchValues.date) {
-        query = query.eq('quotation_date', searchValues.date);
+        params.append('date', searchValues.date);
       }
-
+      
       if (filters.quoteNo) {
         let quoteNoPattern = '';
         if (searchValues.fromCompany) quoteNoPattern += searchValues.fromCompany;
         if (searchValues.yearMonth) quoteNoPattern += searchValues.yearMonth;
         if (searchValues.series) quoteNoPattern += searchValues.series;
-        if (searchValues.quotationNumber)
-          quoteNoPattern += searchValues.quotationNumber;
-
+        if (searchValues.quotationNumber) quoteNoPattern += searchValues.quotationNumber;
+        
         if (quoteNoPattern) {
-          query = query.ilike('quotation_number', `%${quoteNoPattern}%`);
+          params.append('quotation_number', quoteNoPattern);
         }
       }
-
-      const { data, error } = await query.order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      setQuotations(data || []);
-      toast.success(`Found ${data?.length || 0} quotation(s)`);
+      
+      const response = await fetch(`http://localhost:8000/api/quotations?${params.toString()}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch quotations');
+      }
+      
+      const data = await response.json();
+      setQuotations(data.quotations || []);
+      toast.success(`Found ${data.count || 0} quotation(s)`);
     } catch (error) {
       console.error('Error:', error);
       toast.error('Failed to search quotations');
@@ -81,15 +83,14 @@ export default function QuotationRevisionForm({
 
   const handleSelectQuotation = async (quotation: any) => {
     try {
-      const { data: tanks, error } = await supabase
-        .from('quotation_tanks')
-        .select('*')
-        .eq('quotation_id', quotation.id)
-        .order('tank_number');
-
-      if (error) throw error;
-
-      setSelectedQuotation({ ...quotation, tanks });
+      const response = await fetch(`http://localhost:8000/api/quotations/${quotation.id}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch quotation details');
+      }
+      
+      const data = await response.json();
+      setSelectedQuotation({ ...data.quotation, tanks: data.tanks });
       toast.success('Quotation loaded successfully');
     } catch (error) {
       console.error('Error:', error);
@@ -104,21 +105,22 @@ export default function QuotationRevisionForm({
     }
 
     try {
-      const { data, error } = await supabase
-        .from('quotations')
-        .update({
-          revision_number: parseInt(revisionNumber),
-          updated_at: new Date().toISOString(),
+      const response = await fetch(`http://localhost:8000/api/quotations/${selectedQuotation.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          revision_number: parseInt(revisionNumber)
         })
-        .eq('id', selectedQuotation.id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update revision');
+      }
+      
+      const data = await response.json();
       toast.success('Revision updated successfully!');
 
-      const response = await fetch('/api/generate-quotation', {
+      const generateResponse = await fetch('/api/generate-quotation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -126,8 +128,8 @@ export default function QuotationRevisionForm({
         }),
       });
 
-      if (response.ok) {
-        const blob = await response.blob();
+      if (generateResponse.ok) {
+        const blob = await generateResponse.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -301,7 +303,7 @@ export default function QuotationRevisionForm({
 
           <Button
             onClick={handleSearch}
-            className="w-full bg-white text-black"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
           >
             <Search className="mr-2 h-4 w-4" />
             Search Quotations

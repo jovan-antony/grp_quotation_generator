@@ -3,13 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Info } from 'lucide-react';
 
@@ -195,35 +189,23 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
           </div>
           <div className="mb-3">
             <Label htmlFor={`tankType-${tankNumber}-${idx}`} className="font-medium text-black">Type of Tank</Label>
-            <Select
+            <AutocompleteInput
+              options={[
+                { value: 'HOT PRESSED – NON INSULATED', label: 'HOT PRESSED – NON INSULATED' },
+                { value: 'HOT PRESSED – 5 SIDE INSULATED (BOTTOM & MANHOLE NON – INSULATED)', label: 'HOT PRESSED – 5 SIDE INSULATED (BOTTOM & MANHOLE NON – INSULATED)' },
+                { value: 'HOT PRESSED – 5 SIDE INSULATED (BOTTOM NON – INSULATED & MANHOLE INSULATED)', label: 'HOT PRESSED – 5 SIDE INSULATED (BOTTOM NON – INSULATED & MANHOLE INSULATED)' },
+                { value: 'HOT PRESSED – 6 SIDE INSULATED (BOTTOM INSULATED & MANHOLE NON – INSULATED)', label: 'HOT PRESSED – 6 SIDE INSULATED (BOTTOM INSULATED & MANHOLE NON – INSULATED)' },
+                { value: 'HOT PRESSED – 6 SIDE INSULATED (BOTTOM & MANHOLE INSULATED)', label: 'HOT PRESSED – 6 SIDE INSULATED (BOTTOM & MANHOLE INSULATED)' },
+              ]}
               value={option.tankType}
               onValueChange={(value) => {
                 const newOptions = [...data.options];
                 newOptions[idx] = { ...option, tankType: value };
                 onChange({ ...data, options: newOptions });
               }}
-            >
-              <SelectTrigger className="border-gray-300 focus:border-gray-500 focus:ring-2 focus:ring-gray-200 bg-white text-black">
-                <SelectValue placeholder="Select tank type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="HOT PRESSED – NON INSULATED">
-                  HOT PRESSED – NON INSULATED
-                </SelectItem>
-                <SelectItem value="HOT PRESSED – 5 SIDE INSULATED (BOTTOM & MANHOLE NON – INSULATED)">
-                  HOT PRESSED – 5 SIDE INSULATED (BOTTOM & MANHOLE NON – INSULATED)
-                </SelectItem>
-                <SelectItem value="HOT PRESSED – 5 SIDE INSULATED (BOTTOM NON – INSULATED & MANHOLE INSULATED)">
-                  HOT PRESSED – 5 SIDE INSULATED (BOTTOM NON – INSULATED & MANHOLE INSULATED)
-                </SelectItem>
-                <SelectItem value="HOT PRESSED – 6 SIDE INSULATED (BOTTOM INSULATED & MANHOLE NON – INSULATED)">
-                  HOT PRESSED – 6 SIDE INSULATED (BOTTOM INSULATED & MANHOLE NON – INSULATED)
-                </SelectItem>
-                <SelectItem value="HOT PRESSED – 6 SIDE INSULATED (BOTTOM & MANHOLE INSULATED)">
-                  HOT PRESSED – 6 SIDE INSULATED (BOTTOM & MANHOLE INSULATED)
-                </SelectItem>
-              </SelectContent>
-            </Select>
+              placeholder="Type tank type..."
+              className="border-gray-300 focus:border-gray-500 focus:ring-2 focus:ring-gray-200 bg-white text-black"
+            />
           </div>
           <div className="mb-3">
             <Label className="font-medium text-black">Size of Tank (in Meters)</Label>
@@ -302,22 +284,20 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <Label htmlFor={`unit-${tankNumber}-${idx}`} className="font-medium text-black">Unit</Label>
-              <Select
+              <AutocompleteInput
+                options={[
+                  { value: 'Nos', label: 'Nos' },
+                  { value: 'L', label: 'L' },
+                ]}
                 value={option.unit}
                 onValueChange={(value) => {
                   const newOptions = [...data.options];
                   newOptions[idx] = { ...option, unit: value };
                   onChange({ ...data, options: newOptions });
                 }}
-              >
-                <SelectTrigger className="border-gray-300 focus:border-gray-500 focus:ring-2 focus:ring-gray-200 bg-white text-black">
-                  <SelectValue placeholder="Select unit" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Nos">Nos</SelectItem>
-                  <SelectItem value="L">L</SelectItem>
-                </SelectContent>
-              </Select>
+                placeholder="Type unit..."
+                className="border-gray-300 focus:border-gray-500 focus:ring-2 focus:ring-gray-200 bg-white text-black"
+              />
             </div>
             <div>
               <Label htmlFor={`unitPrice-${tankNumber}-${idx}`} className="font-medium text-black">Unit Price (AED)</Label>

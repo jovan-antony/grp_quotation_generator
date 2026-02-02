@@ -9,6 +9,7 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
+import pandas as pd
 # Import the generator class
 from user_input_tank_generator import TankInvoiceGenerator
 
@@ -65,6 +66,7 @@ class QuotationRequest(BaseModel):
     quotationDate: str
     quotationFrom: str
     salesPersonName: Optional[str] = ""
+    officePersonName: Optional[str] = ""
     quotationNumber: str
     revisionEnabled: bool
     revisionNumber: str
@@ -322,9 +324,10 @@ async def generate_quotation(request: QuotationRequest):
         if generator.sections['signature']:
             import pandas as pd
             
-            # Map frontend values to backend signature type
-            # User's requirement: Sales → 'o' (office in Python), Office → 's' (sales in Python)
-            sig_type = 'o' if request.quotationFrom == 'Sales' else 's'
+            # User's requirement:
+            # If UI "Sales" → send 's' to Python
+            # If UI "Office" → send 'o' to Python
+            sig_type = 's' if request.quotationFrom == 'Sales' else 'o'
             
             left_name = ""
             left_title = ""
@@ -338,17 +341,16 @@ async def generate_quotation(request: QuotationRequest):
             seal_image = ""
             
             try:
-                if sig_type == 's':
-                    # Frontend "Office" → Backend reads from sales_person_details.xlsx
+                if sig_type == 's':  # UI "Sales"
+                    # Left side: Sales Person (from salesPersonName → sales_person_details.xlsx)
                     sales_df = pd.read_excel('sales_person_details.xlsx')
                     
-                    # Find the person by name in salesPersonName field
                     if request.salesPersonName:
                         person_name = request.salesPersonName.split('(')[0].strip() if '(' in request.salesPersonName else request.salesPersonName.strip()
                         person_row = sales_df[sales_df['NAME'].str.strip() == person_name]
                         
                         if not person_row.empty:
-                            selected_row = person_row.iloc[0]
+                            selected_sales = person_row.iloc[0]
                             
                             # Determine email column based on template
                             if template_filename.lower().endswith("template_grp.docx"):
@@ -360,14 +362,14 @@ async def generate_quotation(request: QuotationRequest):
                             else:
                                 email_col = 'EMAIL-GRPTANKS'
                             
-                            left_name = str(selected_row['NAME'])
-                            left_title = str(selected_row['DESIGNATION']) if 'DESIGNATION' in sales_df.columns else "Sales Executive"
-                            left_mobile = str(selected_row['MOB']) if 'MOB' in sales_df.columns else ""
-                            left_email = str(selected_row[email_col]) if email_col in sales_df.columns else ""
+                            left_name = str(selected_sales['NAME'])
+                            left_title = str(selected_sales['DESIGNATION']) if 'DESIGNATION' in sales_df.columns else "Sales Executive"
+                            left_mobile = str(selected_sales['MOB']) if 'MOB' in sales_df.columns else ""
+                            left_email = str(selected_sales[email_col]) if email_col in sales_df.columns else ""
                             
                             # Get CODE for signature images
                             if 'CODE' in sales_df.columns:
-                                code = str(selected_row['CODE'])
+                                code = str(selected_sales['CODE'])
                                 # Look for signature image
                                 for ext in ['.png', '.jpg', '.jpeg']:
                                     sign_path = f"signs&seals/{code}_sign{ext}"
@@ -381,12 +383,26 @@ async def generate_quotation(request: QuotationRequest):
                                         seal_image = seal_path
                                         break
                     
-                    # Right signatory from Project_manager_details.xlsx
+                    # Right side: Office Person (from officePersonName → Project_manager_details.xlsx)
                     pm_df = pd.read_excel('Project_manager_details.xlsx')
-                    if len(pm_df) > 0:
-                        selected_pm = pm_df.iloc[0]  # Use first project manager
+                    # Right side: Office Person (from officePersonName → Project_manager_details.xlsx)
+                    pm_df = pd.read_excel('Project_manager_details.xlsx')
+                    
+                    if request.officePersonName:
+                        person_name = request.officePersonName.split('(')[0].strip() if '(' in request.officePersonName else request.officePersonName.strip()
+                        person_row = pm_df[pm_df['NAME'].str.strip() == person_name]
                         
-                        # Determine email column for project manager
+                        if not person_row.empty:
+                            selected_pm = person_row.iloc[0]
+                        else:
+                            # Use first project manager as fallback
+                            selected_pm = pm_df.iloc[0] if len(pm_df) > 0 else None
+                    else:
+                        # Use first project manager as default
+                        selected_pm = pm_df.iloc[0] if len(pm_df) > 0 else None
+                    
+                    if selected_pm is not None:
+                        # Determine email column based on template
                         if template_filename.lower().endswith("template_grp.docx"):
                             pm_email_col = 'EMAIL-GRPTANKS'
                         elif template_filename.lower().endswith("template_pipeco.docx"):
@@ -401,13 +417,12 @@ async def generate_quotation(request: QuotationRequest):
                         right_mobile = str(selected_pm['MOB']) if 'MOB' in pm_df.columns else ""
                         right_email = str(selected_pm[pm_email_col]) if pm_email_col in pm_df.columns else ""
                     
-                else:  # sig_type == 'o'
-                    # Frontend "Sales" → Backend reads from Project_manager_details.xlsx
+                else:  # sig_type == 'o', UI "Office"
+                    # Left side only: Office Person (from officePersonName → Project_manager_details.xlsx)
                     pm_df = pd.read_excel('Project_manager_details.xlsx')
                     
-                    # Find the person by name in salesPersonName field
-                    if request.salesPersonName:
-                        person_name = request.salesPersonName.split('(')[0].strip() if '(' in request.salesPersonName else request.salesPersonName.strip()
+                    if request.officePersonName:
+                        person_name = request.officePersonName.split('(')[0].strip() if '(' in request.officePersonName else request.officePersonName.strip()
                         person_row = pm_df[pm_df['NAME'].str.strip() == person_name]
                         
                         if not person_row.empty:
@@ -459,10 +474,13 @@ async def generate_quotation(request: QuotationRequest):
                     
             except Exception as e:
                 print(f"⚠ Error reading Excel files for signature: {e}")
-                # Fallback to extracting name from salesPersonName
-                if request.salesPersonName:
-                    left_name = request.salesPersonName.split('(')[0].strip()
-                    left_title = 'Sales Executive' if request.quotationFrom == 'Sales' else 'Manager - Projects'
+                # Fallback to extracting name from provided fields
+                if request.quotationFrom == 'Sales' and request.officePersonName:
+                    left_name = request.officePersonName.split('(')[0].strip()
+                    left_title = 'Manager - Projects'
+                elif request.quotationFrom == 'Office' and request.officePersonName:
+                    left_name = request.officePersonName.split('(')[0].strip()
+                    left_title = 'Manager - Projects'
             
             generator.section_content['signature'] = {
                 'left_name': left_name,
@@ -518,6 +536,42 @@ async def health_check():
     return {"status": "ok"}
 
 
+@app.get("/api/person-names/{person_type}")
+async def get_person_names(person_type: str):
+    """
+    Get person names from Excel files based on person type.
+    person_type can be 'sales' or 'office'
+    """
+    try:
+        if person_type == "sales":
+            file_path = os.path.join(os.path.dirname(__file__), "sales_person_details.xlsx")
+        elif person_type == "office":
+            file_path = os.path.join(os.path.dirname(__file__), "Project_manager_details.xlsx")
+        else:
+            raise HTTPException(status_code=400, detail="Invalid person type. Use 'sales' or 'office'")
+        
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
+        
+        # Read Excel file
+        df = pd.read_excel(file_path)
+        
+        # Check if NAME column exists
+        if 'NAME' not in df.columns:
+            raise HTTPException(status_code=500, detail="NAME column not found in Excel file")
+        
+        # Get names and remove any NaN values
+        names = df['NAME'].dropna().tolist()
+        
+        return {"names": names}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error reading person names: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error reading person names: {str(e)}")
 
 
 if __name__ == "__main__":

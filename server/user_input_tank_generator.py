@@ -257,10 +257,11 @@ class TankInvoiceGenerator:
             'material_spec': False,
             'warranty': False,
             'terms': False,
+            'extra_note': True,
             'supplier_scope': False,
             'customer_scope': False,
             'final_note': False,
-            'thank_you': False
+            'thank_you': True
         }
         
         # Ask for each section
@@ -271,6 +272,7 @@ class TankInvoiceGenerator:
             ('material_spec', 'Include MATERIAL SPECIFICATION section?'),
             ('warranty', 'Include WARRANTY section?'),
             ('terms', 'Include TERMS AND CONDITIONS section?'),
+            ('extra_note', 'Include extra NOTE section (deviations, delays, documents)?'),
             ('supplier_scope', 'Include SUPPLIER SCOPE section?'),
             ('customer_scope', 'Include CUSTOMER SCOPE section?'),
             ('final_note', 'Include final NOTE section?'),
@@ -305,6 +307,9 @@ class TankInvoiceGenerator:
         
         if self.sections['terms']:
             self._configure_terms_section()
+        
+        if self.sections['extra_note']:
+            self._configure_extra_note_section()
         
         if self.sections['supplier_scope']:
             self._configure_supplier_scope_section()
@@ -631,6 +636,41 @@ class TankInvoiceGenerator:
         else:
             self.section_content['terms'] = default_terms
     
+    def _configure_extra_note_section(self):
+        """Configure extra NOTE section content"""
+        print("\n" + "-"*60)
+        print("EXTRA NOTE SECTION CONFIGURATION")
+        print("-"*60)
+        
+        company_name = self._get_company_name()
+        
+        default_notes = [
+            "Any deviations from this quotation to suit the site's condition will have additional cost implications.",
+            "If the work is indefinitely delayed beyond 30 days after the delivery of materials due to the issues caused by the customer or site condition, the Company will not be liable for any damage to the supplied materials.",
+            "The submission of all related documents, including the warranty certificate, will be done upon receiving the final payment.",
+            "Any additional test / lab charges incurred from third parties / external agencies are under the scope of the contractor / client.",
+            f"Until receiving the final settlement from the client, {company_name} has reserved the right to use the supplied materials at the site.",
+            "The testing and commissioning should be completed within a period of 15 to 30 days from the installation completion date by the Contractor/Client.",
+            "For the net volume, a minimum of 30 cm freeboard area is to be calculated from the total height of the tank."
+        ]
+        
+        print("\nDefault extra NOTE items:")
+        for idx, item in enumerate(default_notes, 1):
+            print(f"{idx}. {item}")
+        
+        response = input("\nUse default items? (y/n): ").strip().lower()
+        if response == 'y':
+            self.section_content['extra_note'] = default_notes
+        else:
+            print("\nEnter custom extra NOTE items (one per line, empty line to finish):")
+            items = []
+            while True:
+                item = input(f"Item {len(items) + 1}: ").strip()
+                if not item:
+                    break
+                items.append(item)
+            self.section_content['extra_note'] = items if items else default_notes
+    
     def _configure_supplier_scope_section(self):
         """Configure supplier scope section"""
         default_scope = [
@@ -942,12 +982,12 @@ class TankInvoiceGenerator:
         para.paragraph_format.space_after = Pt(0)
         run = para.add_run(f'QUOTE NO : ')
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.bold = True
         run.font.color.rgb = sky_blue
         run = para.add_run(self.quote_number)
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.bold = True
         run.font.color.rgb = sky_blue
         
@@ -965,12 +1005,12 @@ class TankInvoiceGenerator:
         para.paragraph_format.space_after = Pt(0)
         run = para.add_run(f'DATE : ')
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.bold = True
         run.font.color.rgb = sky_blue
         run = para.add_run(self.quote_date)
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.bold = True
         run.font.color.rgb = sky_blue
         
@@ -988,13 +1028,13 @@ class TankInvoiceGenerator:
         para.paragraph_format.space_after = Pt(0)
         run = para.add_run(f'PAGE NO : ')
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.bold = True
         run.font.color.rgb = sky_blue
         
         run = para.add_run()
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.bold = True
         run.font.color.rgb = sky_blue
         self._add_page_number_field(run)
@@ -1148,12 +1188,12 @@ class TankInvoiceGenerator:
         para.paragraph_format.space_after = Pt(0)
         run = para.add_run(f'QUOTE NO : ')
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.bold = True
         run.font.color.rgb = sky_blue
         run = para.add_run(self.quote_number)
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.bold = True
         run.font.color.rgb = sky_blue
         
@@ -1171,12 +1211,12 @@ class TankInvoiceGenerator:
         para.paragraph_format.space_after = Pt(0)
         run = para.add_run(f'DATE : ')
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.bold = True
         run.font.color.rgb = sky_blue
         run = para.add_run(self.quote_date)
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.bold = True
         run.font.color.rgb = sky_blue
         
@@ -1194,14 +1234,14 @@ class TankInvoiceGenerator:
         para.paragraph_format.space_after = Pt(0)
         run = para.add_run(f'PAGE NO : ')
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.bold = True
         run.font.color.rgb = sky_blue
         
         # Add static page number "1/3" for first page
         run = para.add_run('1/3')
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.bold = True
         run.font.color.rgb = sky_blue
         
@@ -1293,12 +1333,12 @@ class TankInvoiceGenerator:
         para.paragraph_format.space_after = Pt(0)
         run = para.add_run(f'QUOTE NO : ')
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.bold = True
         run.font.color.rgb = sky_blue
         run = para.add_run(self.quote_number)
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.bold = True
         run.font.color.rgb = sky_blue
         
@@ -1317,12 +1357,12 @@ class TankInvoiceGenerator:
         para.paragraph_format.space_after = Pt(0)
         run = para.add_run(f'DATE : ')
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.bold = True
         run.font.color.rgb = sky_blue
         run = para.add_run(self.quote_date)
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.bold = True
         run.font.color.rgb = sky_blue
         
@@ -1341,14 +1381,14 @@ class TankInvoiceGenerator:
         para.paragraph_format.space_after = Pt(0)
         run = para.add_run(f'PAGE NO : ')
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.bold = True
         run.font.color.rgb = sky_blue
         
         # Add dynamic page number field (current/total)
         run = para.add_run()
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         self._add_page_number_field(run)
         
         # Add spacing after the table
@@ -1416,9 +1456,27 @@ class TankInvoiceGenerator:
         
         # Add tank rows (starting from row 2)
         row_idx = 2
+        tank_start_rows = {}  # Track starting row for each sl_no
+        
         for tank in self.tanks:
+            sl_no = tank['sl_no']
+            option_num = tank.get('option_number', 1)
+            
+            # Track the first row for this sl_no
+            if sl_no not in tank_start_rows:
+                tank_start_rows[sl_no] = row_idx
+            
             self._fill_tank_row(row_idx, tank)
             row_idx += 1
+        
+        # Merge SL. NO. cells for tanks with multiple options
+        for sl_no, start_row in tank_start_rows.items():
+            # Find all tanks with this sl_no
+            tanks_with_sl = [t for t in self.tanks if t['sl_no'] == sl_no]
+            if len(tanks_with_sl) > 1:
+                # Merge from start_row to start_row + len(tanks_with_sl) - 1
+                end_row = start_row + len(tanks_with_sl) - 1
+                self._merge_cells(start_row, 0, end_row, 0)
         
         # Footer rows
         footer_start = row_idx
@@ -1578,7 +1636,7 @@ class TankInvoiceGenerator:
         para.paragraph_format.space_after = Pt(0)
         run = para.add_run(self.recipient_name)
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.bold = True
         
         # Company name
@@ -1587,7 +1645,7 @@ class TankInvoiceGenerator:
         para.paragraph_format.space_after = Pt(0)
         run = para.add_run(self.recipient_company)
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.bold = True
         
         # Location
@@ -1596,7 +1654,7 @@ class TankInvoiceGenerator:
         para.paragraph_format.space_after = Pt(0)
         run = para.add_run(self.recipient_location)
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.bold = True
         
         # Phone
@@ -1605,7 +1663,7 @@ class TankInvoiceGenerator:
         para.paragraph_format.space_after = Pt(0)
         run = para.add_run(self.recipient_phone)
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.bold = True
         
         # Email (optional)
@@ -1615,7 +1673,7 @@ class TankInvoiceGenerator:
             para.paragraph_format.space_after = Pt(0)
             run = para.add_run(self.recipient_email)
             run.font.name = 'Calibri'
-            run.font.size = Pt(11)
+            run.font.size = Pt(10)
             run.font.bold = True
         
         # Set left cell width using XML (7200 twips = 5.0 inches)
@@ -1652,7 +1710,7 @@ class TankInvoiceGenerator:
         tab_stops.add_tab_stop(Inches(1.2))  # Position for colon
         run = para.add_run('Date          : {}'.format(self.quote_date))
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.bold = True
         
         # Page - Keep blank (no page number displayed)
@@ -1664,8 +1722,13 @@ class TankInvoiceGenerator:
         tab_stops.add_tab_stop(Inches(1.2))  # Position for colon
         run = para.add_run('Page          : ')
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.bold = True
+        run = para.add_run()
+        run.font.name = 'Calibri'
+        run.font.size = Pt(10)
+        run.font.bold = True
+        self._add_page_number_field(run, use_blue_color=False)
         
         # Quote No
         para = right_cell.add_paragraph()
@@ -1676,7 +1739,7 @@ class TankInvoiceGenerator:
         tab_stops.add_tab_stop(Inches(1.2))  # Position for colon
         run = para.add_run('Quote No : {}'.format(self.quote_number))
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.bold = True
         
         # Spacing after table
@@ -1691,11 +1754,11 @@ class TankInvoiceGenerator:
         subject_para.paragraph_format.space_after = Pt(0)
         run = subject_para.add_run('Subject           : ')
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.bold = True
         run = subject_para.add_run(self.subject)
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.bold = True
         run.underline = True
         
@@ -1705,11 +1768,11 @@ class TankInvoiceGenerator:
         project_para.paragraph_format.space_after = Pt(0)  # Remove gap
         run = project_para.add_run('Project            : ')
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.bold = True
         run = project_para.add_run(self.project)
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.bold = True
         run.underline = True
         
@@ -1724,7 +1787,7 @@ class TankInvoiceGenerator:
         dear_para.paragraph_format.space_after = Pt(0)
         for run in dear_para.runs:
             run.font.name = 'Calibri'
-            run.font.size = Pt(11)
+            run.font.size = Pt(10)
         
         # Introductory text
         intro_para = self.doc.add_paragraph()
@@ -1732,14 +1795,14 @@ class TankInvoiceGenerator:
         intro_para.paragraph_format.space_after = Pt(0)  # Remove gap
         run = intro_para.add_run('With reference to your enquiry, we would like to give our competitive offer for ')
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run = intro_para.add_run(self.subject)
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.bold = True
         run = intro_para.add_run(' as follows')
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
     
     def _create_header(self):
         """Create and format header row"""
@@ -1775,12 +1838,16 @@ class TankInvoiceGenerator:
                 for run in paragraph.runs:
                     run.font.bold = True
                     run.font.name = 'Calibri'
-                    run.font.size = Pt(11)
+                    run.font.size = Pt(10)
     
     def _fill_common_row(self):
         """Fill the common row with preset phrases and common elements"""
         # Preset phrases
-        common_text = "GRP SECTIONAL WATER TANK - 10 YEAR WARRANTY - PIPECO TANKS® MALAYSIA"
+        # Use 'Colex Korea' for Colex template, otherwise 'PIPECO TANKS® MALAYSIA'
+        if self.template_path.lower().endswith("template_colex.docx"):
+            common_text = "GRP SECTIONAL WATER TANK - 10 YEAR WARRANTY - Colex Korea"
+        else:
+            common_text = "GRP SECTIONAL WATER TANK - 10 YEAR WARRANTY - PIPECO TANKS® MALAYSIA"
         
         # Find common elements
         common_elements = self._find_common_elements()
@@ -1808,23 +1875,26 @@ class TankInvoiceGenerator:
             for run in paragraph.runs:
                 run.font.bold = True
                 run.font.name = 'Calibri'
-                run.font.size = Pt(11)
+                run.font.size = Pt(10)
     
     def _fill_tank_row(self, row_idx, tank):
         """Fill a tank row with data"""
         row = self.table.rows[row_idx]
         
         # SL. NO. (center alignment)
-        cell = row.cells[0]
-        cell.text = str(tank["sl_no"])
-        for paragraph in cell.paragraphs:
-            paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            # Set vertical alignment to center
-            tc = cell._element
-            tcPr = tc.get_or_add_tcPr()
-            vAlign = OxmlElement('w:vAlign')
-            vAlign.set(qn('w:val'), 'center')
-            tcPr.append(vAlign)
+        # Only set if this is the first option (option_number == 1)
+        # For subsequent options, the cell will be merged later
+        if tank.get('option_number', 1) == 1:
+            cell = row.cells[0]
+            cell.text = str(tank["sl_no"])
+            for paragraph in cell.paragraphs:
+                paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                # Set vertical alignment to center
+                tc = cell._element
+                tcPr = tc.get_or_add_tcPr()
+                vAlign = OxmlElement('w:vAlign')
+                vAlign.set(qn('w:val'), 'center')
+                tcPr.append(vAlign)
         
         # Find common elements
         common_elements = self._find_common_elements()
@@ -1846,6 +1916,17 @@ class TankInvoiceGenerator:
         tab_stops.add_tab_stop(Inches(1.05))  # Position for colons
         tab_stops.add_tab_stop(Inches(1.25))  # Position for values after colon
         
+        # Add OPTION label if there are multiple options for this tank
+        option_total = tank.get('option_total', 1)
+        option_roman = tank.get('option_roman', '')
+        
+        if option_total > 1:
+            # Add "OPTION {roman}" before tank details
+            run = paragraph.add_run(f"OPTION {option_roman}\n")
+            run.font.bold = True
+            run.font.name = 'Calibri'
+            run.font.size = Pt(10)
+        
         # Tank name with underline and optionally skid in brackets
         if tank['name']:
             # Check if skid is common
@@ -1860,40 +1941,40 @@ class TankInvoiceGenerator:
                 run.underline = True
                 run.font.bold = True
                 run.font.name = 'Calibri'
-                run.font.size = Pt(11)
+                run.font.size = Pt(10)
                 
                 # Add space and opening bracket with underline
                 run = paragraph.add_run(" (")
                 run.underline = True
                 run.font.bold = True
                 run.font.name = 'Calibri'
-                run.font.size = Pt(11)
+                run.font.size = Pt(10)
                 
                 # Add skid details with underline
                 run = paragraph.add_run(tank['skid'])
                 run.underline = True
                 run.font.bold = True
                 run.font.name = 'Calibri'
-                run.font.size = Pt(11)
+                run.font.size = Pt(10)
                 
                 # Add closing bracket with underline, then no newline
                 run = paragraph.add_run(")")
                 run.underline = True
                 run.font.bold = True
                 run.font.name = 'Calibri'
-                run.font.size = Pt(11)
+                run.font.size = Pt(10)
             else:
                 run = paragraph.add_run(tank['name'] + partition_status)
                 run.underline = True
                 run.font.bold = True
                 run.font.name = 'Calibri'
-                run.font.size = Pt(11)
+                run.font.size = Pt(10)
         elif tank['skid'] and "skid" not in common_types:
             # No name, just print skid without brackets
             run = paragraph.add_run(tank['skid'])
             run.font.bold = True
             run.font.name = 'Calibri'
-            run.font.size = Pt(11)
+            run.font.size = Pt(10)
         
         # Type (only if not common) - with hanging indent for wrapped lines
         if "type" not in common_types:
@@ -1918,7 +1999,7 @@ class TankInvoiceGenerator:
             run = type_para.add_run(f"Type\t:\t{tank['type']}")
             run.font.bold = True
             run.font.name = 'Calibri'
-            run.font.size = Pt(11)
+            run.font.size = Pt(10)
         
         # Add a new paragraph for Size and remaining items to keep them separate from Type
         size_para = cell.add_paragraph()
@@ -1940,7 +2021,7 @@ class TankInvoiceGenerator:
         run = size_para.add_run(size_text)
         run.font.bold = True
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         
         # Total Capacity (aligned format with tabs for colon alignment)
         capacity_text = f"Total Capacity\t:\t{tank['volume_m3']:.2f} M³ ({tank['gallons']:.0f} {self.gallon_type})"
@@ -1953,7 +2034,7 @@ class TankInvoiceGenerator:
         run = size_para.add_run(capacity_text)
         run.font.bold = True
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         
         # Show Free Board and Net Volume only if needFreeBoard is enabled
         if need_free_board:
@@ -1964,14 +2045,14 @@ class TankInvoiceGenerator:
             run = size_para.add_run(f"Free Board\t:\t{free_board_cm:.0f} cm ({free_board_m:.2f} M)\n")
             run.font.bold = True
             run.font.name = 'Calibri'
-            run.font.size = Pt(11)
+            run.font.size = Pt(10)
             
             # Net Volume (use pre-calculated value from tank data)
             net_volume_m3 = tank.get('net_volume_m3', tank['volume_m3'])
             run = size_para.add_run(f"Net Volume\t:\t{net_volume_m3:.2f} M³")
             run.font.bold = True
             run.font.name = 'Calibri'
-            run.font.size = Pt(11)
+            run.font.size = Pt(10)
         
         # Unit (center alignment both horizontal and vertical)
         cell = row.cells[2]
@@ -2017,7 +2098,7 @@ class TankInvoiceGenerator:
         run = paragraph.add_run(f"{tank['total_price']:.2f}")
         run.font.bold = True
         run.font.name = 'Calibri'
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         # Set vertical alignment to center
         tc = cell._element
         tcPr = tc.get_or_add_tcPr()
@@ -2127,7 +2208,7 @@ class TankInvoiceGenerator:
             run = cell.paragraphs[0].add_run('AED')
             run.font.bold = True
             run.font.name = 'Calibri'
-            run.font.size = Pt(11)
+            run.font.size = Pt(10)
             
             # Make subtotal bold and right-aligned
             cell = self.table.rows[current_row].cells[5]
@@ -2137,14 +2218,14 @@ class TankInvoiceGenerator:
             run = cell.paragraphs[0].add_run(f'{subtotal:.2f}')
             run.font.bold = True
             run.font.name = 'Calibri'
-            run.font.size = Pt(11)
+            run.font.size = Pt(10)
             
             # Apply bold to label
             for paragraph in self.table.rows[current_row].cells[2].paragraphs:
                 for run in paragraph.runs:
                     run.font.bold = True
                     run.font.name = 'Calibri'
-                    run.font.size = Pt(11)
+                    run.font.size = Pt(10)
             
             current_row += 1
         
@@ -2164,7 +2245,7 @@ class TankInvoiceGenerator:
             run = cell.paragraphs[0].add_run('AED')
             run.font.bold = True
             run.font.name = 'Calibri'
-            run.font.size = Pt(11)
+            run.font.size = Pt(10)
             
             # Make VAT bold and right-aligned
             cell = self.table.rows[current_row].cells[5]
@@ -2174,14 +2255,14 @@ class TankInvoiceGenerator:
             run = cell.paragraphs[0].add_run(f'{vat:.2f}')
             run.font.bold = True
             run.font.name = 'Calibri'
-            run.font.size = Pt(11)
+            run.font.size = Pt(10)
             
             # Apply bold to label
             for paragraph in self.table.rows[current_row].cells[2].paragraphs:
                 for run in paragraph.runs:
                     run.font.bold = True
                     run.font.name = 'Calibri'
-                    run.font.size = Pt(11)
+                    run.font.size = Pt(10)
             
             current_row += 1
         
@@ -2201,7 +2282,7 @@ class TankInvoiceGenerator:
             run = cell.paragraphs[0].add_run('AED')
             run.font.bold = True
             run.font.name = 'Calibri'
-            run.font.size = Pt(11)
+            run.font.size = Pt(10)
             
             # Make grand total bold and right-aligned
             cell = self.table.rows[current_row].cells[5]
@@ -2211,14 +2292,14 @@ class TankInvoiceGenerator:
             run = cell.paragraphs[0].add_run(f'{grand_total:.2f}')
             run.font.bold = True
             run.font.name = 'Calibri'
-            run.font.size = Pt(11)
+            run.font.size = Pt(10)
             
             # Apply bold to label
             for paragraph in self.table.rows[current_row].cells[2].paragraphs:
                 for run in paragraph.runs:
                     run.font.bold = True
                     run.font.name = 'Calibri'
-                    run.font.size = Pt(11)
+                    run.font.size = Pt(10)
     
     def _merge_cells(self, row, start_col, end_row, end_col):
         """Merge cells in the table"""
@@ -2233,7 +2314,7 @@ class TankInvoiceGenerator:
                 for paragraph in cell.paragraphs:
                     for run in paragraph.runs:
                         run.font.name = 'Calibri'
-                        run.font.size = Pt(11)
+                        run.font.size = Pt(10)
     
     def _apply_table_borders(self):
         """Manually apply borders to the table when Table Grid style is not available"""
@@ -2378,6 +2459,9 @@ class TankInvoiceGenerator:
         
         if self.sections.get('customer_scope'):
             self._add_customer_scope_section()
+        
+        if self.sections.get('extra_note'):
+            self._add_extra_note_section()
         
         if self.sections.get('final_note'):
             self._add_final_note_section()
@@ -2721,6 +2805,45 @@ class TankInvoiceGenerator:
             run = para.add_run(f'                 : {value}')
             run.font.name = 'Calibri'
             run.font.size = Pt(10)
+    
+    def _add_extra_note_section(self):
+        """Add extra NOTE section"""
+        spacer = self.doc.add_paragraph()
+        spacer.paragraph_format.space_before = Pt(12)
+        spacer.paragraph_format.space_after = Pt(0)
+        
+        # Heading
+        heading = self.doc.add_paragraph()
+        heading.paragraph_format.space_before = Pt(0)
+        heading.paragraph_format.space_after = Pt(6)
+        run = heading.add_run('NOTE:')
+        run.font.name = 'Calibri'
+        run.font.size = Pt(10)
+        run.font.bold = True
+        
+        # Add each item with bullet points, bold company name if present
+        company_name = self._get_company_name()
+        for item in self.section_content['extra_note']:
+            para = self.doc.add_paragraph()
+            para.paragraph_format.space_before = Pt(0)
+            para.paragraph_format.space_after = Pt(0)
+            para.paragraph_format.left_indent = Inches(0.5)
+            if company_name in item:
+                before, after = item.split(company_name, 1)
+                run = para.add_run('➢  ' + before)
+                run.font.name = 'Calibri'
+                run.font.size = Pt(10)
+                run = para.add_run(company_name)
+                run.font.name = 'Calibri'
+                run.font.size = Pt(10)
+                run.font.bold = True
+                run = para.add_run(after)
+                run.font.name = 'Calibri'
+                run.font.size = Pt(10)
+            else:
+                run = para.add_run(f'➢  {item}')
+                run.font.name = 'Calibri'
+                run.font.size = Pt(10)
     
     def _add_supplier_scope_section(self):
         """Add supplier scope section"""

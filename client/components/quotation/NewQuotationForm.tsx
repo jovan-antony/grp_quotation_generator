@@ -143,7 +143,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
     const companyCodeMap: Record<string, string> = {
       'GRP TANKS TRADING L.L.C': 'GRPT',
       'GRP PIPECO TANKS TRADING L.L.C': 'GRPPT',
-      'COLEX TANKS TRADING L.L.C': 'COL',
+      'COLEX TANKS TRADING L.L.C': 'CLX',
     };
     const companyCode = fromCompany ? companyCodeMap[fromCompany] || '' : '';
     
@@ -509,6 +509,20 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
       ]
     },
     {
+      key: 'extraNote',
+      label: 'NOTE',
+      default: 'yes',
+      details: [
+        "Any deviations from this quotation to suit the site's condition will have additional cost implications.",
+        "If the work is indefinitely delayed beyond 30 days after the delivery of materials due to the issues caused by the customer or site condition, the Company will not be liable for any damage to the supplied materials.",
+        "The submission of all related documents, including the warranty certificate, will be done upon receiving the final payment.",
+        "Any additional test / lab charges incurred from third parties / external agencies are under the scope of the contractor / client.",
+        "Until receiving the final settlement from the client, GRP PIPECO TANKS TRADING L.L.C has reserved the right to use the supplied materials at the site.",
+        "The testing and commissioning should be completed within a period of 15 to 30 days from the installation completion date by the Contractor/Client.",
+        "For the net volume, a minimum of 30 cm freeboard area is to be calculated from the total height of the tank."
+      ]
+    },
+    {
       key: 'scopeOfWork',
       label: 'SCOPE OF WORK',
       default: 'no',
@@ -534,6 +548,27 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
       custom: [],
     }]))
   );
+
+  // Update company name in extraNote when fromCompany changes
+  useEffect(() => {
+    if (fromCompany && terms['extraNote']) {
+      const updatedDetails = terms['extraNote'].details.map((detail, idx) => {
+        // Update the 5th point (index 4) which contains the company name
+        if (idx === 4 && detail.includes('has reserved the right to use the supplied materials at the site')) {
+          return `Until receiving the final settlement from the client, ${fromCompany} has reserved the right to use the supplied materials at the site.`;
+        }
+        return detail;
+      });
+      
+      setTerms(prev => ({
+        ...prev,
+        extraNote: {
+          ...prev['extraNote'],
+          details: updatedDetails,
+        },
+      }));
+    }
+  }, [fromCompany]);
 
   // Remove a detail point
   const handleRemoveDetail = (key: string, idx: number) => {

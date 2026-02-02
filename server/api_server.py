@@ -95,7 +95,7 @@ async def generate_quotation(request: QuotationRequest):
         company_code_map = {
             "GRP TANKS TRADING L.L.C": "GRPT",
             "GRP PIPECO TANKS TRADING L.L.C": "GRPPT",
-            "COLEX TANKS TRADING L.L.C": "COL",
+            "COLEX TANKS TRADING L.L.C": "CLX",
         }
         company_code = company_code_map.get(request.fromCompany, "GRPT")
         
@@ -140,8 +140,23 @@ async def generate_quotation(request: QuotationRequest):
         # Process tanks data - convert from UI format to generator format
         generator.tanks = []
         sl_no = 1
+        
+        # Roman numeral conversion helper
+        def to_roman(num):
+            val = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1]
+            syms = ['M', 'CM', 'D', 'CD', 'C', 'XC', 'L', 'XL', 'X', 'IX', 'V', 'IV', 'I']
+            roman_num = ''
+            i = 0
+            while num > 0:
+                for _ in range(num // val[i]):
+                    roman_num += syms[i]
+                    num -= val[i]
+                i += 1
+            return roman_num
+        
         for tank_data in request.tanks:
-            for option in tank_data.options:
+            num_options = len(tank_data.options)
+            for option_idx, option in enumerate(tank_data.options):
                 # Parse dimensions
                 def parse_dimension(dim_str):
                     dim_str = str(dim_str).replace(" ", "")
@@ -205,10 +220,15 @@ async def generate_quotation(request: QuotationRequest):
                     "unit": option.unit,
                     "qty": float(option.quantity),
                     "unit_price": float(option.unitPrice) if option.unitPrice else 0.0,
-                    "total_price": float(option.quantity) * (float(option.unitPrice) if option.unitPrice else 0.0)
+                    "total_price": float(option.quantity) * (float(option.unitPrice) if option.unitPrice else 0.0),
+                    "option_number": option_idx + 1,
+                    "option_total": num_options,
+                    "option_roman": to_roman(option_idx + 1)
                 }
                 generator.tanks.append(tank)
-                sl_no += 1
+            
+            # Increment sl_no only after all options of this tank
+            sl_no += 1
         
         # Calculate total pages (estimate based on tanks)
         tanks_per_page = 3
@@ -231,10 +251,11 @@ async def generate_quotation(request: QuotationRequest):
             'material_spec': request.terms['materialSpecification'].action == 'yes' if 'materialSpecification' in request.terms else False,
             'warranty': request.terms['warrantyExclusions'].action == 'yes' if 'warrantyExclusions' in request.terms else False,
             'terms': request.terms['termsConditions'].action == 'yes' if 'termsConditions' in request.terms else False,
+            'extra_note': request.terms['extraNote'].action == 'yes' if 'extraNote' in request.terms else True,  # Default to True
             'supplier_scope': request.terms['supplierScope'].action == 'yes' if 'supplierScope' in request.terms else False,
             'customer_scope': request.terms['customerScope'].action == 'yes' if 'customerScope' in request.terms else False,
             'final_note': False,  # Can be enabled if needed
-            'thank_you': False,
+            'thank_you': True,
         }
         
         # Set section content
@@ -265,6 +286,24 @@ async def generate_quotation(request: QuotationRequest):
                 if ':' in term:
                     key, value = term.split(':', 1)
                     generator.section_content['terms'][key.strip()] = value.strip()
+        
+        # EXTRA NOTE
+        if generator.sections['extra_note']:
+            if 'extraNote' in request.terms:
+                extra_note_data = request.terms['extraNote']
+                generator.section_content['extra_note'] = extra_note_data.details + extra_note_data.custom
+            else:
+                # Use default extra note content
+                company_name = generator._get_company_name()
+                generator.section_content['extra_note'] = [
+                    "Any deviations from this quotation to suit the site's condition will have additional cost implications.",
+                    "If the work is indefinitely delayed beyond 30 days after the delivery of materials due to the issues caused by the customer or site condition, the Company will not be liable for any damage to the supplied materials.",
+                    "The submission of all related documents, including the warranty certificate, will be done upon receiving the final payment.",
+                    "Any additional test / lab charges incurred from third parties / external agencies are under the scope of the contractor / client.",
+                    f"Until receiving the final settlement from the client, {company_name} has reserved the right to use the supplied materials at the site.",
+                    "The testing and commissioning should be completed within a period of 15 to 30 days from the installation completion date by the Contractor/Client.",
+                    "For the net volume, a minimum of 30 cm freeboard area is to be calculated from the total height of the tank."
+                ]
         
         # SUPPLIER SCOPE
         if generator.sections['supplier_scope']:

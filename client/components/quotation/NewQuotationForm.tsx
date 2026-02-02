@@ -649,6 +649,12 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                   value={recipientName}
                   onChange={(e) => setRecipientName(e.target.value)}
                   placeholder="Hridya."
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      const next = document.querySelector('#role');
+                      if (next) (next as HTMLElement).focus();
+                    }
+                  }}
                 />
               </div>
             </div>
@@ -660,6 +666,12 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
                 placeholder="Enter role (optional)"
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    const next = document.querySelector('#companyName');
+                    if (next) (next as HTMLElement).focus();
+                  }
+                }}
               />
             </div>
 
@@ -670,6 +682,12 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
                 placeholder="M/s. Company Name"
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    const next = document.querySelector('#location');
+                    if (next) (next as HTMLElement).focus();
+                  }
+                }}
               />
             </div>
 
@@ -680,6 +698,12 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 placeholder="Ajman, UAE"
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    const next = document.querySelector('#phoneNumber');
+                    if (next) (next as HTMLElement).focus();
+                  }
+                }}
               />
             </div>
 
@@ -690,6 +714,12 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
                 placeholder="+ 971 50 312 8233"
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    const next = document.querySelector('#email');
+                    if (next) (next as HTMLElement).focus();
+                  }
+                }}
               />
             </div>
 
@@ -701,6 +731,12 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="email@example.com"
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    const next = document.querySelector('#quotationDate');
+                    if (next) (next as HTMLElement).focus();
+                  }
+                }}
               />
             </div>
 
@@ -711,6 +747,12 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                 type="date"
                 value={quotationDate}
                 onChange={(e) => setQuotationDate(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    const next = document.querySelector('#quotationFrom');
+                    if (next) (next as HTMLElement).focus();
+                  }
+                }}
               />
             </div>
           </div>
@@ -774,6 +816,12 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                 value={quotationNumber}
                 onChange={(e) => setQuotationNumber(e.target.value)}
                 placeholder=""
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    const next = document.querySelector('#subject');
+                    if (next) (next as HTMLElement).focus();
+                  }
+                }}
               />
             </div>
 
@@ -808,6 +856,12 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 placeholder="Supply and Installation of GRP Panel Water Tank"
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    const next = document.querySelector('#projectLocation');
+                    if (next) (next as HTMLElement).focus();
+                  }
+                }}
               />
             </div>
 
@@ -818,6 +872,12 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                 value={projectLocation}
                 onChange={(e) => setProjectLocation(e.target.value)}
                 placeholder="Ajman."
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    // End of Quotation Information section, optionally blur
+                    (e.target as HTMLElement).blur();
+                  }
+                }}
               />
             </div>
           </div>
@@ -916,6 +976,13 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                           value={detail}
                           onChange={e => handleEditDetail(term.key, idx, e.target.value)}
                           className="flex-1"
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              // Try to focus next detail input or custom input
+                              const next = (e.target as HTMLElement).parentElement?.nextElementSibling?.querySelector('input');
+                              if (next) (next as HTMLElement).focus();
+                            }
+                          }}
                         />
                         <button
                           type="button"
@@ -934,6 +1001,13 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                           value={custom}
                           onChange={e => handleEditCustom(term.key, idx, e.target.value)}
                           className="flex-1"
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              // Try to focus next custom input or new point input
+                              const next = (e.target as HTMLElement).parentElement?.nextElementSibling?.querySelector('input');
+                              if (next) (next as HTMLElement).focus();
+                            }
+                          }}
                         />
                         <button
                           type="button"
@@ -958,6 +1032,12 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                           }
                         }))}
                         className="flex-1"
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            // Optionally blur or focus next section
+                            (e.target as HTMLElement).blur();
+                          }
+                        }}
                       />
                       <Button
                         size="sm"

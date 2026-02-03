@@ -855,6 +855,98 @@ class TankInvoiceGenerator:
         print(f"✓ FIRST PAGE header final: {len(first_page_header.tables)} table(s), {len(first_page_header.paragraphs)} paragraph(s)")
         print(f"✓ PAGES 2+ header: {len(default_header.tables)} table(s) (should be 1 for quote box)")
     
+    def _add_seal_to_all_footers(self):
+        """Add seal image to all page footers in top-right corner with overlapping property"""
+        try:
+            print("\n" + "="*60)
+            print("ADDING SEAL TO FOOTERS")
+            print("="*60)
+            
+            # Get the section
+            section = self.doc.sections[0]
+            
+            # Get footers for all pages
+            first_page_footer = section.first_page_footer
+            default_footer = section.footer
+            
+            # Seal image path - check for pipeco_seal first, then fallback to others
+            seal_image = ""
+            signs_folder = 'signs&seals'
+            
+            # Check if signs&seals folder exists
+            if not os.path.exists(signs_folder):
+                print(f"⚠ '{signs_folder}' folder not found")
+                return
+            
+            # List all files in the folder for debugging
+            print(f"Files in '{signs_folder}':")
+            for file in os.listdir(signs_folder):
+                print(f"  - {file}")
+            
+            for seal_name in ['pipeco_seal', 'colex_seal', 'grp_seal']:
+                for ext in ['.png', '.jpg', '.jpeg']:
+                    seal_path = f"signs&seals/{seal_name}{ext}"
+                    if os.path.exists(seal_path):
+                        seal_image = seal_path
+                        print(f"✓ Found seal image: {seal_image}")
+                        break
+                if seal_image:
+                    break
+            
+            if not seal_image:
+                print("⚠ No seal image found in signs&seals folder")
+                return
+            
+            # Add seal to first page footer
+            print("\nAdding seal to first page footer...")
+            self._add_seal_to_footer(first_page_footer, seal_image)
+            
+            # Add seal to default footer (pages 2+)
+            print("Adding seal to default footer (pages 2+)...")
+            self._add_seal_to_footer(default_footer, seal_image)
+            
+            print(f"\n✓ Successfully added seal to all page footers")
+            print("="*60 + "\n")
+            
+        except Exception as e:
+            print(f"⚠ Error adding seal to footers: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def _add_seal_to_footer(self, footer, seal_image_path):
+        """Add seal image to a specific footer with top-right positioning"""
+        try:
+            # Add a paragraph at the beginning of footer for the seal
+            if len(footer.paragraphs) > 0:
+                # Insert at the beginning
+                p = footer.paragraphs[0]._element
+                parent = p.getparent()
+                new_para_elem = OxmlElement('w:p')
+                parent.insert(0, new_para_elem)
+                # Get the new paragraph object
+                para = footer.paragraphs[0]
+            else:
+                para = footer.add_paragraph()
+            
+            # Set paragraph alignment to right
+            para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+            
+            # Remove all spacing to minimize footer height impact
+            para.paragraph_format.space_before = Pt(0)
+            para.paragraph_format.space_after = Pt(0)
+            para.paragraph_format.line_spacing = 1.0
+            
+            # Add the image
+            run = para.add_run()
+            picture = run.add_picture(seal_image_path, width=Inches(1.0))
+            
+            print(f"✓ Seal image added to footer: {seal_image_path}")
+            
+        except Exception as e:
+            print(f"⚠ Error adding seal to footer: {e}")
+            import traceback
+            traceback.print_exc()
+    
     def _add_quote_box_to_header(self, header):
         """Add the quote box table to a specific header"""
         # Add spacer for some templates
@@ -1403,6 +1495,9 @@ class TankInvoiceGenerator:
         # Ensure all tables are deleted from first page header (per user request)
         self.delete_tables_in_first_page_header()
         
+        # Add seal to all page footers
+        self._add_seal_to_all_footers()
+        
         # Add quotation header before table
         self._create_quotation_header()
         
@@ -1701,14 +1796,22 @@ class TankInvoiceGenerator:
         tcW.set(qn('w:type'), 'dxa')
         tcPr.append(tcW)
         
-        # Date
+        # Date (always DD/MM/YYYY)
         para = right_cell.add_paragraph()
         para.paragraph_format.space_before = Pt(0)
         para.paragraph_format.space_after = Pt(0)
         # Add tab stops for colon alignment like Subject/Project
         tab_stops = para.paragraph_format.tab_stops
         tab_stops.add_tab_stop(Inches(1.2))  # Position for colon
-        run = para.add_run('Date          : {}'.format(self.quote_date))
+        # Format date as DD/MM/YYYY
+        date_str = self.quote_date
+        # If date is DD/MM/YY, convert to DD/MM/YYYY
+        if isinstance(date_str, str) and len(date_str.split('/')) == 3:
+            d, m, y = date_str.split('/')
+            if len(y) == 2:
+                y = '20' + y
+            date_str = f"{d}/{m}/{y}"
+        run = para.add_run('Date          : {}'.format(date_str))
         run.font.name = 'Calibri'
         run.font.size = Pt(10)
         run.font.bold = True

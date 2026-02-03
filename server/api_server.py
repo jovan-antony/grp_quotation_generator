@@ -91,12 +91,13 @@ async def generate_quotation(request: QuotationRequest):
             "COLEX TANKS TRADING L.L.C": "Template_COLEX.docx",
         }
         template_filename = template_map.get(request.fromCompany, "Template.docx")
-        template_path = os.path.join(os.path.dirname(__file__), template_filename)
+        script_dir = os.path.dirname(__file__)
+        template_path = os.path.join(script_dir, template_filename)
         
         # Initialize generator
         generator = TankInvoiceGenerator(template_path=template_path)
         
-        # Construct quotation number in format: {CompanyCode}/{YYMM}/{SalesCode}/{Number}
+        # Construct quotation number in format: {CompanyCode}/{YYMM}/{CODE}/{Number}
         company_code_map = {
             "GRP TANKS TRADING L.L.C": "GRPT",
             "GRP PIPECO TANKS TRADING L.L.C": "GRPPT",
@@ -106,22 +107,31 @@ async def generate_quotation(request: QuotationRequest):
         
         # Extract YYMM from quotation date (format: DD/MM/YY)
         date_parts = request.quotationDate.split('/')
-        if len(date_parts) == 3:
-            yy = date_parts[2]  # Last 2 digits of year
-            mm = date_parts[1]  # Month
-            yymm = f"{yy}{mm}"
-        else:
-            yymm = "0000"
+        yymm = f"{date_parts[2]}{date_parts[1]}" if len(date_parts) == 3 else "0000"
         
-        # Extract sales person code from name (e.g., "Viwin Varghese (VM)" -> "VM")
-        sales_code = ""
-        if request.salesPersonName and '(' in request.salesPersonName:
-            sales_code = request.salesPersonName.split('(')[1].split(')')[0]
-        else:
-            sales_code = "OFC"  # Default for Office quotations
+        # Read Excel files once for efficiency
+        sales_df = None
+        pm_df = None
+        person_code = ""
         
-        # Construct full quotation number
-        constructed_quote_number = f"{company_code}/{yymm}/{sales_code}/{request.quotationNumber}"
+        try:
+            if request.quotationFrom == 'Sales' and request.salesPersonName:
+                sales_df = pd.read_excel(os.path.join(script_dir, 'sales_person_details.xlsx'))
+                person_name = request.salesPersonName.split('(')[0].strip()
+                person_row = sales_df[sales_df['NAME'].str.strip() == person_name]
+                if not person_row.empty:
+                    person_code = str(person_row.iloc[0]['CODE']).strip()
+            elif request.officePersonName:
+                pm_df = pd.read_excel(os.path.join(script_dir, 'Project_manager_details.xlsx'))
+                person_name = request.officePersonName.split('(')[0].strip()
+                person_row = pm_df[pm_df['NAME'].str.strip() == person_name]
+                if not person_row.empty:
+                    person_code = str(person_row.iloc[0]['CODE']).strip()
+        except Exception as e:
+            print(f"⚠ Error fetching CODE from Excel: {e}")
+        
+        person_code = person_code or "XX"
+        constructed_quote_number = f"{company_code}/{yymm}/{person_code}/{request.quotationNumber}"
         
         # Set header data
         # Add role to recipient name with hyphen if role is provided
@@ -322,11 +332,6 @@ async def generate_quotation(request: QuotationRequest):
         
         # Set signature info based on sales person or office person
         if generator.sections['signature']:
-            import pandas as pd
-            
-            # User's requirement:
-            # If UI "Sales" → send 's' to Python
-            # If UI "Office" → send 'o' to Python
             sig_type = 's' if request.quotationFrom == 'Sales' else 'o'
             
             left_name = ""
@@ -342,8 +347,9 @@ async def generate_quotation(request: QuotationRequest):
             
             try:
                 if sig_type == 's':  # UI "Sales"
-                    # Left side: Sales Person (from salesPersonName → sales_person_details.xlsx)
-                    sales_df = pd.read_excel('sales_person_details.xlsx')
+                    # Reuse sales_df if already loaded, otherwise load it
+                    if sales_df is None:
+                        sales_df = pd.read_excel(os.path.join(script_dir, 'sales_person_details.xlsx'))
                     
                     if request.salesPersonName:
                         person_name = request.salesPersonName.split('(')[0].strip() if '(' in request.salesPersonName else request.salesPersonName.strip()
@@ -370,23 +376,21 @@ async def generate_quotation(request: QuotationRequest):
                             # Get CODE for signature images
                             if 'CODE' in sales_df.columns:
                                 code = str(selected_sales['CODE'])
-                                # Look for signature image
+                                signs_dir = os.path.join(script_dir, 'signs&seals')
+                                # Look for signature and seal images
                                 for ext in ['.png', '.jpg', '.jpeg']:
-                                    sign_path = f"signs&seals/{code}_sign{ext}"
-                                    if os.path.exists(sign_path):
-                                        signature_image = sign_path
-                                        break
-                                # Look for seal image
-                                for ext in ['.png', '.jpg', '.jpeg']:
-                                    seal_path = f"signs&seals/{code}_seal{ext}"
-                                    if os.path.exists(seal_path):
-                                        seal_image = seal_path
-                                        break
+                                    if not signature_image:
+                                        sign_path = os.path.join(signs_dir, f"{code}_sign{ext}")
+                                        if os.path.exists(sign_path):
+                                            signature_image = sign_path
+                                    if not seal_image:
+                                        seal_path = os.path.join(signs_dir, f"{code}_seal{ext}")
+                                        if os.path.exists(seal_path):
+                                            seal_image = seal_path
                     
-                    # Right side: Office Person (from officePersonName → Project_manager_details.xlsx)
-                    pm_df = pd.read_excel('Project_manager_details.xlsx')
-                    # Right side: Office Person (from officePersonName → Project_manager_details.xlsx)
-                    pm_df = pd.read_excel('Project_manager_details.xlsx')
+                    # Right side: Office Person - reuse pm_df if already loaded
+                    if pm_df is None:
+                        pm_df = pd.read_excel(os.path.join(script_dir, 'Project_manager_details.xlsx'))
                     
                     if request.officePersonName:
                         person_name = request.officePersonName.split('(')[0].strip() if '(' in request.officePersonName else request.officePersonName.strip()
@@ -418,8 +422,9 @@ async def generate_quotation(request: QuotationRequest):
                         right_email = str(selected_pm[pm_email_col]) if pm_email_col in pm_df.columns else ""
                     
                 else:  # sig_type == 'o', UI "Office"
-                    # Left side only: Office Person (from officePersonName → Project_manager_details.xlsx)
-                    pm_df = pd.read_excel('Project_manager_details.xlsx')
+                    # Reuse pm_df if already loaded
+                    if pm_df is None:
+                        pm_df = pd.read_excel(os.path.join(script_dir, 'Project_manager_details.xlsx'))
                     
                     if request.officePersonName:
                         person_name = request.officePersonName.split('(')[0].strip() if '(' in request.officePersonName else request.officePersonName.strip()
@@ -453,18 +458,17 @@ async def generate_quotation(request: QuotationRequest):
                         # Get CODE for signature images
                         if 'CODE' in pm_df.columns:
                             code = str(selected_pm['CODE'])
-                            # Look for signature image
+                            signs_dir = os.path.join(script_dir, 'signs&seals')
+                            # Look for signature and seal images
                             for ext in ['.png', '.jpg', '.jpeg']:
-                                sign_path = f"signs&seals/{code}_sign{ext}"
-                                if os.path.exists(sign_path):
-                                    signature_image = sign_path
-                                    break
-                            # Look for seal image
-                            for ext in ['.png', '.jpg', '.jpeg']:
-                                seal_path = f"signs&seals/{code}_seal{ext}"
-                                if os.path.exists(seal_path):
-                                    seal_image = seal_path
-                                    break
+                                if not signature_image:
+                                    sign_path = os.path.join(signs_dir, f"{code}_sign{ext}")
+                                    if os.path.exists(sign_path):
+                                        signature_image = sign_path
+                                if not seal_image:
+                                    seal_path = os.path.join(signs_dir, f"{code}_seal{ext}")
+                                    if os.path.exists(seal_path):
+                                        seal_image = seal_path
                     
                     # No right signatory for office
                     right_name = ""
@@ -507,10 +511,9 @@ async def generate_quotation(request: QuotationRequest):
         
         # Save the document
         output_filename = f"quotation_{constructed_quote_number.replace('/', '_')}.docx"
-        output_path = os.path.join(os.path.dirname(__file__), "Final_Doc", output_filename)
-        
-        # Create Final_Doc directory if it doesn't exist
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        output_dir = os.path.join(script_dir, "Final_Doc")
+        os.makedirs(output_dir, exist_ok=True)
+        output_path = os.path.join(output_dir, output_filename)
         
         generator.save(output_path)
         
@@ -572,6 +575,71 @@ async def get_person_names(person_type: str):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error reading person names: {str(e)}")
+
+
+@app.get("/api/person-code")
+async def get_person_code(name: str, type: str):
+    """
+    Get CODE from Excel file based on person name and type.
+    type can be 'sales' or 'office'
+    name should be the person's name
+    """
+    try:
+        print(f"\n{'='*60}")
+        print(f"FETCHING CODE")
+        print(f"{'='*60}")
+        print(f"Name: {name}")
+        print(f"Type: {type}")
+        
+        if type == "sales":
+            file_path = os.path.join(os.path.dirname(__file__), "sales_person_details.xlsx")
+        elif type == "office":
+            file_path = os.path.join(os.path.dirname(__file__), "Project_manager_details.xlsx")
+        else:
+            raise HTTPException(status_code=400, detail="Invalid type. Use 'sales' or 'office'")
+        
+        if not os.path.exists(file_path):
+            print(f"⚠ File not found: {file_path}")
+            raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
+        
+        # Read Excel file
+        df = pd.read_excel(file_path)
+        print(f"Excel columns: {df.columns.tolist()}")
+        
+        # Check if required columns exist
+        if 'NAME' not in df.columns or 'CODE' not in df.columns:
+            print(f"⚠ Missing columns. Available: {df.columns.tolist()}")
+            raise HTTPException(status_code=500, detail="NAME or CODE column not found in Excel file")
+        
+        # Extract name without (CODE) suffix if present
+        clean_name = name.split('(')[0].strip()
+        print(f"Clean name: '{clean_name}'")
+        
+        # Show all names in Excel for debugging
+        print(f"Names in Excel: {df['NAME'].tolist()}")
+        
+        # Find the person by name
+        person_row = df[df['NAME'].str.strip() == clean_name]
+        
+        if person_row.empty:
+            print(f"⚠ Person not found: '{clean_name}'")
+            print(f"Available names: {df['NAME'].str.strip().tolist()}")
+            return {"code": "XX"}  # Default code
+        
+        # Get CODE
+        code = str(person_row.iloc[0]['CODE']).strip()
+        print(f"✓ Found CODE: {code}")
+        print(f"{'='*60}\n")
+        
+        return {"code": code}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"⚠ Error reading person CODE: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error reading person CODE: {str(e)}")
 
 
 if __name__ == "__main__":

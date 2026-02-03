@@ -51,6 +51,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
   );
   const [quotationFrom, setQuotationFrom] = useState('');
   const [salesPersonName, setSalesPersonName] = useState('');
+  const [officePersonName, setOfficePersonName] = useState('');
   const [quotationNumber, setQuotationNumber] = useState('');
   const [revisionEnabled, setRevisionEnabled] = useState(false);
   const [revisionNumber, setRevisionNumber] = useState('0');
@@ -58,6 +59,8 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
   const [projectLocation, setProjectLocation] = useState('');
   const [numberOfTanks, setNumberOfTanks] = useState(1);
   const [gallonType, setGallonType] = useState('');
+  const [salesPersonOptions, setSalesPersonOptions] = useState<Array<{value: string; label: string}>>([]);
+  const [officePersonOptions, setOfficePersonOptions] = useState<Array<{value: string; label: string}>>([]);
   const [tanks, setTanks] = useState<TankData[]>([
     {
       tankNumber: 1,
@@ -279,6 +282,51 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
     gallonType, tanks, showSubTotal, showVat, showGrandTotal
   ]);
 
+  // Fetch office person names (shared function)
+  const fetchOfficePersons = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/person-names/office');
+      if (response.ok) {
+        const data = await response.json();
+        setOfficePersonOptions(
+          data.names.map((name: string) => ({ value: name, label: name }))
+        );
+      }
+    } catch (error) {
+      console.error('Error fetching office person names:', error);
+    }
+  };
+
+  // Fetch sales person names when quotationFrom changes to 'Sales'
+  useEffect(() => {
+    const fetchSalesPersons = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/person-names/sales');
+        if (response.ok) {
+          const data = await response.json();
+          setSalesPersonOptions(
+            data.names.map((name: string) => ({ value: name, label: name }))
+          );
+        }
+      } catch (error) {
+        console.error('Error fetching sales person names:', error);
+      }
+    };
+
+    if (quotationFrom === 'Sales') {
+      fetchSalesPersons();
+      // Also fetch office persons for the second field
+      fetchOfficePersons();
+    }
+  }, [quotationFrom]);
+
+  // Fetch office person names when quotationFrom changes to 'Office' or 'Sales'
+  useEffect(() => {
+    if (quotationFrom === 'Office' || quotationFrom === 'Sales') {
+      fetchOfficePersons();
+    }
+  }, [quotationFrom]);
+
   const handleExport = async () => {
     try {
       // Validate required fields
@@ -348,6 +396,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
             quotationDate: formattedDate,
             quotationFrom,
             salesPersonName,
+            officePersonName,
             quotationNumber,
             revisionEnabled,
             revisionNumber,
@@ -388,6 +437,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
           quotationDate: formattedDate,
           quotationFrom,
           salesPersonName,
+          officePersonName,
           quotationNumber,
           revisionEnabled,
           revisionNumber,
@@ -850,45 +900,57 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
 
 
             {quotationFrom === 'Sales' && (
-              <div>
-                <Label htmlFor="salesPerson">Sales Person Name</Label>
-                <AutocompleteInput
-                  options={[
-                    { value: 'Viwin Varghese (VM)', label: 'Viwin Varghese (VM)' },
-                    { value: 'Midhun Murali (MM)', label: 'Midhun Murali (MM)' },
-                    { value: 'Somiya Joy (SJ)', label: 'Somiya Joy (SJ)' },
-                    { value: 'AKSHAYA SHAJI (AS)', label: 'AKSHAYA SHAJI (AS)' },
-                    { value: 'Vismay Krishnan (VK)', label: 'Vismay Krishnan (VK)' },
-                    { value: 'LEYON PAUL (LP)', label: 'LEYON PAUL (LP)' },
-                  ]}
-                  value={salesPersonName}
-                  onValueChange={setSalesPersonName}
-                  placeholder="Type sales person name..."
+              <>
+                <div>
+                  <Label htmlFor="salesPerson">Sales Person Name</Label>
+                  <AutocompleteInput
+                    options={salesPersonOptions}
+                    value={salesPersonName}
+                    onValueChange={setSalesPersonName}
+                    placeholder="Type sales person name..."
                     id="salesPerson"
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        const next = document.querySelector('#officePersonSales');
+                        if (next) (next as HTMLElement).focus();
+                      }
+                    }}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="officePersonSales">Office Person Name</Label>
+                  <AutocompleteInput
+                    options={officePersonOptions}
+                    value={officePersonName}
+                    onValueChange={setOfficePersonName}
+                    placeholder="Type office person name..."
+                    id="officePersonSales"
                     onKeyDown={e => {
                       if (e.key === 'Enter') {
                         const next = document.querySelector('#quotationNumber');
                         if (next) (next as HTMLElement).focus();
                       }
                     }}
-                />
-              </div>
+                  />
+                </div>
+              </>
             )}
 
             {quotationFrom === 'Office' && (
               <div>
                 <Label htmlFor="officePerson">Office Person Name</Label>
-                <Input
-                  id="officePerson"
-                  value={salesPersonName}
-                  onChange={(e) => setSalesPersonName(e.target.value)}
+                <AutocompleteInput
+                  options={officePersonOptions}
+                  value={officePersonName}
+                  onValueChange={setOfficePersonName}
                   placeholder="Type office person name..."
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') {
-                        const next = document.querySelector('#quotationNumber');
-                        if (next) (next as HTMLElement).focus();
-                      }
-                    }}
+                  id="officePerson"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      const next = document.querySelector('#quotationNumber');
+                      if (next) (next as HTMLElement).focus();
+                    }
+                  }}
                 />
               </div>
             )}

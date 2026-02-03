@@ -165,7 +165,7 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
                 className="border-gray-300 focus:border-gray-500 focus:ring-2 focus:ring-gray-200 bg-white text-black"
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
-                    const next = document.querySelector(`#length-${tankNumber}-${idx}`);
+                    const next = document.querySelector(`#tankType-${tankNumber}-${idx}`);
                     if (next) (next as HTMLElement).focus();
                   }
                 }}
@@ -190,6 +190,7 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
           <div className="mb-3">
             <Label htmlFor={`tankType-${tankNumber}-${idx}`} className="font-medium text-black">Type of Tank</Label>
             <AutocompleteInput
+              id={`tankType-${tankNumber}-${idx}`}
               options={[
                 { value: 'HOT PRESSED – NON INSULATED', label: 'HOT PRESSED – NON INSULATED' },
                 { value: 'HOT PRESSED – 5 SIDE INSULATED (BOTTOM & MANHOLE NON – INSULATED)', label: 'HOT PRESSED – 5 SIDE INSULATED (BOTTOM & MANHOLE NON – INSULATED)' },
@@ -205,6 +206,12 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
               }}
               placeholder="Type tank type..."
               className="border-gray-300 focus:border-gray-500 focus:ring-2 focus:ring-gray-200 bg-white text-black"
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  const next = document.querySelector(`#length-${tankNumber}-${idx}`);
+                  if (next) (next as HTMLElement).focus();
+                }
+              }}
             />
           </div>
           <div className="mb-3">
@@ -273,7 +280,7 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
                   className="border-gray-300 focus:border-gray-500 focus:ring-2 focus:ring-gray-200 bg-white text-black"
                   onKeyDown={e => {
                     if (e.key === 'Enter') {
-                      const next = document.querySelector(`#unitPrice-${tankNumber}-${idx}`);
+                      const next = document.querySelector(`#unit-${tankNumber}-${idx}`);
                       if (next) (next as HTMLElement).focus();
                     }
                   }}
@@ -285,6 +292,7 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
             <div>
               <Label htmlFor={`unit-${tankNumber}-${idx}`} className="font-medium text-black">Unit</Label>
               <AutocompleteInput
+                id={`unit-${tankNumber}-${idx}`}
                 options={[
                   { value: 'Nos', label: 'Nos' },
                   { value: 'L', label: 'L' },
@@ -297,6 +305,12 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
                 }}
                 placeholder="Type unit..."
                 className="border-gray-300 focus:border-gray-500 focus:ring-2 focus:ring-gray-200 bg-white text-black"
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    const next = document.querySelector(`#unitPrice-${tankNumber}-${idx}`);
+                    if (next) (next as HTMLElement).focus();
+                  }
+                }}
               />
             </div>
             <div>

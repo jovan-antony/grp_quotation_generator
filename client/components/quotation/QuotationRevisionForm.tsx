@@ -220,6 +220,12 @@ export default function QuotationRevisionForm({
                     })
                   }
                   placeholder="Enter recipient name"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      const next = document.querySelector('#searchCompanyName');
+                      if (next) (next as HTMLElement).focus();
+                    }
+                  }}
                 />
               </div>
             )}
@@ -237,6 +243,12 @@ export default function QuotationRevisionForm({
                     })
                   }
                   placeholder="Enter company name"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      const next = document.querySelector('#searchDate');
+                      if (next) (next as HTMLElement).focus();
+                    }
+                  }}
                 />
               </div>
             )}
@@ -251,6 +263,12 @@ export default function QuotationRevisionForm({
                   onChange={(e) =>
                     setSearchValues({ ...searchValues, date: e.target.value })
                   }
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      const next = document.querySelector('#fromCompanyQuoteNo');
+                      if (next) (next as HTMLElement).focus();
+                    }
+                  }}
                 />
               </div>
             )}
@@ -260,6 +278,7 @@ export default function QuotationRevisionForm({
                 <Label>Quote Number Components</Label>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                   <Input
+                    id="fromCompanyQuoteNo"
                     placeholder="Company"
                     value={searchValues.fromCompany}
                     onChange={(e) =>
@@ -268,8 +287,15 @@ export default function QuotationRevisionForm({
                         fromCompany: e.target.value,
                       })
                     }
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        const next = document.querySelector('#yearMonthQuoteNo');
+                        if (next) (next as HTMLElement).focus();
+                      }
+                    }}
                   />
                   <Input
+                    id="yearMonthQuoteNo"
                     placeholder="YY/MM"
                     value={searchValues.yearMonth}
                     onChange={(e) =>
@@ -278,15 +304,29 @@ export default function QuotationRevisionForm({
                         yearMonth: e.target.value,
                       })
                     }
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        const next = document.querySelector('#seriesQuoteNo');
+                        if (next) (next as HTMLElement).focus();
+                      }
+                    }}
                   />
                   <Input
+                    id="seriesQuoteNo"
                     placeholder="Series"
                     value={searchValues.series}
                     onChange={(e) =>
                       setSearchValues({ ...searchValues, series: e.target.value })
                     }
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        const next = document.querySelector('#numberQuoteNo');
+                        if (next) (next as HTMLElement).focus();
+                      }
+                    }}
                   />
                   <Input
+                    id="numberQuoteNo"
                     placeholder="Number"
                     value={searchValues.quotationNumber}
                     onChange={(e) =>
@@ -295,6 +335,12 @@ export default function QuotationRevisionForm({
                         quotationNumber: e.target.value,
                       })
                     }
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        // Optionally focus search button or blur
+                        (e.target as HTMLElement).blur();
+                      }
+                    }}
                   />
                 </div>
               </div>
@@ -395,10 +441,17 @@ export default function QuotationRevisionForm({
                 value={revisionNumber}
                 onChange={(e) => setRevisionNumber(e.target.value)}
                 placeholder="Enter revision number"
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    const next = document.querySelector('#exportRevisionBtn');
+                    if (next) (next as HTMLElement).focus();
+                  }
+                }}
               />
             </div>
 
             <Button
+              id="exportRevisionBtn"
               onClick={handleExportRevision}
               className="w-full bg-white text-black py-6 text-lg"
             >

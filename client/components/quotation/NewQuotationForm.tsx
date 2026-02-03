@@ -747,6 +747,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
           <div>
             <Label htmlFor="fromCompany">From Company</Label>
             <AutocompleteInput
+              id="fromCompany"
               options={[
                 { value: 'GRP TANKS TRADING L.L.C', label: 'GRP TANKS TRADING L.L.C' },
                 { value: 'GRP PIPECO TANKS TRADING L.L.C', label: 'GRP PIPECO TANKS TRADING L.L.C' },
@@ -755,6 +756,12 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
               value={fromCompany}
               onValueChange={setFromCompany}
               placeholder="Type company name..."
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  const next = document.querySelector('#recipientTitle');
+                  if (next) (next as HTMLElement).focus();
+                }
+              }}
             />
           </div>
 
@@ -763,6 +770,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
               <div className="col-span-1">
                 <Label>Title</Label>
                 <AutocompleteInput
+                  id="recipientTitle"
                   options={[
                     { value: 'Mr.', label: 'Mr.' },
                     { value: 'Ms.', label: 'Ms.' },
@@ -770,6 +778,12 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                   value={recipientTitle}
                   onValueChange={setRecipientTitle}
                   placeholder="Type title..."
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      const next = document.querySelector('#recipientName');
+                      if (next) (next as HTMLElement).focus();
+                    }
+                  }}
                 />
               </div>
               <div className="col-span-3">
@@ -899,6 +913,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
             <div>
               <Label htmlFor="quotationFrom">Quotation From</Label>
               <AutocompleteInput
+                id="quotationFrom"
                 options={[
                   { value: 'Sales', label: 'Sales' },
                   { value: 'Office', label: 'Office' },
@@ -906,17 +921,20 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                 value={quotationFrom}
                 onValueChange={setQuotationFrom}
                 placeholder="Type source..."
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') {
-                      if (quotationFrom === 'Sales') {
-                        const next = document.querySelector('#salesPerson');
-                        if (next) (next as HTMLElement).focus();
-                      } else if (quotationFrom === 'Office') {
-                        const next = document.querySelector('#officePerson');
-                        if (next) (next as HTMLElement).focus();
-                      }
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    if (quotationFrom === 'Sales') {
+                      const next = document.querySelector('#salesPerson');
+                      if (next) (next as HTMLElement).focus();
+                    } else if (quotationFrom === 'Office') {
+                      const next = document.querySelector('#officePerson');
+                      if (next) (next as HTMLElement).focus();
+                    } else {
+                      const next = document.querySelector('#quotationNumber');
+                      if (next) (next as HTMLElement).focus();
                     }
-                  }}
+                  }
+                }}
               />
             </div>
 
@@ -1009,11 +1027,18 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
               </div>
               {revisionEnabled && (
                 <Input
+                  id="revisionNumber"
                   type="number"
                   value={revisionNumber}
                   onChange={(e) => setRevisionNumber(e.target.value)}
                   placeholder="Rev. No"
                   className="w-24"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      const next = document.querySelector('#subject');
+                      if (next) (next as HTMLElement).focus();
+                    }
+                  }}
                 />
               )}
             </div>
@@ -1043,8 +1068,8 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                 placeholder="Ajman."
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
-                    // End of Quotation Information section, optionally blur
-                    (e.target as HTMLElement).blur();
+                    const next = document.querySelector('#numberOfTanks');
+                    if (next) (next as HTMLElement).focus();
                   }
                 }}
               />
@@ -1068,6 +1093,12 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                 value={numberOfTanks}
                 onChange={(e) => handleNumberOfTanksChange(e.target.value)}
                 placeholder="Enter number of tanks"
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    const next = document.querySelector('#gallonType');
+                    if (next) (next as HTMLElement).focus();
+                  }
+                }}
               />
               <div className="flex flex-row gap-6 mt-4">
                 <div className="flex items-center gap-2">
@@ -1088,6 +1119,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
             <div>
               <Label htmlFor="gallonType">Gallon Type</Label>
               <AutocompleteInput
+                id="gallonType"
                 options={[
                   { value: 'US Gallons', label: 'US Gallons' },
                   { value: 'Imperial Gallons', label: 'Imperial Gallons' },
@@ -1095,6 +1127,13 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                 value={gallonType}
                 onValueChange={setGallonType}
                 placeholder="Type gallon type..."
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    // Focus first tank's first option's quantity input
+                    const next = document.querySelector('#quantity-1-0');
+                    if (next) (next as HTMLElement).focus();
+                  }
+                }}
               />
             </div>
           </div>

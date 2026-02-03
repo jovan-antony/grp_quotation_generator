@@ -2470,22 +2470,32 @@ class TankInvoiceGenerator:
             self._add_thank_you_section()
     
     def _add_note_section(self):
-        """Add NOTE section"""
+        """Add NOTE section as numbered list with heading 'Note:'"""
         # Add adjustable spacing before NOTE section
         if self.note_section_gap > 0:
             spacer = self.doc.add_paragraph()
             spacer.paragraph_format.space_before = Pt(self.note_section_gap)
             spacer.paragraph_format.space_after = Pt(0)
-        
-        # Add each note (first note includes NOTE heading)
-        for note in self.section_content['note']:
+
+        # Add heading 'Note:'
+        para = self.doc.add_paragraph()
+        para.paragraph_format.space_before = Pt(0)
+        para.paragraph_format.space_after = Pt(0)
+        run = para.add_run('Note:')
+        run.font.name = 'Calibri'
+        run.font.size = Pt(10)
+        run.font.bold = True
+
+        # Add each note as a numbered point
+        notes = self.section_content['note']
+        for idx, note in enumerate(notes, 1):
             para = self.doc.add_paragraph()
             para.paragraph_format.space_before = Pt(0)
             para.paragraph_format.space_after = Pt(0)
-            run = para.add_run(note)
+            run = para.add_run(f"{idx}. {note.strip()}")
             run.font.name = 'Calibri'
             run.font.size = Pt(9)
-            run.font.bold = True
+            run.font.bold = False
     
     def _add_closing_paragraph(self):
         """Add closing paragraph"""

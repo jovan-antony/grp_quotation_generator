@@ -343,7 +343,6 @@ async def generate_quotation(request: QuotationRequest):
             right_mobile = ""
             right_email = ""
             signature_image = ""
-            seal_image = ""
             
             try:
                 if sig_type == 's':  # UI "Sales"
@@ -377,16 +376,12 @@ async def generate_quotation(request: QuotationRequest):
                             if 'CODE' in sales_df.columns:
                                 code = str(selected_sales['CODE'])
                                 signs_dir = os.path.join(script_dir, 'signs&seals')
-                                # Look for signature and seal images
+                                # Look for signature image
                                 for ext in ['.png', '.jpg', '.jpeg']:
                                     if not signature_image:
                                         sign_path = os.path.join(signs_dir, f"{code}_sign{ext}")
                                         if os.path.exists(sign_path):
                                             signature_image = sign_path
-                                    if not seal_image:
-                                        seal_path = os.path.join(signs_dir, f"{code}_seal{ext}")
-                                        if os.path.exists(seal_path):
-                                            seal_image = seal_path
                     
                     # Right side: Office Person - reuse pm_df if already loaded
                     if pm_df is None:
@@ -459,16 +454,12 @@ async def generate_quotation(request: QuotationRequest):
                         if 'CODE' in pm_df.columns:
                             code = str(selected_pm['CODE'])
                             signs_dir = os.path.join(script_dir, 'signs&seals')
-                            # Look for signature and seal images
+                            # Look for signature image
                             for ext in ['.png', '.jpg', '.jpeg']:
                                 if not signature_image:
                                     sign_path = os.path.join(signs_dir, f"{code}_sign{ext}")
                                     if os.path.exists(sign_path):
                                         signature_image = sign_path
-                                if not seal_image:
-                                    seal_path = os.path.join(signs_dir, f"{code}_seal{ext}")
-                                    if os.path.exists(seal_path):
-                                        seal_image = seal_path
                     
                     # No right signatory for office
                     right_name = ""
@@ -495,8 +486,7 @@ async def generate_quotation(request: QuotationRequest):
                 'right_title': right_title,
                 'right_mobile': right_mobile,
                 'right_email': right_email,
-                'signature_image': signature_image,
-                'seal_image': seal_image,
+                'signature_image': signature_image
             }
         
         # Closing paragraph content

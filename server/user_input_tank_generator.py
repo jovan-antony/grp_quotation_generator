@@ -503,9 +503,8 @@ class TankInvoiceGenerator:
             right_mobile = ""
             right_email = ""
         
-        # Auto-fetch signature and seal images from signs&seals folder based on CODE
+        # Auto-fetch signature image from signs&seals folder based on CODE
         signature_image = ""
-        seal_image = ""
         
         # Get CODE for signature images
         if left_name:
@@ -526,17 +525,8 @@ class TankInvoiceGenerator:
                             signature_image = sign_path
                             print(f"✓ Found signature image: {sign_path}")
                             break
-                    # Look for seal image
-                    for ext in ['.png', '.jpg', '.jpeg']:
-                        seal_path = f"signs&seals/{code}_seal{ext}"
-                        if os.path.exists(seal_path):
-                            seal_image = seal_path
-                            print(f"✓ Found seal image: {seal_path}")
-                            break
                     if not signature_image:
                         print(f"⚠ Signature image not found for CODE: {code}")
-                    if not seal_image:
-                        print(f"⚠ Seal image not found for CODE: {code}")
             except Exception as e:
                 print(f"⚠ Error fetching signature images: {e}")
         
@@ -550,8 +540,7 @@ class TankInvoiceGenerator:
             'right_title': right_title,
             'right_mobile': right_mobile,
             'right_email': right_email,
-            'signature_image': signature_image,
-            'seal_image': seal_image
+            'signature_image': signature_image
         }
     
     def _configure_material_spec_section(self):
@@ -855,97 +844,7 @@ class TankInvoiceGenerator:
         print(f"✓ FIRST PAGE header final: {len(first_page_header.tables)} table(s), {len(first_page_header.paragraphs)} paragraph(s)")
         print(f"✓ PAGES 2+ header: {len(default_header.tables)} table(s) (should be 1 for quote box)")
     
-    def _add_seal_to_all_footers(self):
-        """Add seal image to all page footers in top-right corner with overlapping property"""
-        try:
-            print("\n" + "="*60)
-            print("ADDING SEAL TO FOOTERS")
-            print("="*60)
-            
-            # Get the section
-            section = self.doc.sections[0]
-            
-            # Get footers for all pages
-            first_page_footer = section.first_page_footer
-            default_footer = section.footer
-            
-            # Seal image path - check for pipeco_seal first, then fallback to others
-            seal_image = ""
-            signs_folder = 'signs&seals'
-            
-            # Check if signs&seals folder exists
-            if not os.path.exists(signs_folder):
-                print(f"⚠ '{signs_folder}' folder not found")
-                return
-            
-            # List all files in the folder for debugging
-            print(f"Files in '{signs_folder}':")
-            for file in os.listdir(signs_folder):
-                print(f"  - {file}")
-            
-            for seal_name in ['pipeco_seal', 'colex_seal', 'grp_seal']:
-                for ext in ['.png', '.jpg', '.jpeg']:
-                    seal_path = f"signs&seals/{seal_name}{ext}"
-                    if os.path.exists(seal_path):
-                        seal_image = seal_path
-                        print(f"✓ Found seal image: {seal_image}")
-                        break
-                if seal_image:
-                    break
-            
-            if not seal_image:
-                print("⚠ No seal image found in signs&seals folder")
-                return
-            
-            # Add seal to first page footer
-            print("\nAdding seal to first page footer...")
-            self._add_seal_to_footer(first_page_footer, seal_image)
-            
-            # Add seal to default footer (pages 2+)
-            print("Adding seal to default footer (pages 2+)...")
-            self._add_seal_to_footer(default_footer, seal_image)
-            
-            print(f"\n✓ Successfully added seal to all page footers")
-            print("="*60 + "\n")
-            
-        except Exception as e:
-            print(f"⚠ Error adding seal to footers: {e}")
-            import traceback
-            traceback.print_exc()
-    
-    def _add_seal_to_footer(self, footer, seal_image_path):
-        """Add seal image to a specific footer with top-right positioning"""
-        try:
-            # Add a paragraph at the beginning of footer for the seal
-            if len(footer.paragraphs) > 0:
-                # Insert at the beginning
-                p = footer.paragraphs[0]._element
-                parent = p.getparent()
-                new_para_elem = OxmlElement('w:p')
-                parent.insert(0, new_para_elem)
-                # Get the new paragraph object
-                para = footer.paragraphs[0]
-            else:
-                para = footer.add_paragraph()
-            
-            # Set paragraph alignment to right
-            para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-            
-            # Remove all spacing to minimize footer height impact
-            para.paragraph_format.space_before = Pt(0)
-            para.paragraph_format.space_after = Pt(0)
-            para.paragraph_format.line_spacing = 1.0
-            
-            # Add the image
-            run = para.add_run()
-            picture = run.add_picture(seal_image_path, width=Inches(1.0))
-            
-            print(f"✓ Seal image added to footer: {seal_image_path}")
-            
-        except Exception as e:
-            print(f"⚠ Error adding seal to footer: {e}")
-            import traceback
-            traceback.print_exc()
+    # Seal image insertion removed - no longer adding seal to footers
     
     def _add_quote_box_to_header(self, header):
         """Add the quote box table to a specific header"""
@@ -1495,8 +1394,7 @@ class TankInvoiceGenerator:
         # Ensure all tables are deleted from first page header (per user request)
         self.delete_tables_in_first_page_header()
         
-        # Add seal to all page footers
-        self._add_seal_to_all_footers()
+        # Seal insertion removed - no longer adding seal to footers
         
         # Add quotation header before table
         self._create_quotation_header()
@@ -2650,7 +2548,8 @@ class TankInvoiceGenerator:
                 para.paragraph_format.keep_with_next = True
                 para.paragraph_format.keep_together = True
                 run = para.add_run()
-                run.add_picture(self.section_content['signature']['signature_image'], width=Inches(2))
+                # Signature image size reduced from 2 inches to 1.2 inches for better appearance
+                run.add_picture(self.section_content['signature']['signature_image'], width=Inches(0.9))
             except:
                 # Add placeholder text if image not found
                 para = self.doc.add_paragraph('[Signature Image]')
@@ -2680,7 +2579,7 @@ class TankInvoiceGenerator:
         
         # Set table indent
         tblInd = OxmlElement('w:tblInd')
-        tblInd.set(qn('w:w'), '360')  # 360 twips = 0.25 inches indent (matching client info table)
+        tblInd.set(qn('w:w'), '72')  # Reduced indent: 72 twips = 0.05 inches (smaller left indent)
         tblInd.set(qn('w:type'), 'dxa')
         tblPr.append(tblInd)
         
@@ -2743,7 +2642,7 @@ class TankInvoiceGenerator:
                                 self.section_content['signature']['left_mobile'],
                                 self.section_content['signature']['left_email'])
         
-        # Right signatory with seal
+        # Right signatory
         right_cell = row.cells[1]
         # Set cell width using XML (3900 twips = 2.5 inches) 
         tcW = OxmlElement('w:tcW')
@@ -2764,15 +2663,7 @@ class TankInvoiceGenerator:
                                 self.section_content['signature']['right_email'])
         
         # Add seal if provided (outside the table, floating to the right)
-        if self.section_content['signature'].get('seal_image'):
-            try:
-                para = self.doc.add_paragraph()
-                para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-                run = para.add_run()
-                run.add_picture(self.section_content['signature']['seal_image'], width=Inches(1.5))
-            except:
-                para = self.doc.add_paragraph('[Seal Image]')
-                para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        # Seal image insertion removed as requested
     
     def _add_signatory_info_table(self, cell, name, title, mobile, email):
         """Add signatory information to a cell in table format"""

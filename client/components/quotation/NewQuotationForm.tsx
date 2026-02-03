@@ -59,6 +59,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
   const [projectLocation, setProjectLocation] = useState('');
   const [numberOfTanks, setNumberOfTanks] = useState(1);
   const [gallonType, setGallonType] = useState('');
+  const [personCode, setPersonCode] = useState(''); // CODE from Excel
   const [salesPersonOptions, setSalesPersonOptions] = useState<Array<{value: string; label: string}>>([]);
   const [officePersonOptions, setOfficePersonOptions] = useState<Array<{value: string; label: string}>>([]);
   const [tanks, setTanks] = useState<TankData[]>([
@@ -149,13 +150,12 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
     const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
     const yymm = `${yy}${mm}`;
     
-    // Extract sales code
-    const salesCode = salesPersonName && salesPersonName.includes('(') 
-      ? salesPersonName.split('(')[1].split(')')[0] 
-      : (quotationFrom === 'Office' ? 'OFC' : '');
+    // Use CODE from Excel (fetched based on selected person)
+    // Show empty if no person selected, otherwise show CODE or XX as fallback
+    const codeForQuote = personCode || (quotationFrom ? 'XX' : '');
     
     const fullQuoteNumber = quotationNumber 
-      ? `${companyCode}/${yymm}/${salesCode}/${quotationNumber}` 
+      ? `${companyCode}/${yymm}/${codeForQuote}/${quotationNumber}` 
       : '';
 
     // Calculate tank totals
@@ -279,8 +279,32 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
     fromCompany, recipientTitle, recipientName, role, companyName, location,
     phoneNumber, email, quotationDate, quotationFrom, salesPersonName,
     quotationNumber, revisionEnabled, revisionNumber, subject, projectLocation,
-    gallonType, tanks, showSubTotal, showVat, showGrandTotal
+    gallonType, tanks, showSubTotal, showVat, showGrandTotal, personCode, officePersonName
   ]);
+
+  // Fetch CODE from Excel based on person name and type
+  const fetchPersonCode = async (personName: string, personType: 'sales' | 'office') => {
+    if (!personName) {
+      setPersonCode('');
+      return;
+    }
+    
+    try {
+      console.log(`Fetching CODE for: ${personName} (${personType})`);
+      const response = await fetch(`http://localhost:8000/api/person-code?name=${encodeURIComponent(personName)}&type=${personType}`);
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`Received CODE: ${data.code}`);
+        setPersonCode(data.code || 'XX');
+      } else {
+        console.error('Failed to fetch CODE:', response.status);
+        setPersonCode('XX');
+      }
+    } catch (error) {
+      console.error('Error fetching person CODE:', error);
+      setPersonCode('XX');
+    }
+  };
 
   // Fetch office person names (shared function)
   const fetchOfficePersons = async () => {
@@ -318,6 +342,8 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
       // Also fetch office persons for the second field
       fetchOfficePersons();
     }
+    // Reset personCode when quotation type changes
+    setPersonCode('');
   }, [quotationFrom]);
 
   // Fetch office person names when quotationFrom changes to 'Office' or 'Sales'
@@ -326,6 +352,20 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
       fetchOfficePersons();
     }
   }, [quotationFrom]);
+
+  // Fetch CODE when salesPersonName changes (for Sales quotations)
+  useEffect(() => {
+    if (quotationFrom === 'Sales' && salesPersonName) {
+      fetchPersonCode(salesPersonName, 'sales');
+    }
+  }, [salesPersonName, quotationFrom]);
+
+  // Fetch CODE when officePersonName changes (for Office quotations)
+  useEffect(() => {
+    if (quotationFrom === 'Office' && officePersonName) {
+      fetchPersonCode(officePersonName, 'office');
+    }
+  }, [officePersonName, quotationFrom]);
 
   const handleExport = async () => {
     try {

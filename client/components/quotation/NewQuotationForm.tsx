@@ -235,14 +235,9 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
           </div>
         </div>
 
-<<<<<<< HEAD
-        ${subject ? `<p><strong>Subject:</strong> ${subject}</p>` : ''}
-        ${projectLocation ? `<p><strong>Project Location:</strong> ${projectLocation}</p>` : ''}
-        ${additionalDetails.map(detail => detail.key && detail.value ? `<p><strong>${detail.key}:</strong> ${detail.value}</p>` : '').join('')}
-=======
-        ${subject ? `<p style="margin-bottom: 12px; color: #374151; font-size: 13px;"><strong style="color: #111827;">Subject:</strong> ${subject}</p>` : ''}
-        ${projectLocation ? `<p style="margin-bottom: 12px; color: #374151; font-size: 13px;"><strong style="color: #111827;">Project Location:</strong> ${projectLocation}</p>` : ''}
->>>>>>> 3493c0ce42892df110add895c0ca8bd0eb9aede1
+  ${subject ? `<p style="margin-bottom: 12px; color: #374151; font-size: 13px;"><strong style="color: #111827;">Subject:</strong> ${subject}</p>` : ''}
+  ${projectLocation ? `<p style="margin-bottom: 12px; color: #374151; font-size: 13px;"><strong style="color: #111827;">Project Location:</strong> ${projectLocation}</p>` : ''}
+  ${additionalDetails.map(detail => detail.key && detail.value ? `<p style=\"margin-bottom: 12px; color: #374151; font-size: 13px;\"><strong style=\"color: #111827;\">${detail.key}:</strong> ${detail.value}</p>` : '').join('')}
 
         <div style="margin: 20px 0; border-radius: 12px; overflow: hidden; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);">
           <table style="width: 100%; border-collapse: collapse; font-size: 12px;">

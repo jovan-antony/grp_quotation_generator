@@ -603,10 +603,10 @@ class TankInvoiceGenerator:
     def _configure_terms_section(self):
         """Configure terms and conditions section"""
         default_terms = {
-            'Price   ': 'The given prices are based on the supply and installation of the tank at your proposed site.',
+            'Price'   : 'The given prices are based on the supply and installation of the tank at your proposed site.',
             'Validity': 'The offer is valid for 30 days only.',
             'Delivery': 'One week from the receipt of advance payment.',
-            'Payment ': 'Cash/CDC. 40% advance along with the confirmed order and 60% upon delivery of the material at the site. (In the event of late payment, a late payment charge of 2% per month on the contract value will be applied till the outstanding payment is settled).'
+            'Payment' : 'Cash/CDC. 40% advance along with the confirmed order and 60% upon delivery of the material at the site. (In the event of late payment, a late payment charge of 2% per month on the contract value will be applied till the outstanding payment is settled).'
         }
         
         print("\nDefault TERMS AND CONDITIONS:")
@@ -790,6 +790,24 @@ class TankInvoiceGenerator:
                 common_elements.append(("skid", first_skid))
         
         return common_elements
+    
+    def _get_common_support_system(self):
+        """Check if all tanks have the same support system"""
+        if len(self.tanks) == 0:
+            return None
+        
+        first_support = self.tanks[0].get("support_system", "Internal")
+        if all(tank.get("support_system", "Internal") == first_support for tank in self.tanks):
+            return first_support
+        return None  # Mixed support systems
+    
+    def _get_support_system_text(self, support_type):
+        """Get the description text for a support system type"""
+        if support_type == "External":
+            return "EXTERNAL REINFORCEMENT SYSTEM"
+        else:  # Internal or default
+            return "INTERNAL SS 316 AND EXTERNAL HDG SUPPORT SYSTEM"
+
     
     def _add_header_to_all_pages(self):
         """Add quote box ONLY to pages 2+ header, keep first page header with template elements only"""
@@ -1861,8 +1879,12 @@ class TankInvoiceGenerator:
                 # Don't add brackets if it's in the common row
                 common_text += f" - {element_value}"
         
-        # Add INTERNAL SS 316 text (permanent for all quotations)
-        common_text += " - INTERNAL SS 316 AND EXTERNAL HDG SUPPORT SYSTEM "
+        # Check if all tanks have the same support system
+        common_support = self._get_common_support_system()
+        if common_support:
+            # All tanks have the same support system, add to common row
+            support_text = self._get_support_system_text(common_support)
+            common_text += f" - {support_text} "
         
         # Set the text in the merged cell
         cell = self.table.rows[1].cells[0]
@@ -1921,12 +1943,34 @@ class TankInvoiceGenerator:
         option_total = tank.get('option_total', 1)
         option_roman = tank.get('option_roman', '')
         
+        # Check if support systems are mixed across tanks
+        common_support = self._get_common_support_system()
+        
         if option_total > 1:
-            # Add "OPTION {roman}" before tank details
-            run = paragraph.add_run(f"OPTION {option_roman}\n")
-            run.font.bold = True
-            run.font.name = 'Calibri'
-            run.font.size = Pt(10)
+            # When there are options, check if we need to add support system on same line
+            if common_support is None:
+                # Mixed support systems - add support system text after OPTION on same line
+                tank_support = tank.get('support_system', 'Internal')
+                support_text = self._get_support_system_text(tank_support)
+                run = paragraph.add_run(f"OPTION {option_roman} - {support_text}\n")
+                run.font.bold = True
+                run.font.name = 'Calibri'
+                run.font.size = Pt(10)
+            else:
+                # All same support system - just add OPTION label
+                run = paragraph.add_run(f"OPTION {option_roman}\n")
+                run.font.bold = True
+                run.font.name = 'Calibri'
+                run.font.size = Pt(10)
+        else:
+            # No options - if mixed support, add support system text above tank name
+            if common_support is None:
+                tank_support = tank.get('support_system', 'Internal')
+                support_text = self._get_support_system_text(tank_support)
+                run = paragraph.add_run(f"{support_text}\n")
+                run.font.bold = True
+                run.font.name = 'Calibri'
+                run.font.size = Pt(10)
         
         # Tank name with underline and optionally skid in brackets
         if tank['name']:
@@ -2752,6 +2796,7 @@ class TankInvoiceGenerator:
             para.paragraph_format.space_before = Pt(0)
             para.paragraph_format.space_after = Pt(0)
             para.paragraph_format.left_indent = Inches(0.5)
+            para.paragraph_format.first_line_indent = Inches(-0.25)
             run = para.add_run(f'➢  {spec}')
             run.font.name = 'Calibri'
             run.font.size = Pt(10)
@@ -2778,6 +2823,7 @@ class TankInvoiceGenerator:
             para.paragraph_format.space_before = Pt(0)
             para.paragraph_format.space_after = Pt(0)
             para.paragraph_format.left_indent = Inches(0.5)
+            para.paragraph_format.first_line_indent = Inches(-0.25)
             run = para.add_run(f'➢  {item}')
             run.font.name = 'Calibri'
             run.font.size = Pt(10)
@@ -2785,7 +2831,7 @@ class TankInvoiceGenerator:
     def _add_terms_section(self):
         """Add terms and conditions section"""
         spacer = self.doc.add_paragraph()
-        spacer.paragraph_format.space_before = Pt(12)
+        spacer.paragraph_format.space_before = Pt(0)
         spacer.paragraph_format.space_after = Pt(0)
         
         # Heading
@@ -2797,16 +2843,24 @@ class TankInvoiceGenerator:
         run.font.size = Pt(10)
         run.font.bold = True
         
-        # Add each term
+        # Add each term with specific spacing before colon for alignment
+        spacing_map = {
+            'Price': '         ',      # 9 spaces
+            'Validity': '    ',         # 4 spaces
+            'Delivery': '    ',         # 4 spaces
+            'Payment': '  '             # 2 spaces
+        }
+        
         for key, value in self.section_content['terms'].items():
             para = self.doc.add_paragraph()
             para.paragraph_format.space_before = Pt(0)
             para.paragraph_format.space_after = Pt(0)
             para.paragraph_format.left_indent = Inches(0.5)
-            run = para.add_run(f'➢  {key}')
-            run.font.name = 'Calibri'
-            run.font.size = Pt(10)
-            run = para.add_run(f'                 : {value}')
+            para.paragraph_format.first_line_indent = Inches(-0.25)
+            
+            # Get spacing for this key, default to 2 spaces if not in map
+            spacing = spacing_map.get(key, '  ')
+            run = para.add_run(f'➢  {key}{spacing}: {value}')
             run.font.name = 'Calibri'
             run.font.size = Pt(10)
     
@@ -2832,6 +2886,7 @@ class TankInvoiceGenerator:
             para.paragraph_format.space_before = Pt(0)
             para.paragraph_format.space_after = Pt(0)
             para.paragraph_format.left_indent = Inches(0.5)
+            para.paragraph_format.first_line_indent = Inches(-0.25)
             if company_name in item:
                 before, after = item.split(company_name, 1)
                 run = para.add_run('➢  ' + before)
@@ -2870,6 +2925,7 @@ class TankInvoiceGenerator:
             para.paragraph_format.space_before = Pt(0)
             para.paragraph_format.space_after = Pt(0)
             para.paragraph_format.left_indent = Inches(0.5)
+            para.paragraph_format.first_line_indent = Inches(-0.25)
             run = para.add_run(f'➢  {item}')
             run.font.name = 'Calibri'
             run.font.size = Pt(10)
@@ -2895,6 +2951,7 @@ class TankInvoiceGenerator:
             para.paragraph_format.space_before = Pt(0)
             para.paragraph_format.space_after = Pt(0)
             para.paragraph_format.left_indent = Inches(0.5)
+            para.paragraph_format.first_line_indent = Inches(-0.25)
             run = para.add_run(f'➢  {item}')
             run.font.name = 'Calibri'
             run.font.size = Pt(10)
@@ -2921,6 +2978,7 @@ class TankInvoiceGenerator:
             para.paragraph_format.space_before = Pt(0)
             para.paragraph_format.space_after = Pt(0)
             para.paragraph_format.left_indent = Inches(0.5)
+            para.paragraph_format.first_line_indent = Inches(-0.25)
             
             # Check if this note contains the company name
             if company_name in note:

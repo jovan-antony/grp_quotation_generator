@@ -144,14 +144,14 @@ export default function QuotationRevisionForm({
 
   return (
     <div className="space-y-6">
-      <Card className="shadow-lg border-0">
-        <CardHeader className="bg-white text-black t-xl">
-          <CardTitle className="flex items-center">
+      <Card className="border border-blue-200 rounded-xl shadow-sm bg-white">
+        <CardHeader className="bg-white text-blue-600 border-b border-blue-200 rounded-t-xl px-6 py-4">
+          <CardTitle className="flex items-center text-base font-semibold">
             <Filter className="mr-2 h-5 w-5" />
             Search Filters
           </CardTitle>
         </CardHeader>
-        <CardContent className="pt-6 space-y-4">
+        <CardContent className="pt-6 space-y-4 px-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
             <div className="flex items-center space-x-2">
               <Checkbox
@@ -349,7 +349,7 @@ export default function QuotationRevisionForm({
 
           <Button
             onClick={handleSearch}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+            className="w-full bg-blue-400 hover:bg-blue-500 text-white rounded-lg transition-colors duration-200 shadow-sm font-medium"
           >
             <Search className="mr-2 h-4 w-4" />
             Search Quotations
@@ -358,19 +358,19 @@ export default function QuotationRevisionForm({
       </Card>
 
       {quotations.length > 0 && (
-        <Card className="shadow-lg border-0">
-          <CardHeader className="bg-white text-black t-xl">
-            <CardTitle>Search Results ({quotations.length})</CardTitle>
+        <Card className="border border-blue-200 rounded-xl shadow-sm bg-white">
+          <CardHeader className="bg-white text-blue-600 border-b border-blue-200 rounded-t-xl px-6 py-4">
+            <CardTitle className="text-base font-semibold">Search Results ({quotations.length})</CardTitle>
           </CardHeader>
-          <CardContent className="pt-6">
+          <CardContent className="pt-6 px-6">
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {quotations.map((quotation) => (
                 <div
                   key={quotation.id}
-                  className={`p-4 border-2 lg cursor-pointer transition-all ${
+                  className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
                     selectedQuotation?.id === quotation.id
-                      ? 'border-black bg-white'
-                      : 'border-slate-200 hover:border-black'
+                      ? 'border-blue-400 bg-blue-50/50'
+                      : 'border-blue-200 hover:border-blue-300'
                   }`}
                   onClick={() => handleSelectQuotation(quotation)}
                 >
@@ -400,12 +400,12 @@ export default function QuotationRevisionForm({
       )}
 
       {selectedQuotation && (
-        <Card className="shadow-lg border-0">
-          <CardHeader className="bg-white text-black t-xl">
-            <CardTitle>Selected Quotation Details</CardTitle>
+        <Card className="border border-blue-200 rounded-xl shadow-sm bg-white">
+          <CardHeader className="bg-white text-blue-600 border-b border-blue-200 rounded-t-xl px-6 py-4">
+            <CardTitle className="text-base font-semibold">Selected Quotation Details</CardTitle>
           </CardHeader>
-          <CardContent className="pt-6 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 lg">
+          <CardContent className="pt-6 space-y-4 px-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 rounded-lg">
               <div>
                 <span className="font-semibold">From:</span>{' '}
                 {selectedQuotation.from_company}
@@ -453,7 +453,7 @@ export default function QuotationRevisionForm({
             <Button
               id="exportRevisionBtn"
               onClick={handleExportRevision}
-              className="w-full bg-white text-black py-6 text-lg"
+              className="w-full bg-blue-400 hover:bg-blue-500 text-white py-6 text-base rounded-xl transition-colors duration-200 shadow-sm font-medium"
             >
               <FileDown className="mr-2 h-5 w-5" />
               Export Quotation Revision

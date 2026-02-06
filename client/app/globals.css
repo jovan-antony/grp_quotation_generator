@@ -6,9 +6,11 @@
 
 :root {
   --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 248, 250, 252;
-  --background-end-rgb: 241, 245, 249;
+  --background-start-rgb: 249, 250, 251;
+  --background-end-rgb: 243, 244, 246;
   --font-poppins: 'Poppins', sans-serif;
+  --blue-400: 96, 165, 250;
+  --blue-500: 59, 130, 246;
 }
 
 * {

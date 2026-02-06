@@ -1,8 +1,8 @@
 # 📄 GRP Quotation Generator
 
-**Automated quotation document generator for GRP water tanks**
+**Automated quotation document generator for GRP water tanks with PostgreSQL database**
 
-Generate professional Word documents (`.docx`) for quotations with one click. Supports multiple company templates (GRP, PIPECO, COLEX) with automatic calculations, customizable terms, and signature management.
+Generate professional Word documents (`.docx`) for quotations with one click. Supports multiple company templates (GRP, PIPECO, COLEX) with automatic calculations, customizable terms, signature management, and full database storage.
 
 ---
 
@@ -15,12 +15,53 @@ Generate professional Word documents (`.docx`) for quotations with one click. Su
 - ✍️ **Signature Management** - Sales and office signatories
 - 📥 **Instant Export** - Generate professional Word documents
 - 🌐 **Web Interface** - User-friendly form-based UI
+- 🗄️ **PostgreSQL Database** - Full data persistence with 6 tables
+
+---
+
+## 📋 Prerequisites
+
+### Required Software
+
+1. **PostgreSQL** (Database)
+   - Download: https://www.postgresql.org/download/windows/
+   - Version: 12 or higher
+   - During installation, remember your password for 'postgres' user
+
+2. **Python** (Backend)
+   - Version: 3.8 or higher
+   - Download: https://www.python.org/downloads/
+
+3. **Node.js** (Frontend)
+   - Version: 18 or higher
+   - Download: https://nodejs.org/
 
 ---
 
 ## 🚀 Quick Start
 
-### **Fastest Way (1-Click)**
+### **Step 1: Setup Database (First Time Only)**
+
+After installing PostgreSQL, run:
+
+```powershell
+cd server
+SETUP_DATABASE.bat
+```
+
+This will:
+- ✓ Create the `grp_quotation` database
+- ✓ Create all 6 tables (company_details, recipient_details, sales_details, project_manager_details, contractual_terms_specifications, quotation_webpage_input_details_save)
+- ✓ Set up triggers and indexes
+- ✓ Insert sample company data
+- ✓ Install Python dependencies
+- ✓ Test database connection
+
+See [DATABASE_SETUP_COMPLETE.md](DATABASE_SETUP_COMPLETE.md) for details.
+
+### **Step 2: Start Application**
+
+**Fastest Way (1-Click):**
 
 ```powershell
 # Just double-click this file:
@@ -29,7 +70,7 @@ START_HERE.bat
 
 This will start everything and open your browser automatically.
 
-### **Manual Start**
+**OR Manual Start:**
 
 **Terminal 1 - Backend:**
 ```powershell
@@ -47,10 +88,21 @@ Then visit: **http://localhost:3000**
 
 ---
 
-## 📋 Prerequisites
+## 🗄️ Database Structure
 
-- **Python 3.8+** - [Download](https://www.python.org/downloads/)
-- **Node.js 18+** - [Download](https://nodejs.org/)
+The system uses 6 PostgreSQL tables:
+
+1. **company_details** - Company information (GRP, PIPECO, COLEX)
+2. **recipient_details** - Client/customer information
+3. **sales_details** - Sales personnel details
+4. **project_manager_details** - Project manager details
+5. **contractual_terms_specifications** - Terms, conditions, warranty, scope
+6. **quotation_webpage_input_details_save** - Main quotation storage (with flexible JSONB for varying tanks)
+
+**Database Documentation:**
+- 📋 [Quick Reference](server/DATABASE_QUICK_REF.md) - Commands and queries
+- 📖 [Complete Structure](server/DATABASE_STRUCTURE.md) - Detailed table info
+- 🎨 [Visual Guide](server/DATABASE_VISUAL_GUIDE.md) - Diagrams and flow
 
 ---
 

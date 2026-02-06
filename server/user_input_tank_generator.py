@@ -41,6 +41,7 @@ class TankInvoiceGenerator:
         self.tanks = []
         self.gallon_type = "USG"  # Default
         self.template_path = template_path
+        self.additional_details = []  # List of tuples: [(key, value), ...]
         self.note_section_gap = 6  # Default gap before NOTE section in points (adjustable)
         self.closing_paragraph_gap = 6  # Default gap before closing paragraph in points (adjustable)
         
@@ -1777,6 +1778,25 @@ class TankInvoiceGenerator:
         run.font.bold = True
         run.underline = True
         
+        # Additional details (if any)
+        if hasattr(self, 'additional_details') and self.additional_details:
+            for detail_key, detail_value in self.additional_details:
+                if detail_key and detail_value:  # Only add if both key and value exist
+                    detail_para = self.doc.add_paragraph()
+                    detail_para.paragraph_format.space_before = Pt(0)
+                    detail_para.paragraph_format.space_after = Pt(0)
+                    # Pad the key to match alignment with "Project" line (19 chars before colon)
+                    padded_key = f"{detail_key:<19}: "
+                    run = detail_para.add_run(padded_key)
+                    run.font.name = 'Calibri'
+                    run.font.size = Pt(10)
+                    run.font.bold = True
+                    run = detail_para.add_run(detail_value)
+                    run.font.name = 'Calibri'
+                    run.font.size = Pt(10)
+                    run.font.bold = True
+                    run.underline = True
+        
         # Add spacing
         spacer = self.doc.add_paragraph()
         spacer.paragraph_format.space_before = Pt(0)  # Remove gap
@@ -2487,7 +2507,7 @@ class TankInvoiceGenerator:
         run.font.size = Pt(10)
         run.font.bold = True
 
-        # Add each note as a numbered point
+        # Add each note as a numbered point - NOW WITH BOLD TEXT
         notes = self.section_content['note']
         for idx, note in enumerate(notes, 1):
             para = self.doc.add_paragraph()
@@ -2496,7 +2516,7 @@ class TankInvoiceGenerator:
             run = para.add_run(f"{idx}. {note.strip()}")
             run.font.name = 'Calibri'
             run.font.size = Pt(9)
-            run.font.bold = False
+            run.font.bold = True  # Changed from False to True
     
     def _add_closing_paragraph(self):
         """Add closing paragraph"""

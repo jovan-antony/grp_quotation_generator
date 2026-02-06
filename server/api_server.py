@@ -54,6 +54,10 @@ class TermSection(BaseModel):
     details: List[str]
     custom: List[str]
 
+class AdditionalDetail(BaseModel):
+    key: str
+    value: str
+
 class QuotationRequest(BaseModel):
     fromCompany: str
     recipientTitle: str
@@ -72,6 +76,7 @@ class QuotationRequest(BaseModel):
     revisionNumber: str
     subject: str
     projectLocation: str
+    additionalDetails: Optional[List[AdditionalDetail]] = []
     gallonType: str
     numberOfTanks: int
     showSubTotal: bool
@@ -150,6 +155,7 @@ async def generate_quotation(request: QuotationRequest):
         generator.quote_number = constructed_quote_number
         generator.subject = request.subject
         generator.project = request.projectLocation
+        generator.additional_details = [(detail.key, detail.value) for detail in request.additionalDetails] if request.additionalDetails else []
         generator.gallon_type = request.gallonType
         
         # Process tanks data - convert from UI format to generator format

@@ -57,6 +57,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
   const [revisionNumber, setRevisionNumber] = useState('0');
   const [subject, setSubject] = useState('');
   const [projectLocation, setProjectLocation] = useState('');
+  const [additionalDetails, setAdditionalDetails] = useState<Array<{key: string; value: string}>>([]);
   const [numberOfTanks, setNumberOfTanks] = useState(1);
   const [gallonType, setGallonType] = useState('');
   const [personCode, setPersonCode] = useState(''); // CODE from Excel
@@ -232,6 +233,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
 
         ${subject ? `<p><strong>Subject:</strong> ${subject}</p>` : ''}
         ${projectLocation ? `<p><strong>Project Location:</strong> ${projectLocation}</p>` : ''}
+        ${additionalDetails.map(detail => detail.key && detail.value ? `<p><strong>${detail.key}:</strong> ${detail.value}</p>` : '').join('')}
 
         <div style="margin: 20px 0;">
           <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
@@ -279,7 +281,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
     fromCompany, recipientTitle, recipientName, role, companyName, location,
     phoneNumber, email, quotationDate, quotationFrom, salesPersonName,
     quotationNumber, revisionEnabled, revisionNumber, subject, projectLocation,
-    gallonType, tanks, showSubTotal, showVat, showGrandTotal, personCode, officePersonName
+    additionalDetails, gallonType, tanks, showSubTotal, showVat, showGrandTotal, personCode, officePersonName
   ]);
 
   // Fetch CODE from Excel based on person name and type
@@ -442,6 +444,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
             revisionNumber,
             subject,
             projectLocation,
+            additionalDetails,
             gallonType: formattedGallonType,
             numberOfTanks: tanks.length,
             showSubTotal,
@@ -483,6 +486,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
           revisionNumber,
           subject,
           projectLocation,
+          additionalDetails,
           gallonType: formattedGallonType,
           numberOfTanks,
           showSubTotal,
@@ -836,7 +840,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
             </div>
 
             <div>
-              <Label htmlFor="location">Location (Optional)</Label>
+              <Label htmlFor="location">Company Location (Optional)</Label>
               <Input
                 id="location"
                 value={location}
@@ -1073,6 +1077,64 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                   }
                 }}
               />
+            </div>
+
+            {/* Additional Details Section */}
+            <div className="md:col-span-2">
+              <Label className="mb-2 block">Additional Details (Optional)</Label>
+              <div className="space-y-2">
+                {additionalDetails.map((detail, idx) => (
+                  <div key={idx} className="grid grid-cols-12 gap-2">
+                    <div className="col-span-4">
+                      <Input
+                        placeholder="e.g., Client"
+                        value={detail.key}
+                        onChange={(e) => {
+                          const newDetails = [...additionalDetails];
+                          newDetails[idx].key = e.target.value;
+                          setAdditionalDetails(newDetails);
+                        }}
+                      />
+                    </div>
+                    <div className="col-span-7">
+                      <Input
+                        placeholder="e.g., Rohit"
+                        value={detail.value}
+                        onChange={(e) => {
+                          const newDetails = [...additionalDetails];
+                          newDetails[idx].value = e.target.value;
+                          setAdditionalDetails(newDetails);
+                        }}
+                      />
+                    </div>
+                    <div className="col-span-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setAdditionalDetails(additionalDetails.filter((_, i) => i !== idx));
+                        }}
+                        className="h-10 w-10"
+                      >
+                        <Trash2 className="h-4 w-4 text-red-600" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setAdditionalDetails([...additionalDetails, { key: '', value: '' }]);
+                  }}
+                  className="w-full border-dashed"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Additional Detail
+                </Button>
+              </div>
             </div>
           </div>
         </CardContent>

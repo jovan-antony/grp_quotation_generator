@@ -24,6 +24,7 @@ interface TankFormProps {
       unitPrice: string;
       needFreeBoard?: boolean;
       freeBoardSize?: string;
+      supportSystem?: string;
     }>;
   };
   onChange: (data: any) => void;
@@ -34,7 +35,7 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
     <form className="max-w-2xl mx-auto py-6 bg-white">
       <div className="mb-8">
         <h2 className="text-xl font-semibold text-black mb-1">Tank {tankNumber} Details</h2>
-        <hr className="border-gray-200 mb-6" />
+        <hr className="border-blue-200 mb-6" />
         <div className="flex flex-wrap items-center gap-3 mb-6">
           <Checkbox
             id={`option-${tankNumber}`}
@@ -42,7 +43,7 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
             onCheckedChange={(checked) =>
               onChange({ ...data, optionEnabled: checked as boolean })
             }
-            className="accent-gray-600"
+            className="accent-blue-500"
           />
           <Label htmlFor={`option-${tankNumber}`} className="cursor-pointer font-medium text-base text-black">
             Enable Option Numbers
@@ -65,11 +66,12 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
                     height: '',
                     unit: '',
                     unitPrice: '',
+                    supportSystem: 'Internal',
                   }
                 );
                 onChange({ ...data, optionNumbers: newCount, options: newOptions });
               }}
-              className="w-20 border-gray-200 focus:border-gray-400 focus:ring-2 focus:ring-gray-100 rounded"
+              className="w-20 border-blue-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 rounded"
               placeholder="No."
             />
           )}
@@ -80,7 +82,7 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-lg font-medium text-black">Option {data.optionEnabled ? idx + 1 : 1} - Tank {tankNumber}</h3>
           </div>
-          <hr className="border-gray-200 mb-5" />
+          <hr className="border-blue-200 mb-5" />
           <div className="flex items-center space-x-3 mb-3">
             <Checkbox
               id={`freeboard-${tankNumber}-${idx}`}
@@ -91,7 +93,7 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
                 if (!checked) newOptions[idx].freeBoardSize = '';
                 onChange({ ...data, options: newOptions });
               }}
-              className="accent-gray-600"
+              className="accent-blue-500"
             />
             <Label htmlFor={`freeboard-${tankNumber}-${idx}`} className="cursor-pointer text-black">
               Need Free Board?
@@ -112,7 +114,7 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
                     onChange({ ...data, options: newOptions });
                   }}
                   placeholder="e.g., 5.5"
-                  className="border-gray-300 focus:border-gray-500 focus:ring-2 focus:ring-gray-200 bg-white text-black w-28"
+                  className="border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white text-black w-28"
                   inputMode="decimal"
                   onKeyDown={e => {
                     if (e.key === 'Enter') {
@@ -142,7 +144,7 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
                 placeholder="Enter quantity"
                 pattern="^[1-9][0-9]*$"
                 inputMode="numeric"
-                className="border-gray-300 focus:border-gray-500 focus:ring-2 focus:ring-gray-200 bg-white text-black"
+                className="border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white text-black"
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
                     const next = document.querySelector(`#tankName-${tankNumber}-${idx}`);
@@ -162,7 +164,7 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
                   onChange({ ...data, options: newOptions });
                 }}
                 placeholder="Enter tank name"
-                className="border-gray-300 focus:border-gray-500 focus:ring-2 focus:ring-gray-200 bg-white text-black"
+                className="border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white text-black"
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
                     const next = document.querySelector(`#tankType-${tankNumber}-${idx}`);
@@ -181,11 +183,46 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
                 newOptions[idx] = { ...option, hasPartition: checked as boolean };
                 onChange({ ...data, options: newOptions });
               }}
-              className="accent-gray-600"
+              className="accent-blue-500"
             />
             <Label htmlFor={`partition-${tankNumber}-${idx}`} className="cursor-pointer text-black">
               Partition of Tank
             </Label>
+          </div>
+          <div className="mb-3">
+            <Label className="font-medium text-black mb-2 block">Support System</Label>
+            <div className="flex items-center space-x-4">
+              <button
+                type="button"
+                onClick={() => {
+                  const newOptions = [...data.options];
+                  newOptions[idx] = { ...option, supportSystem: 'Internal' };
+                  onChange({ ...data, options: newOptions });
+                }}
+                className={`px-4 py-2 rounded-lg border-2 font-medium transition-all ${
+                  (option.supportSystem || 'Internal') === 'Internal'
+                    ? 'border-blue-400 bg-blue-400 text-white'
+                    : 'border-blue-200 bg-white text-blue-600 hover:border-blue-300'
+                }`}
+              >
+                Internal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const newOptions = [...data.options];
+                  newOptions[idx] = { ...option, supportSystem: 'External' };
+                  onChange({ ...data, options: newOptions });
+                }}
+                className={`px-4 py-2 rounded-lg border-2 font-medium transition-all ${
+                  option.supportSystem === 'External'
+                    ? 'border-blue-400 bg-blue-400 text-white'
+                    : 'border-blue-200 bg-white text-blue-600 hover:border-blue-300'
+                }`}
+              >
+                External
+              </button>
+            </div>
           </div>
           <div className="mb-3">
             <Label htmlFor={`tankType-${tankNumber}-${idx}`} className="font-medium text-black">Type of Tank</Label>
@@ -205,7 +242,7 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
                 onChange({ ...data, options: newOptions });
               }}
               placeholder="Type tank type..."
-              className="border-gray-300 focus:border-gray-500 focus:ring-2 focus:ring-gray-200 bg-white text-black"
+              className="border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white text-black"
               onKeyDown={e => {
                 if (e.key === 'Enter') {
                   const next = document.querySelector(`#length-${tankNumber}-${idx}`);
@@ -217,8 +254,8 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
           <div className="mb-3">
             <Label className="font-medium text-black">Size of Tank (in Meters)</Label>
             {option.hasPartition && (
-              <div className="flex items-start space-x-2 mb-2 text-xs text-gray-700 bg-white p-2">
-                <Info className="h-4 w-4 mt-0.5 flex-shrink-0 text-black" />
+              <div className="flex items-start space-x-2 mb-2 text-xs text-gray-600 bg-white p-2">
+                <Info className="h-4 w-4 mt-0.5 flex-shrink-0 text-gray-600" />
                 <span>
                   For partitioned tank, enter dimensions with partition notation, e.g.,
                   2(1+1) for length or width
@@ -237,7 +274,7 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
                     onChange({ ...data, options: newOptions });
                   }}
                   placeholder={option.hasPartition ? "e.g., 2(1+1)" : "e.g., 2.5"}
-                  className="border-gray-300 focus:border-gray-500 focus:ring-2 focus:ring-gray-200 bg-white text-black"
+                  className="border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white text-black"
                   onKeyDown={e => {
                     if (e.key === 'Enter') {
                       const next = document.querySelector(`#width-${tankNumber}-${idx}`);
@@ -257,7 +294,7 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
                     onChange({ ...data, options: newOptions });
                   }}
                   placeholder={option.hasPartition ? "e.g., 2(1+1)" : "e.g., 2.5"}
-                  className="border-gray-300 focus:border-gray-500 focus:ring-2 focus:ring-gray-200 bg-white text-black"
+                  className="border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white text-black"
                   onKeyDown={e => {
                     if (e.key === 'Enter') {
                       const next = document.querySelector(`#height-${tankNumber}-${idx}`);
@@ -277,7 +314,7 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
                     onChange({ ...data, options: newOptions });
                   }}
                   placeholder="e.g., 1.5"
-                  className="border-gray-300 focus:border-gray-500 focus:ring-2 focus:ring-gray-200 bg-white text-black"
+                  className="border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white text-black"
                   onKeyDown={e => {
                     if (e.key === 'Enter') {
                       const next = document.querySelector(`#unit-${tankNumber}-${idx}`);
@@ -304,7 +341,7 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
                   onChange({ ...data, options: newOptions });
                 }}
                 placeholder="Type unit..."
-                className="border-gray-300 focus:border-gray-500 focus:ring-2 focus:ring-gray-200 bg-white text-black"
+                className="border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white text-black"
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
                     const next = document.querySelector(`#unitPrice-${tankNumber}-${idx}`);
@@ -326,7 +363,7 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
                   onChange({ ...data, options: newOptions });
                 }}
                 placeholder="Enter price"
-                className="border-gray-300 focus:border-gray-500 focus:ring-2 focus:ring-gray-200 bg-white text-black"
+                className="border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white text-black"
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
                     // End of tank option inputs, optionally focus next logical field or blur

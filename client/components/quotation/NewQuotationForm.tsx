@@ -31,6 +31,7 @@ interface TankData {
     unitPrice: string;
     needFreeBoard?: boolean;
     freeBoardSize?: string;
+    supportSystem?: string;
   }>;
 }
 
@@ -79,6 +80,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
           height: '',
           unit: '',
           unitPrice: '',
+          supportSystem: 'Internal',
         },
       ],
     },
@@ -103,6 +105,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
           height: '',
           unit: '',
           unitPrice: '',
+          supportSystem: 'Internal',
         },
       ],
     }));
@@ -130,6 +133,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
         height: '',
         unit: '',
         unitPrice: '',
+        supportSystem: 'Internal',
       }];
     }
     setTanks(newTanks);
@@ -188,15 +192,15 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
           : (Number(volumeM3) * 219.969).toFixed(0);
 
         return `
-          <tr>
-            <td style="border: 1px solid #ddd; padding: 8px;">${idx + 1}</td>
-            <td style="border: 1px solid #ddd; padding: 8px;">${option.tankName || '-'}</td>
-            <td style="border: 1px solid #ddd; padding: 8px;">${option.tankType || '-'}</td>
-            <td style="border: 1px solid #ddd; padding: 8px;">${option.length || '-'} × ${option.width || '-'} × ${option.height || '-'}</td>
-            <td style="border: 1px solid #ddd; padding: 8px;">${volumeM3} m³ (${gallons} ${gallonType === 'US Gallons' ? 'USG' : 'IMG'})</td>
-            <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${qty}</td>
-            <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">AED ${unitPrice.toLocaleString()}</td>
-            <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">AED ${total.toLocaleString()}</td>
+          <tr style="background: ${idx % 2 === 0 ? '#ffffff' : '#f9fafb'}; border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 12px 10px; color: #374151; font-size: 12px; border-right: 1px solid #f3f4f6;">${idx + 1}</td>
+            <td style="padding: 12px 10px; color: #374151; font-size: 12px; font-weight: 500; border-right: 1px solid #f3f4f6;">${option.tankName || '-'}</td>
+            <td style="padding: 12px 10px; color: #6b7280; font-size: 12px; border-right: 1px solid #f3f4f6;">${option.tankType || '-'}</td>
+            <td style="padding: 12px 10px; color: #374151; font-size: 12px; border-right: 1px solid #f3f4f6;">${option.length || '-'} × ${option.width || '-'} × ${option.height || '-'}</td>
+            <td style="padding: 12px 10px; color: #374151; font-size: 12px; border-right: 1px solid #f3f4f6;">${volumeM3} m³ (${gallons} ${gallonType === 'US Gallons' ? 'USG' : 'IMG'})</td>
+            <td style="padding: 12px 10px; text-align: center; color: #374151; font-size: 12px; font-weight: 600; border-right: 1px solid #f3f4f6;">${qty}</td>
+            <td style="padding: 12px 10px; text-align: right; color: #374151; font-size: 12px; border-right: 1px solid #f3f4f6;">AED ${unitPrice.toLocaleString()}</td>
+            <td style="padding: 12px 10px; text-align: right; color: #111827; font-size: 12px; font-weight: 600;">AED ${total.toLocaleString()}</td>
           </tr>
         `;
       })
@@ -206,66 +210,71 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
     const grandTotal = showGrandTotal ? subTotal + vat : subTotal;
 
     const previewHtml = `
-      <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 4px;">
-        <div style="background: linear-gradient(to right, #2563eb, #1e40af); color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-          <h2 style="margin: 0 0 10px 0;">${fromCompany || 'Company Name'}</h2>
-          <p style="margin: 0; opacity: 0.9;">QUOTATION</p>
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 800px; margin: 0 auto; padding: 4px;">
+        <div style="background: linear-gradient(135deg, #93c5fd 0%, #60a5fa 100%); color: white; padding: 24px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(96, 165, 250, 0.15);">
+          <h2 style="margin: 0 0 8px 0; font-weight: 600; font-size: 20px; letter-spacing: 0.3px;">${fromCompany || 'Company Name'}</h2>
+          <p style="margin: 0; opacity: 0.95; font-size: 14px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;">QUOTATION</p>
         </div>
 
-        <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-            <div>
-              <p style="margin: 5px 0;"><strong>To:</strong> ${recipientTitle} ${recipientName || '-'}</p>
-              ${role ? `<p style="margin: 5px 0;"><strong>Role:</strong> ${role}</p>` : ''}
-              <p style="margin: 5px 0;"><strong>Company:</strong> ${companyName || '-'}</p>
-              ${location ? `<p style="margin: 5px 0;"><strong>Location:</strong> ${location}</p>` : ''}
-              ${phoneNumber && phoneNumber !== '+971' ? `<p style="margin: 5px 0;">${phoneNumber}</p>` : ''}
-              ${email ? `<p style="margin: 5px 0;">${email}</p>` : ''}
+        <div style="background: #f9fafb; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #e5e7eb;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div style="color: #374151;">
+              <p style="margin: 6px 0; font-size: 13px;"><strong style="color: #111827;">To:</strong> ${recipientTitle} ${recipientName || '-'}</p>
+              ${role ? `<p style="margin: 6px 0; font-size: 13px;"><strong style="color: #111827;">Role:</strong> ${role}</p>` : ''}
+              <p style="margin: 6px 0; font-size: 13px;"><strong style="color: #111827;">Company:</strong> ${companyName || '-'}</p>
+              ${location ? `<p style="margin: 6px 0; font-size: 13px;"><strong style="color: #111827;">Location:</strong> ${location}</p>` : ''}
+              ${phoneNumber && phoneNumber !== '+971' ? `<p style="margin: 6px 0; font-size: 13px; color: #6b7280;">${phoneNumber}</p>` : ''}
+              ${email ? `<p style="margin: 6px 0; font-size: 13px; color: #6b7280;">${email}</p>` : ''}
             </div>
-            <div style="text-align: right;">
-              <p style="margin: 5px 0;"><strong>Quote No:</strong> ${fullQuoteNumber || '-'}</p>
-              <p style="margin: 5px 0;"><strong>Date:</strong> ${quotationDate || '-'}</p>
-              ${revisionEnabled ? `<p style="margin: 5px 0;"><strong>Revision:</strong> ${revisionNumber}</p>` : ''}
-              ${quotationFrom === 'Sales' && salesPersonName ? `<p style="margin: 5px 0;"><strong>Sales Person:</strong> ${salesPersonName}</p>` : ''}
+            <div style="text-align: right; color: #374151;">
+              <p style="margin: 6px 0; font-size: 13px;"><strong style="color: #111827;">Quote No:</strong> ${fullQuoteNumber || '-'}</p>
+              <p style="margin: 6px 0; font-size: 13px;"><strong style="color: #111827;">Date:</strong> ${quotationDate || '-'}</p>
+              ${revisionEnabled ? `<p style="margin: 6px 0; font-size: 13px;"><strong style="color: #111827;">Revision:</strong> ${revisionNumber}</p>` : ''}
+              ${quotationFrom === 'Sales' && salesPersonName ? `<p style="margin: 6px 0; font-size: 13px;"><strong style="color: #111827;">Sales Person:</strong> ${salesPersonName}</p>` : ''}
             </div>
           </div>
         </div>
 
+<<<<<<< HEAD
         ${subject ? `<p><strong>Subject:</strong> ${subject}</p>` : ''}
         ${projectLocation ? `<p><strong>Project Location:</strong> ${projectLocation}</p>` : ''}
         ${additionalDetails.map(detail => detail.key && detail.value ? `<p><strong>${detail.key}:</strong> ${detail.value}</p>` : '').join('')}
+=======
+        ${subject ? `<p style="margin-bottom: 12px; color: #374151; font-size: 13px;"><strong style="color: #111827;">Subject:</strong> ${subject}</p>` : ''}
+        ${projectLocation ? `<p style="margin-bottom: 12px; color: #374151; font-size: 13px;"><strong style="color: #111827;">Project Location:</strong> ${projectLocation}</p>` : ''}
+>>>>>>> 3493c0ce42892df110add895c0ca8bd0eb9aede1
 
-        <div style="margin: 20px 0;">
+        <div style="margin: 20px 0; border-radius: 12px; overflow: hidden; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);">
           <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
             <thead>
-              <tr style="background: #2563eb; color: white;">
-                <th style="border: 1px solid #ddd; padding: 8px;">SL</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Tank Name</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Type</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Dimensions (L×W×H)</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Capacity</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Qty</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Unit Price</th>
-                <th style="border: 1px solid #ddd; padding: 8px;">Total</th>
+              <tr style="background: linear-gradient(135deg, #93c5fd 0%, #60a5fa 100%); color: white;">
+                <th style="padding: 12px 10px; font-weight: 600; text-align: left; border-right: 1px solid rgba(255,255,255,0.1);">SL</th>
+                <th style="padding: 12px 10px; font-weight: 600; text-align: left; border-right: 1px solid rgba(255,255,255,0.1);">Tank Name</th>
+                <th style="padding: 12px 10px; font-weight: 600; text-align: left; border-right: 1px solid rgba(255,255,255,0.1);">Type</th>
+                <th style="padding: 12px 10px; font-weight: 600; text-align: left; border-right: 1px solid rgba(255,255,255,0.1);">Dimensions (L×W×H)</th>
+                <th style="padding: 12px 10px; font-weight: 600; text-align: left; border-right: 1px solid rgba(255,255,255,0.1);">Capacity</th>
+                <th style="padding: 12px 10px; font-weight: 600; text-align: center; border-right: 1px solid rgba(255,255,255,0.1);">Qty</th>
+                <th style="padding: 12px 10px; font-weight: 600; text-align: right; border-right: 1px solid rgba(255,255,255,0.1);">Unit Price</th>
+                <th style="padding: 12px 10px; font-weight: 600; text-align: right;">Total</th>
               </tr>
             </thead>
             <tbody>
-              ${tankRows || '<tr><td colspan="8" style="text-align: center; padding: 20px; color: #94a3b8;">No tanks added yet</td></tr>'}
+              ${tankRows || '<tr><td colspan="8" style="text-align: center; padding: 30px; color: #9ca3af; background: #ffffff;">No tanks added yet</td></tr>'}
             </tbody>
           </table>
         </div>
 
         ${showSubTotal || showVat || showGrandTotal ? `
-          <div style="margin: 20px 0; text-align: right;">
-            ${showSubTotal ? `<p style="margin: 5px 0;"><strong>Sub Total:</strong> AED ${subTotal.toLocaleString()}</p>` : ''}
-            ${showVat ? `<p style="margin: 5px 0;"><strong>VAT (5%):</strong> AED ${vat.toLocaleString()}</p>` : ''}
-            ${showGrandTotal ? `<p style="margin: 5px 0; font-size: 18px; color: #2563eb;"><strong>Grand Total:</strong> AED ${grandTotal.toLocaleString()}</p>` : ''}
+          <div style="margin: 20px 0; text-align: right; padding: 16px; background: #f9fafb; border-radius: 12px; border: 1px solid #e5e7eb;">
+            ${showSubTotal ? `<p style="margin: 8px 0; color: #374151; font-size: 14px;"><strong style="color: #111827;">Sub Total:</strong> <span style="color: #111827;">AED ${subTotal.toLocaleString()}</span></p>` : ''}
+            ${showVat ? `<p style="margin: 8px 0; color: #374151; font-size: 14px;"><strong style="color: #111827;">VAT (5%):</strong> <span style="color: #111827;">AED ${vat.toLocaleString()}</span></p>` : ''}
+            ${showGrandTotal ? `<p style="margin: 12px 0 4px 0; font-size: 18px; font-weight: 600;"><strong style="color: #111827;">Grand Total:</strong> <span style="color: #4b5563;">AED ${grandTotal.toLocaleString()}</span></p>` : ''}
           </div>
         ` : ''}
 
-        <div style="margin-top: 30px; padding: 15px; background: #f1f5f9; border-left: 4px solid #2563eb; border-radius: 4px;">
-          <p style="margin: 0; color: #64748b; font-size: 14px;">
-            <em>This is a live preview. Fill in the form to see your quotation take shape!</em>
+        <div style="margin-top: 24px; padding: 16px; background: #f9fafb; border-left: 4px solid #6b7280; border-radius: 8px;">
+          <p style="margin: 0; color: #9ca3af; font-size: 13px; font-style: italic;">
+            This is a live preview. Fill in the form to see your quotation take shape!
           </p>
         </div>
       </div>
@@ -573,10 +582,10 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
       label: 'TERMS AND CONDITIONS',
       default: 'yes',
       details: [
-        'Price: The given prices are based on the supply and installation of the tank at your proposed site.',
-        'Validity: The offer is valid for 30 days only.',
-        'Delivery: One week from the receipt of advance payment.',
-        'Payment: Cash/CDC. 40% advance along with the confirmed order and 60% upon delivery of the material at the site. (In the event of late payment, a late payment charge of 2% per month on the contract value will be applied till the outstanding payment is settled).'
+        'Price          : The given prices are based on the supply and installation of the tank at your proposed site.',
+        'Validity       : The offer is valid for 30 days only.',
+        'Delivery       : One week from the receipt of advance payment.',
+        'Payment        : Cash/CDC. 40% advance along with the confirmed order and 60% upon delivery of the material at the site. (In the event of late payment, a late payment charge of 2% per month on the contract value will be applied till the outstanding payment is settled).'
       ]
     },
     {
@@ -742,12 +751,12 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
   };
 
   return (
-    <div className="space-y-6 pt-4">
-      <Card className="border-0 rounded-lg">
-        <CardHeader className="bg-white text-black border-b-2 border-slate-200 rounded-t-lg">
-          <CardTitle>Company & Recipient Details</CardTitle>
+    <div className="space-y-10 pt-12">
+      <Card className="border border-blue-200 rounded-xl shadow-sm bg-white">
+        <CardHeader className="bg-white text-blue-600 border-b border-blue-200 rounded-t-xl px-6 py-4">
+          <CardTitle className="text-base font-semibold">Company & Recipient Details</CardTitle>
         </CardHeader>
-        <CardContent className="pt-6 space-y-4">
+        <CardContent className="pt-6 space-y-4 px-6">
           <div>
             <Label htmlFor="fromCompany">From Company</Label>
             <AutocompleteInput
@@ -908,11 +917,11 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
         </CardContent>
       </Card>
 
-      <Card className="border-0 rounded-lg">
-        <CardHeader className="bg-white text-black border-b-2 border-slate-200 rounded-t-lg">
-          <CardTitle>Quotation Information</CardTitle>
+      <Card className="border border-blue-200 rounded-xl shadow-sm bg-white">
+        <CardHeader className="bg-white text-blue-600 border-b border-blue-200 rounded-t-xl px-6 py-4">
+          <CardTitle className="text-base font-semibold">Quotation Information</CardTitle>
         </CardHeader>
-        <CardContent className="pt-6 space-y-4">
+        <CardContent className="pt-6 space-y-4 px-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="quotationFrom">Quotation From</Label>
@@ -1140,9 +1149,9 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
         </CardContent>
       </Card>
 
-      <Card className="border-0 rounded-lg">
-        <CardHeader className="bg-white text-black border-b-2 border-slate-200 rounded-t-lg">
-          <CardTitle>Tank Details</CardTitle>
+      <Card className="border border-blue-200 rounded-xl shadow-sm bg-white">
+        <CardHeader className="bg-white text-blue-600 border-b border-blue-200 rounded-t-xl px-6 py-4">
+          <CardTitle className="text-base font-semibold">Tank Details</CardTitle>
         </CardHeader>
         <CardContent className="pt-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1214,14 +1223,14 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
       </Card>
 
       {/* Contractual Terms & Specifications Section */}
-      <Card className="border-0 rounded-lg">
-        <CardHeader className="bg-white text-black border-b-2 border-slate-200 rounded-t-lg">
-          <CardTitle>Contractual Terms & Specifications</CardTitle>
+      <Card className="border border-blue-200 rounded-xl shadow-sm bg-white">
+        <CardHeader className="bg-white text-blue-600 border-b border-blue-200 rounded-t-xl px-6 py-4">
+          <CardTitle className="text-base font-semibold">Contractual Terms & Specifications</CardTitle>
         </CardHeader>
-        <CardContent className="pt-6 space-y-4">
+        <CardContent className="pt-6 space-y-4 px-6">
           <div className="space-y-6">
             {termsList.map(term => (
-              <div key={term.key} className="flex flex-col gap-2 p-4 border rounded-md">
+              <div key={term.key} className="flex flex-col gap-2 p-4 border border-blue-200 rounded-lg">
                 <div className="flex items-center gap-3 mb-2">
                   <Checkbox
                     id={term.key}
@@ -1250,7 +1259,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                         <button
                           type="button"
                           onClick={() => handleRemoveDetail(term.key, idx)}
-                          className="p-2 text-blue-600 hover:text-blue-800"
+                          className="p-2 text-blue-600 hover:text-blue-700"
                           aria-label="Delete point"
                         >
                           <Trash2 className="w-4 h-4 text-blue-600" />
@@ -1275,7 +1284,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                         <button
                           type="button"
                           onClick={() => handleRemoveCustom(term.key, idx)}
-                          className="p-2 text-blue-600 hover:text-blue-800"
+                          className="p-2 text-blue-600 hover:text-blue-700"
                           aria-label="Delete custom point"
                         >
                           <Trash2 className="w-4 h-4 text-blue-600" />
@@ -1304,7 +1313,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                       />
                       <Button
                         size="sm"
-                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                        className="bg-blue-400 hover:bg-blue-500 text-white rounded-lg transition-colors duration-200 shadow-sm"
                         onClick={() => {
                           const newPoint = terms[term.key].newPoint;
                           if (newPoint && newPoint.trim() !== '') {
@@ -1335,7 +1344,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
       <div className="flex justify-end">
         <Button
           onClick={handleExport}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 text-lg rounded-md"
+          className="bg-blue-400 hover:bg-blue-500 text-white px-8 py-4 text-base rounded-xl transition-colors duration-200 shadow-sm font-medium"
         >
           <FileDown className="mr-2 h-5 w-5 text-white" />
           Export Quotation

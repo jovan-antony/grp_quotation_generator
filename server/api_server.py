@@ -39,6 +39,7 @@ class TankOption(BaseModel):
     unitPrice: str
     needFreeBoard: Optional[bool] = False
     freeBoardSize: Optional[str] = ""
+    supportSystem: Optional[str] = "Internal"  # "Internal" or "External"
 
 
 class TankData(BaseModel):
@@ -244,7 +245,8 @@ async def generate_quotation(request: QuotationRequest):
                     "total_price": float(option.quantity) * (float(option.unitPrice) if option.unitPrice else 0.0),
                     "option_number": option_idx + 1,
                     "option_total": num_options,
-                    "option_roman": to_roman(option_idx + 1)
+                    "option_roman": to_roman(option_idx + 1),
+                    "support_system": option.supportSystem if hasattr(option, 'supportSystem') and option.supportSystem else "Internal"
                 }
                 generator.tanks.append(tank)
             

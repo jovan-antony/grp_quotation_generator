@@ -37,6 +37,10 @@ interface TankData {
 
 export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormProps) {
   const [fromCompany, setFromCompany] = useState('');
+  const [companyCode, setCompanyCode] = useState(''); // CODE from company_details.xlsx
+  const [companyShortName, setCompanyShortName] = useState(''); // company_name (brand name) from company_details.xlsx
+  const [templatePath, setTemplatePath] = useState(''); // template_path from company_details.xlsx
+  const [companyOptions, setCompanyOptions] = useState<Array<{value: string; label: string}>>([]);
   const [showSubTotal, setShowSubTotal] = useState(true);
   const [showVat, setShowVat] = useState(true);
   const [showGrandTotal, setShowGrandTotal] = useState(true);
@@ -141,26 +145,15 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
 
   // Generate live preview HTML
   const generatePreview = () => {
-    // Construct quotation number
-    const companyCodeMap: Record<string, string> = {
-      'GRP TANKS TRADING L.L.C': 'GRPT',
-      'GRP PIPECO TANKS TRADING L.L.C': 'GRPPT',
-      'COLEX TANKS TRADING L.L.C': 'CLX',
-    };
-    const companyCode = fromCompany ? companyCodeMap[fromCompany] || '' : '';
-    
     // Extract YYMM from date
     const dateObj = new Date(quotationDate);
     const yy = String(dateObj.getFullYear()).slice(-2);
     const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
     const yymm = `${yy}${mm}`;
     
-    // Use CODE from Excel (fetched based on selected person)
-    // Show empty if no person selected, otherwise show CODE or XX as fallback
-    const codeForQuote = personCode || (quotationFrom ? 'XX' : '');
-    
+    // Build quotation number: {CompanyCode}/{YYMM}/{PersonCode}/{Number}
     const fullQuoteNumber = quotationNumber 
-      ? `${companyCode}/${yymm}/${codeForQuote}/${quotationNumber}` 
+      ? `${companyCode || ''}/${yymm}/${personCode || 'XX'}/${quotationNumber}` 
       : '';
 
     // Calculate tank totals
@@ -285,8 +278,40 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
     fromCompany, recipientTitle, recipientName, role, companyName, location,
     phoneNumber, email, quotationDate, quotationFrom, salesPersonName,
     quotationNumber, revisionEnabled, revisionNumber, subject, projectLocation,
-    additionalDetails, gallonType, tanks, showSubTotal, showVat, showGrandTotal, personCode, officePersonName
+    additionalDetails, gallonType, tanks, showSubTotal, showVat, showGrandTotal, personCode, officePersonName, companyCode
   ]);
+
+  // Fetch company details from company_details.xlsx
+  const fetchCompanyDetails = async (companyFullName: string) => {
+    if (!companyFullName) {
+      setCompanyCode('');
+      setCompanyShortName('');
+      setTemplatePath('');
+      return;
+    }
+    
+    try {
+      console.log(`Fetching company details for: ${companyFullName}`);
+      const response = await fetch(`http://localhost:8000/api/company-details?name=${encodeURIComponent(companyFullName)}`);
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`Received company details:`, data);
+        setCompanyCode(data.code || '');
+        setCompanyShortName(data.company_name || '');
+        setTemplatePath(data.template_path || '');
+      } else {
+        console.error('Failed to fetch company details:', response.status);
+        setCompanyCode('');
+        setCompanyShortName('');
+        setTemplatePath('');
+      }
+    } catch (error) {
+      console.error('Error fetching company details:', error);
+      setCompanyCode('');
+      setCompanyShortName('');
+      setTemplatePath('');
+    }
+  };
 
   // Fetch CODE from Excel based on person name and type
   const fetchPersonCode = async (personName: string, personType: 'sales' | 'office') => {
@@ -326,6 +351,32 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
       console.error('Error fetching office person names:', error);
     }
   };
+
+  // Fetch company list on component mount
+  useEffect(() => {
+    const fetchCompanies = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/companies');
+        if (response.ok) {
+          const data = await response.json();
+          setCompanyOptions(
+            data.companies.map((name: string) => ({ value: name, label: name }))
+          );
+        }
+      } catch (error) {
+        console.error('Error fetching companies:', error);
+      }
+    };
+
+    fetchCompanies();
+  }, []);
+
+  // Fetch company details when fromCompany changes
+  useEffect(() => {
+    if (fromCompany) {
+      fetchCompanyDetails(fromCompany);
+    }
+  }, [fromCompany]);
 
   // Fetch sales person names when quotationFrom changes to 'Sales'
   useEffect(() => {
@@ -474,6 +525,9 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fromCompany,
+          companyCode,
+          companyShortName,
+          templatePath,
           recipientTitle,
           recipientName: formattedRecipientName,
           role,
@@ -756,11 +810,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
             <Label htmlFor="fromCompany">From Company</Label>
             <AutocompleteInput
               id="fromCompany"
-              options={[
-                { value: 'GRP TANKS TRADING L.L.C', label: 'GRP TANKS TRADING L.L.C' },
-                { value: 'GRP PIPECO TANKS TRADING L.L.C', label: 'GRP PIPECO TANKS TRADING L.L.C' },
-                { value: 'COLEX TANKS TRADING L.L.C', label: 'COLEX TANKS TRADING L.L.C' },
-              ]}
+              options={companyOptions}
               value={fromCompany}
               onValueChange={setFromCompany}
               placeholder="Type company name..."

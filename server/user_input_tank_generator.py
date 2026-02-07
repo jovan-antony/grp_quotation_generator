@@ -41,6 +41,8 @@ class TankInvoiceGenerator:
         self.tanks = []
         self.gallon_type = "USG"  # Default
         self.template_path = template_path
+        self.company_full_name = None  # Company name from company_details.xlsx (full_name)
+        self.company_short_name = None  # Company brand name from company_details.xlsx (company_name)
         self.additional_details = []  # List of tuples: [(key, value), ...]
         self.note_section_gap = 6  # Default gap before NOTE section in points (adjustable)
         self.closing_paragraph_gap = 6  # Default gap before closing paragraph in points (adjustable)
@@ -764,7 +766,12 @@ class TankInvoiceGenerator:
             return float(dim_str)
     
     def _get_company_name(self):
-        """Get company name based on template"""
+        """Get company name from frontend or based on template"""
+        # If company name was set from frontend (via API), use it
+        if self.company_full_name:
+            return self.company_full_name
+        
+        # Fallback to template-based detection for backward compatibility
         if self.template_path.lower().endswith("template_pipeco.docx"):
             return "GRP PIPECO TANKS TRADING L.L.C"
         elif self.template_path.lower().endswith("template_colex.docx"):
@@ -1505,23 +1512,12 @@ class TankInvoiceGenerator:
     
     def _create_quotation_header(self):
         """Create quotation header content above the table"""
-        # CRITICAL FIX: Remove ALL trailing empty paragraphs from template that might have Aptos font
-        # Loop to remove all empty trailing paragraphs (not just one)
+        # CRITICAL FIX: Remove ALL paragraphs from document body to eliminate any gaps
+        # This ensures we start with a completely clean slate
         while len(self.doc.paragraphs) > 0:
-            last_para = self.doc.paragraphs[-1]
-            # If last paragraph is empty or just whitespace, remove it
-            if not last_para.text.strip():
-                # Remove the paragraph element
-                p = last_para._element
-                p.getparent().remove(p)
-            else:
-                break  # Stop when we find a non-empty paragraph
-
-        # Extra top padding only for Colex template
-        if self.template_path.lower().endswith("template_colex.docx"):
-            spacer = self.doc.add_paragraph()
-            spacer.paragraph_format.space_before = Pt(12)
-            spacer.paragraph_format.space_after = Pt(0)
+            para = self.doc.paragraphs[0]  # Always remove first paragraph
+            p = para._element
+            p.getparent().remove(p)
         
         # ADJUSTED: Line ~281 - QUOTATION title with ABSOLUTELY NO spacing above
         title = self.doc.add_paragraph()
@@ -1881,12 +1877,16 @@ class TankInvoiceGenerator:
     
     def _fill_common_row(self):
         """Fill the common row with preset phrases and common elements"""
-        # Preset phrases
-        # Use 'Colex Korea' for Colex template, otherwise 'PIPECO TANKS® MALAYSIA'
-        if self.template_path.lower().endswith("template_colex.docx"):
-            common_text = "GRP SECTIONAL WATER TANK - 10 YEAR WARRANTY - Colex Korea"
+        # Get company brand name from frontend or fallback to template-based detection
+        if self.company_short_name:
+            brand_name = self.company_short_name
+        elif self.template_path.lower().endswith("template_colex.docx"):
+            brand_name = "Colex Korea"
         else:
-            common_text = "GRP SECTIONAL WATER TANK - 10 YEAR WARRANTY - PIPECO TANKS® MALAYSIA"
+            brand_name = "PIPECO TANKS® MALAYSIA"
+        
+        # Build common text with brand name
+        common_text = f"GRP SECTIONAL WATER TANK - 10 YEAR WARRANTY - {brand_name}"
         
         # Find common elements
         common_elements = self._find_common_elements()

@@ -61,6 +61,9 @@ class AdditionalDetail(BaseModel):
 
 class QuotationRequest(BaseModel):
     fromCompany: str
+    companyCode: Optional[str] = ""
+    companyShortName: Optional[str] = ""  # company_name from company_details.xlsx
+    templatePath: Optional[str] = ""
     recipientTitle: str
     recipientName: str
     role: Optional[str] = ""
@@ -90,26 +93,44 @@ class QuotationRequest(BaseModel):
 @app.post("/generate-quotation")
 async def generate_quotation(request: QuotationRequest):
     try:
-        # Determine template path based on company
-        template_map = {
-            "GRP TANKS TRADING L.L.C": "Template_GRP.docx",
-            "GRP PIPECO TANKS TRADING L.L.C": "Template_PIPECO.docx",
-            "COLEX TANKS TRADING L.L.C": "Template_COLEX.docx",
-        }
-        template_filename = template_map.get(request.fromCompany, "Template.docx")
+        # Use template path from request if provided, otherwise use default mapping
+        if request.templatePath:
+            template_filename = request.templatePath
+        else:
+            # Fallback to old mapping
+            template_map = {
+                "GRP TANKS TRADING L.L.C": "template_grp.docx",
+                "GRP PIPECO TANKS TRADING L.L.C": "template_pipeco.docx",
+                "COLEX TANKS TRADING L.L.C": "template_colex.docx",
+            }
+            template_filename = template_map.get(request.fromCompany, "template_grp.docx")
+        
         script_dir = os.path.dirname(__file__)
         template_path = os.path.join(script_dir, template_filename)
+        
+        # Verify template file exists
+        if not os.path.exists(template_path):
+            print(f"⚠ Template file not found: {template_path}")
+            print(f"Template filename requested: {template_filename}")
+            print(f"Script directory: {script_dir}")
+            raise HTTPException(status_code=404, detail=f"Template file not found: {template_filename}")
+        
+        print(f"✓ Using template: {template_path}")
         
         # Initialize generator
         generator = TankInvoiceGenerator(template_path=template_path)
         
-        # Construct quotation number in format: {CompanyCode}/{YYMM}/{CODE}/{Number}
-        company_code_map = {
-            "GRP TANKS TRADING L.L.C": "GRPT",
-            "GRP PIPECO TANKS TRADING L.L.C": "GRPPT",
-            "COLEX TANKS TRADING L.L.C": "CLX",
-        }
-        company_code = company_code_map.get(request.fromCompany, "GRPT")
+        # Use company code from request if provided, otherwise use default mapping
+        if request.companyCode:
+            company_code = request.companyCode
+        else:
+            # Fallback to old mapping
+            company_code_map = {
+                "GRP TANKS TRADING L.L.C": "GRPT",
+                "GRP PIPECO TANKS TRADING L.L.C": "GRPPT",
+                "COLEX TANKS TRADING L.L.C": "CLX",
+            }
+            company_code = company_code_map.get(request.fromCompany, "GRPT")
         
         # Extract YYMM from quotation date (format: DD/MM/YY)
         date_parts = request.quotationDate.split('/')
@@ -159,6 +180,11 @@ async def generate_quotation(request: QuotationRequest):
         generator.additional_details = [(detail.key, detail.value) for detail in request.additionalDetails] if request.additionalDetails else []
         generator.gallon_type = request.gallonType
         
+        # Set company full name from frontend (for "Yours truly" and NOTE sections)
+        generator.company_full_name = request.fromCompany
+        # Set company short name from frontend (for tank description)
+        generator.company_short_name = request.companyShortName if request.companyShortName else None
+        
         # Process tanks data - convert from UI format to generator format
         generator.tanks = []
         sl_no = 1
@@ -179,16 +205,32 @@ async def generate_quotation(request: QuotationRequest):
         for tank_data in request.tanks:
             num_options = len(tank_data.options)
             for option_idx, option in enumerate(tank_data.options):
-                # Parse dimensions
-                def parse_dimension(dim_str):
-                    dim_str = str(dim_str).replace(" ", "")
+                # Parse dimensions with validation
+                def parse_dimension(dim_str, field_name="dimension"):
+                    dim_str = str(dim_str).strip().replace(" ", "")
+                    if not dim_str or dim_str == 'None' or dim_str == '':
+                        raise ValueError(f"Missing {field_name}. Please fill in all tank dimensions (length, width, height).")
                     if "(" in dim_str:
                         return float(dim_str.split("(")[0])
                     return float(dim_str)
                 
-                length = parse_dimension(option.length)
-                width = parse_dimension(option.width)
-                height = float(option.height)
+                # Validate and parse dimensions
+                try:
+                    length = parse_dimension(option.length, "length")
+                    width = parse_dimension(option.width, "width")
+                    height = parse_dimension(option.height, "height")
+                except ValueError as e:
+                    raise HTTPException(
+                        status_code=400, 
+                        detail=f"Tank {tank_data.tankNumber}, Option {option_idx + 1}: {str(e)}"
+                    )
+                
+                # Validate tank name
+                if not option.tankName or not option.tankName.strip():
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Tank {tank_data.tankNumber}, Option {option_idx + 1}: Tank name is required."
+                    )
                 
                 # Calculate volume
                 volume_m3 = length * width * height
@@ -535,6 +577,88 @@ async def generate_quotation(request: QuotationRequest):
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
+
+
+@app.get("/api/companies")
+async def get_companies():
+    """
+    Get all company names from company_details.xlsx
+    Returns list of full company names
+    """
+    try:
+        file_path = os.path.join(os.path.dirname(__file__), "company_details.xlsx")
+        
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
+        
+        # Read Excel file
+        df = pd.read_excel(file_path)
+        
+        # Check if full_name column exists
+        if 'full_name' not in df.columns:
+            raise HTTPException(status_code=500, detail="full_name column not found in Excel file")
+        
+        # Get company names and remove any NaN values
+        companies = df['full_name'].dropna().tolist()
+        
+        return {"companies": companies}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error reading company names: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error reading company names: {str(e)}")
+
+
+@app.get("/api/company-details")
+async def get_company_details(name: str):
+    """
+    Get company details from company_details.xlsx based on full_name
+    Returns: code, template_path, seal_path, company_domain
+    """
+    try:
+        file_path = os.path.join(os.path.dirname(__file__), "company_details.xlsx")
+        
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
+        
+        # Read Excel file
+        df = pd.read_excel(file_path)
+        
+        # Check if required columns exist
+        required_cols = ['full_name', 'code', 'template_path']
+        missing_cols = [col for col in required_cols if col not in df.columns]
+        if missing_cols:
+            raise HTTPException(status_code=500, detail=f"Missing columns: {missing_cols}")
+        
+        # Find the company by full_name
+        company_row = df[df['full_name'].str.strip() == name.strip()]
+        
+        if company_row.empty:
+            print(f"⚠ Company not found: '{name}'")
+            print(f"Available companies: {df['full_name'].tolist()}")
+            raise HTTPException(status_code=404, detail=f"Company not found: {name}")
+        
+        # Get company details
+        details = {
+            "code": str(company_row.iloc[0]['code']).strip(),
+            "company_name": str(company_row.iloc[0]['company_name']).strip() if 'company_name' in df.columns else "",
+            "template_path": str(company_row.iloc[0]['template_path']).strip(),
+            "seal_path": str(company_row.iloc[0]['seal_path']).strip() if 'seal_path' in df.columns else "",
+            "company_domain": str(company_row.iloc[0]['company_domain']).strip() if 'company_domain' in df.columns else ""
+        }
+        
+        return details
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error reading company details: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error reading company details: {str(e)}")
 
 
 @app.get("/api/person-names/{person_type}")

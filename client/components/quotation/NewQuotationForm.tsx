@@ -168,8 +168,8 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
       ? `${companyCode || ''}/${yymm}/${personCode || 'XX'}/${quotationNumber}` 
       : '';
     
-    // Add revision suffix if enabled and > 0
-    const displayQuoteNumber = (fullQuoteNumber && revisionEnabled && parseInt(revisionNumber) > 0)
+    // Add revision suffix if revision > 0 (always show revision in quote number)
+    const displayQuoteNumber = (fullQuoteNumber && parseInt(revisionNumber) > 0)
       ? `${fullQuoteNumber}-R${revisionNumber}`
       : fullQuoteNumber;
 

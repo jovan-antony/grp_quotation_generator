@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 
 interface QuotationRevisionFormProps {
   onPreviewUpdate: (html: string) => void;
+  loadQuotationData?: any;
 }
 
 interface TankData {
@@ -35,7 +36,7 @@ interface TankData {
   }>;
 }
 
-export default function QuotationRevisionForm({ onPreviewUpdate }: QuotationRevisionFormProps) {
+export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationData }: QuotationRevisionFormProps) {
   const [fromCompany, setFromCompany] = useState('');
   const [companyCode, setCompanyCode] = useState(''); // CODE from company_details.xlsx
   const [companyShortName, setCompanyShortName] = useState(''); // company_name (brand name) from company_details.xlsx
@@ -168,8 +169,8 @@ export default function QuotationRevisionForm({ onPreviewUpdate }: QuotationRevi
       ? `${companyCode || ''}/${yymm}/${personCode || 'XX'}/${quotationNumber}` 
       : '';
     
-    // Add revision suffix if enabled and > 0
-    const displayQuoteNumber = (fullQuoteNumber && revisionEnabled && parseInt(revisionNumber) > 0)
+    // Add revision suffix if revision > 0 (always show revision in quote number)
+    const displayQuoteNumber = (fullQuoteNumber && parseInt(revisionNumber) > 0)
       ? `${fullQuoteNumber}-R${revisionNumber}`
       : fullQuoteNumber;
 
@@ -561,6 +562,98 @@ export default function QuotationRevisionForm({ onPreviewUpdate }: QuotationRevi
       fetchPersonCode(officePersonName, 'office');
     }
   }, [officePersonName, quotationFrom]);
+
+  // Load quotation data from Search (when Load button is clicked)
+  useEffect(() => {
+    if (!loadQuotationData) return;
+
+    console.log('Loading quotation data:', loadQuotationData);
+
+    // API returns data with 'quotation' object for full details from /api/quotations/{id}
+    // or direct quotation data from search results
+    const quotationData = loadQuotationData.quotation || loadQuotationData;
+
+    // Set form fields from loaded data
+    setFromCompany(quotationData.from_company || quotationData.fromCompany || '');
+    setRecipientTitle(quotationData.recipient_title || quotationData.recipientTitle || 'Mr.');
+    setRecipientName(quotationData.recipient_name || quotationData.recipientName || '');
+    setRole(quotationData.role || '');
+    setCompanyName(quotationData.recipient_company || quotationData.companyName || '');
+    setLocation(quotationData.location || '');
+    setPhoneNumber(quotationData.phone_number || quotationData.phoneNumber || '+971');
+    setEmail(quotationData.email || '');
+    
+    // Format date - API returns DD/MM/YY format, convert to YYYY-MM-DD
+    if (quotationData.quotation_date || quotationData.quotationDate) {
+      const dateStr = quotationData.quotation_date || quotationData.quotationDate;
+      let formattedDate = '';
+      
+      // Check if it's DD/MM/YY format from API
+      if (dateStr.includes('/')) {
+        const parts = dateStr.split('/');
+        if (parts.length === 3) {
+          const day = parts[0].padStart(2, '0');
+          const month = parts[1].padStart(2, '0');
+          const year = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
+          formattedDate = `${year}-${month}-${day}`;
+        }
+      } else {
+        // Already in ISO format
+        formattedDate = dateStr.split('T')[0];
+      }
+      
+      setQuotationDate(formattedDate);
+    }
+    
+    setQuotationFrom(quotationData.quotation_from || quotationData.quotationFrom || '');
+    setSalesPersonName(quotationData.sales_person_name || quotationData.salesPersonName || '');
+    setOfficePersonName(quotationData.office_person_name || quotationData.officePersonName || '');
+    setQuotationNumber(quotationData.quotation_number || quotationData.quotationNumber || '');
+    setRevisionNumber(String(quotationData.revision_number ?? quotationData.revisionNumber ?? 0));
+    setSubject(quotationData.subject || '');
+    setProjectLocation(quotationData.project_location || quotationData.projectLocation || '');
+    
+    // Load tanks data
+    if (loadQuotationData.tanks || quotationData.tanksData) {
+      const tanksArray = loadQuotationData.tanks?.tanks || quotationData.tanksData?.tanks || [];
+      const gallonTypeFromData = loadQuotationData.tanks?.gallonType || quotationData.tanksData?.gallonType || '';
+      
+      setGallonType(gallonTypeFromData);
+      setNumberOfTanks(tanksArray.length);
+      setTanks(tanksArray);
+    }
+    
+    // Load form options
+    if (quotationData.formOptions) {
+      setShowSubTotal(quotationData.formOptions.showSubTotal ?? true);
+      setShowVat(quotationData.formOptions.showVat ?? true);
+      setShowGrandTotal(quotationData.formOptions.showGrandTotal ?? true);
+    }
+    
+    // Load terms - API returns terms directly
+    if (loadQuotationData.terms) {
+      const apiTerms = loadQuotationData.terms;
+      const formattedTerms: Record<string, any> = {};
+      
+      // Convert API terms to form format
+      Object.keys(apiTerms).forEach(key => {
+        formattedTerms[key] = {
+          action: true,
+          details: Array.isArray(apiTerms[key]) ? apiTerms[key] : [apiTerms[key]],
+          custom: []
+        };
+      });
+      
+      setTerms(prev => ({ ...prev, ...formattedTerms }));
+    }
+    
+    // Load additional details
+    if (quotationData.additionalData?.additionalDetails) {
+      setAdditionalDetails(quotationData.additionalData.additionalDetails);
+    }
+    
+    toast.success('Quotation loaded successfully!');
+  }, [loadQuotationData]);
 
   const handleSave = async () => {
     try {

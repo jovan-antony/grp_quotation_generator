@@ -2850,6 +2850,13 @@ class TankInvoiceGenerator:
     
     def _add_terms_section(self):
         """Add terms and conditions section"""
+        # DEBUG
+        print(f"\n>>> INSIDE _add_terms_section()")
+        print(f">>>   section_content['terms'] exists: {'terms' in self.section_content}")
+        if 'terms' in self.section_content:
+            print(f">>>   Number of terms: {len(self.section_content['terms'])}")
+            print(f">>>   Terms keys: {list(self.section_content['terms'].keys())}")
+        
         spacer = self.doc.add_paragraph()
         spacer.paragraph_format.space_before = Pt(0)
         spacer.paragraph_format.space_after = Pt(0)
@@ -2871,6 +2878,7 @@ class TankInvoiceGenerator:
             'Payment': '  '             # 2 spaces
         }
         
+        terms_added = 0
         for key, value in self.section_content['terms'].items():
             para = self.doc.add_paragraph()
             para.paragraph_format.space_before = Pt(0)
@@ -2883,6 +2891,10 @@ class TankInvoiceGenerator:
             run = para.add_run(f'➢  {key}{spacing}: {value}')
             run.font.name = 'Calibri'
             run.font.size = Pt(10)
+            terms_added += 1
+        
+        print(f">>>   Terms actually added to document: {terms_added}")
+        print(f">>> EXITING _add_terms_section()\n")
     
     def _add_extra_note_section(self):
         """Add extra NOTE section"""

@@ -41,6 +41,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
   const [companyShortName, setCompanyShortName] = useState(''); // company_name (brand name) from company_details.xlsx
   const [templatePath, setTemplatePath] = useState(''); // template_path from company_details.xlsx
   const [companyOptions, setCompanyOptions] = useState<Array<{value: string; label: string}>>([]);
+  const [recipientOptions, setRecipientOptions] = useState<Array<{value: string; label: string}>>([]);
   const [showSubTotal, setShowSubTotal] = useState(true);
   const [showVat, setShowVat] = useState(true);
   const [showGrandTotal, setShowGrandTotal] = useState(true);
@@ -281,6 +282,43 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
     additionalDetails, gallonType, tanks, showSubTotal, showVat, showGrandTotal, personCode, officePersonName, companyCode
   ]);
 
+  // Fetch recipient details from recipient_details table
+  const fetchRecipientDetails = async (recipientFullName: string) => {
+    if (!recipientFullName) {
+      console.log('⚠️ No recipient name provided to fetch');
+      return;
+    }
+    
+    try {
+      console.log(`🔍 Fetching recipient details for: "${recipientFullName}"`);
+      const url = `http://localhost:8000/api/recipient-details?name=${encodeURIComponent(recipientFullName)}`;
+      console.log(`📡 API URL: ${url}`);
+      
+      const response = await fetch(url);
+      console.log(`📥 Response status: ${response.status}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`✅ Received recipient details:`, data);
+        
+        // Auto-fill all recipient fields
+        console.log('📝 Auto-filling fields...');
+        setRecipientName(data.recipientName || '');
+        setRole(data.role || '');
+        setCompanyName(data.companyName || '');
+        setLocation(data.location || '');
+        setPhoneNumber(data.phoneNumber || '+971');
+        setEmail(data.email || '');
+        console.log('✅ All fields auto-filled successfully!');
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Failed to fetch recipient details:', response.status, errorText);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching recipient details:', error);
+    }
+  };
+
   // Fetch company details from company_details.xlsx
   const fetchCompanyDetails = async (companyFullName: string) => {
     if (!companyFullName) {
@@ -352,7 +390,22 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
     }
   };
 
-  // Fetch company list on component mount
+  // Fetch recipient list
+  const fetchRecipients = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/recipients');
+      if (response.ok) {
+        const data = await response.json();
+        setRecipientOptions(
+          data.recipients.map((name: string) => ({ value: name, label: name }))
+        );
+      }
+    } catch (error) {
+      console.error('Error fetching recipients:', error);
+    }
+  };
+
+  // Fetch company and recipient lists on component mount
   useEffect(() => {
     const fetchCompanies = async () => {
       try {
@@ -368,7 +421,22 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
       }
     };
 
+    const fetchRecipientsInitial = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/recipients');
+        if (response.ok) {
+          const data = await response.json();
+          setRecipientOptions(
+            data.recipients.map((name: string) => ({ value: name, label: name }))
+          );
+        }
+      } catch (error) {
+        console.error('Error fetching recipients:', error);
+      }
+    };
+
     fetchCompanies();
+    fetchRecipientsInitial();
   }, []);
 
   // Fetch company details when fromCompany changes
@@ -377,6 +445,11 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
       fetchCompanyDetails(fromCompany);
     }
   }, [fromCompany]);
+
+  // Log when company code updates
+  useEffect(() => {
+    console.log(`📝 Company Code updated: "${companyCode}"`);
+  }, [companyCode]);
 
   // Fetch sales person names when quotationFrom changes to 'Sales'
   useEffect(() => {
@@ -475,14 +548,17 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
           }
         })).flatMap(obj => Object.entries(obj))
       );
+      
+      // Debug: Log terms data being sent
+      console.log('=== TERMS DATA BEING SENT ===');
+      console.log('termsConditions:', formattedTerms.termsConditions);
+      if (formattedTerms.termsConditions) {
+        console.log('  Details:', formattedTerms.termsConditions.details);
+        console.log('  Custom:', formattedTerms.termsConditions.custom);
+      }
+      console.log('============================');
 
-      // Construct full quote number
-      const companyCodeMap: Record<string, string> = {
-        'GRP TANKS TRADING L.L.C': 'GRPT',
-        'GRP PIPECO TANKS TRADING L.L.C': 'GRPPT',
-        'COLEX TANKS TRADING L.L.C': 'CLX',
-      };
-      const companyCode = fromCompany ? companyCodeMap[fromCompany] || '' : '';
+      // Construct full quote number using companyCode from state (already fetched from database)
       const yy = String(dateObj.getFullYear()).slice(-2);
       const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
       const yymm = `${yy}${mm}`;
@@ -584,6 +660,8 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
             const savedData = await saveResponse.json();
             console.log('✓ Quotation saved to database:', savedData.fullQuoteNumber);
             toast.success('Quotation saved to database!');
+            // Refresh recipient list to include newly added recipient
+            fetchRecipients();
           } else {
             console.warn('Failed to save quotation to database');
           }
@@ -903,6 +981,25 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
         setAdditionalDetails(data.additionalData.additionalDetails);
       }
       
+      // Load contractual terms & specifications
+      if (data.terms) {
+        setTerms(prev => {
+          const newTerms = { ...prev };
+          
+          // Update each term section if it exists in loaded data
+          Object.keys(data.terms).forEach(key => {
+            if (newTerms[key]) {
+              newTerms[key] = {
+                ...newTerms[key],
+                ...data.terms[key]
+              };
+            }
+          });
+          
+          return newTerms;
+        });
+      }
+      
       toast.success('Quotation loaded successfully!');
     } catch (error) {
       console.error('Error loading quotation:', error);
@@ -994,11 +1091,22 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
               </div>
               <div className="col-span-3">
                 <Label htmlFor="recipientName">Recipient Name</Label>
-                <Input
+                <AutocompleteInput
                   id="recipientName"
                   value={recipientName}
-                  onChange={(e) => setRecipientName(e.target.value)}
-                  placeholder="Hridya."
+                  onValueChange={(value) => {
+                    console.log(`📝 Recipient name changed to: "${value}"`);
+                    setRecipientName(value);
+                    // Check if this value exists in recipient options (user selected from dropdown)
+                    const isExistingRecipient = recipientOptions.some(opt => opt.value === value);
+                    console.log(`Is existing recipient: ${isExistingRecipient}`);
+                    if (isExistingRecipient) {
+                      console.log(`🔄 Fetching details for: ${value}`);
+                      fetchRecipientDetails(value);
+                    }
+                  }}
+                  options={recipientOptions}
+                  placeholder="Enter or select recipient name"
                   onKeyDown={e => {
                     if (e.key === 'Enter') {
                       const next = document.querySelector('#role');

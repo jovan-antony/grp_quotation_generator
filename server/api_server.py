@@ -15,7 +15,8 @@ from user_input_tank_generator import TankInvoiceGenerator
 # Import database models and session
 from models import (
     SalesDetails, ProjectManagerDetails, CompanyDetails, 
-    RecipientDetails, QuotationWebpageInputDetailsSave
+    RecipientDetails, QuotationWebpageInputDetailsSave,
+    ContractualTermsSpecifications
 )
 from database import get_session
 from sqlmodel import Session, select
@@ -100,9 +101,28 @@ class QuotationRequest(BaseModel):
 @app.post("/generate-quotation")
 async def generate_quotation(request: QuotationRequest, session: Session = Depends(get_session)):
     try:
+        # Debug: Log terms data received from frontend
+        print(f"\n{'='*60}")
+        print(f"GENERATE QUOTATION - TERMS DEBUG")
+        print(f"{'='*60}")
+        if hasattr(request, 'terms') and request.terms:
+            for term_key, term_value in request.terms.items():
+                print(f"  {term_key}:")
+                print(f"    action: {term_value.action}")
+                print(f"    details count: {len(term_value.details)}")
+                print(f"    custom count: {len(term_value.custom)}")
+                if term_value.custom:
+                    print(f"    custom entries:")
+                    for idx, entry in enumerate(term_value.custom, 1):
+                        print(f"      {idx}. {entry}")
+        print(f"{'='*60}\n")
+        
         # Use template path from request if provided, otherwise use default mapping
         if request.templatePath:
             template_filename = request.templatePath
+            # Add .docx extension if not present
+            if not template_filename.endswith('.docx'):
+                template_filename = template_filename + '.docx'
         else:
             # Fallback to old mapping
             template_map = {
@@ -351,11 +371,24 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
             terms_data = request.terms['termsConditions']
             # For terms, we need to format as dict
             terms_list = terms_data.details + terms_data.custom
+            print(f"  Terms & Conditions - Total entries: {len(terms_list)}")
+            print(f"    Default entries: {len(terms_data.details)}")
+            print(f"    Custom entries: {len(terms_data.custom)}")
+            if terms_data.custom:
+                print(f"    Custom entries content: {terms_data.custom}")
+            
             generator.section_content['terms'] = {}
-            for term in terms_list:
+            for idx, term in enumerate(terms_list):
                 if ':' in term:
                     key, value = term.split(':', 1)
-                    generator.section_content['terms'][key.strip()] = value.strip()
+                    key_clean = key.strip()
+                    value_clean = value.strip()
+                    generator.section_content['terms'][key_clean] = value_clean
+                    print(f"      Added term: '{key_clean}' = '{value_clean[:50]}...'")
+                else:
+                    print(f"    WARNING: Term #{idx+1} skipped (no colon): {term[:50]}")
+            
+            print(f"    Final terms dict has {len(generator.section_content['terms'])} entries")
         
         # EXTRA NOTE
         if generator.sections['extra_note']:
@@ -514,6 +547,18 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
                 "If you have any questions concerning the offer, please contact the undersigned."
             )
         
+        # DEBUG: Check section_content right before document generation
+        print(f"\n{'='*60}")
+        print(f"FINAL CHECK BEFORE DOCUMENT GENERATION")
+        print(f"{'='*60}")
+        if 'terms' in generator.section_content:
+            print(f"  terms section exists: {len(generator.section_content['terms'])} entries")
+            for key, val in generator.section_content['terms'].items():
+                print(f"    - {key}: {val[:40]}...")
+        else:
+            print(f"  ⚠️  NO TERMS in section_content!")
+        print(f"{'='*60}\n")
+        
         # Generate the document
         generator.create_invoice_table()
         
@@ -548,74 +593,54 @@ async def health_check():
 
 
 @app.get("/api/companies")
-async def get_companies():
+async def get_companies(session: Session = Depends(get_session)):
     """
-    Get all company names from company_details.xlsx
+    Get all company names from company_details table in database
     Returns list of full company names
     """
     try:
-        file_path = os.path.join(os.path.dirname(__file__), "company_details.xlsx")
+        # Query all companies from database
+        statement = select(CompanyDetails)
+        companies = session.exec(statement).all()
         
-        if not os.path.exists(file_path):
-            raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
+        # Extract full_name from each company
+        company_names = [company.full_name for company in companies]
         
-        # Read Excel file
-        df = pd.read_excel(file_path)
+        return {"companies": company_names}
         
-        # Check if full_name column exists
-        if 'full_name' not in df.columns:
-            raise HTTPException(status_code=500, detail="full_name column not found in Excel file")
-        
-        # Get company names and remove any NaN values
-        companies = df['full_name'].dropna().tolist()
-        
-        return {"companies": companies}
-        
-    except HTTPException:
-        raise
     except Exception as e:
-        print(f"Error reading company names: {str(e)}")
+        print(f"Error reading company names from database: {str(e)}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Error reading company names: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error reading company names from database: {str(e)}")
 
 
 @app.get("/api/company-details")
-async def get_company_details(name: str):
+async def get_company_details(name: str, session: Session = Depends(get_session)):
     """
-    Get company details from company_details.xlsx based on full_name
+    Get company details from company_details table in database based on full_name
     Returns: code, template_path, seal_path, company_domain
     """
     try:
-        file_path = os.path.join(os.path.dirname(__file__), "company_details.xlsx")
+        # Query company by full_name from database
+        statement = select(CompanyDetails).where(CompanyDetails.full_name == name.strip())
+        company = session.exec(statement).first()
         
-        if not os.path.exists(file_path):
-            raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
-        
-        # Read Excel file
-        df = pd.read_excel(file_path)
-        
-        # Check if required columns exist
-        required_cols = ['full_name', 'code', 'template_path']
-        missing_cols = [col for col in required_cols if col not in df.columns]
-        if missing_cols:
-            raise HTTPException(status_code=500, detail=f"Missing columns: {missing_cols}")
-        
-        # Find the company by full_name
-        company_row = df[df['full_name'].str.strip() == name.strip()]
-        
-        if company_row.empty:
+        if not company:
+            # Get all companies for debugging
+            all_companies = session.exec(select(CompanyDetails)).all()
+            available_companies = [c.full_name for c in all_companies]
             print(f"⚠ Company not found: '{name}'")
-            print(f"Available companies: {df['full_name'].tolist()}")
+            print(f"Available companies: {available_companies}")
             raise HTTPException(status_code=404, detail=f"Company not found: {name}")
         
         # Get company details
         details = {
-            "code": str(company_row.iloc[0]['code']).strip(),
-            "company_name": str(company_row.iloc[0]['company_name']).strip() if 'company_name' in df.columns else "",
-            "template_path": str(company_row.iloc[0]['template_path']).strip(),
-            "seal_path": str(company_row.iloc[0]['seal_path']).strip() if 'seal_path' in df.columns else "",
-            "company_domain": str(company_row.iloc[0]['company_domain']).strip() if 'company_domain' in df.columns else ""
+            "code": company.code,
+            "company_name": company.company_name,
+            "template_path": company.template_path or "",
+            "seal_path": company.seal_path or "",
+            "company_domain": company.company_domain or ""
         }
         
         return details
@@ -627,6 +652,70 @@ async def get_company_details(name: str):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error reading company details: {str(e)}")
+
+
+@app.get("/api/recipients")
+async def get_recipients(session: Session = Depends(get_session)):
+    """
+    Get all recipient names from recipient_details table in database
+    Returns list of unique recipient names
+    """
+    try:
+        # Query all recipients from database
+        statement = select(RecipientDetails)
+        recipients = session.exec(statement).all()
+        
+        # Extract unique recipient names
+        recipient_names = list(set([recipient.recipient_name for recipient in recipients if recipient.recipient_name]))
+        recipient_names.sort()  # Sort alphabetically
+        
+        return {"recipients": recipient_names}
+        
+    except Exception as e:
+        print(f"Error reading recipient names from database: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error reading recipient names from database: {str(e)}")
+
+
+@app.get("/api/recipient-details")
+async def get_recipient_details(name: str, session: Session = Depends(get_session)):
+    """
+    Get recipient details from recipient_details table in database based on recipient_name
+    Returns: role, company name, location, phone, email
+    """
+    try:
+        # Query recipient by name from database
+        statement = select(RecipientDetails).where(RecipientDetails.recipient_name == name.strip())
+        recipient = session.exec(statement).first()
+        
+        if not recipient:
+            print(f"⚠ Recipient not found: '{name}'")
+            # Get all recipients for debugging
+            all_recipients = session.exec(select(RecipientDetails)).all()
+            available_recipients = [r.recipient_name for r in all_recipients]
+            print(f"Available recipients: {available_recipients}")
+            raise HTTPException(status_code=404, detail=f"Recipient not found: {name}")
+        
+        # Get recipient details
+        details = {
+            "recipientName": recipient.recipient_name,
+            "role": recipient.role_of_recipient or "",
+            "companyName": recipient.to_company_name or "",
+            "location": recipient.to_company_location or "",
+            "phoneNumber": recipient.phone_number or "",
+            "email": recipient.email or ""
+        }
+        
+        return details
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error reading recipient details: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error reading recipient details: {str(e)}")
 
 
 # Pydantic models for request/response
@@ -666,19 +755,20 @@ async def save_quotation(request: SaveQuotationRequest, session: Session = Depen
         print(f"SAVING QUOTATION TO DATABASE")
         print(f"{'='*60}")
         print(f"Full Quote Number: {request.fullQuoteNumber}")
+        print(f"From Company: {request.fromCompany}")
         
-        # Get or create company
-        company_map = {
-            "GRP TANKS TRADING L.L.C": "grp",
-            "GRP PIPECO TANKS TRADING L.L.C": "grp pipeco",
-            "COLEX TANKS TRADING L.L.C": "colex"
-        }
-        company_name = company_map.get(request.fromCompany, "grp")
-        
-        statement = select(CompanyDetails).where(CompanyDetails.company_name == company_name)
+        # Get company from database by full_name (not hardcoded)
+        statement = select(CompanyDetails).where(CompanyDetails.full_name == request.fromCompany)
         company = session.exec(statement).first()
         if not company:
-            raise HTTPException(status_code=404, detail=f"Company not found: {company_name}")
+            print(f"⚠ Company not found in database: {request.fromCompany}")
+            # Try to list all available companies for debugging
+            all_companies = session.exec(select(CompanyDetails)).all()
+            available = [c.full_name for c in all_companies]
+            print(f"Available companies: {available}")
+            raise HTTPException(status_code=404, detail=f"Company not found: {request.fromCompany}")
+        
+        print(f"✓ Found company: {company.full_name} (ID: {company.id}, Code: {company.code})")
         
         # Create or update recipient
         statement = select(RecipientDetails).where(
@@ -793,6 +883,48 @@ async def save_quotation(request: SaveQuotationRequest, session: Session = Depen
             session.add(quotation)
             print(f"✓ Created new quotation: {request.fullQuoteNumber}")
         
+        # Save contractual terms & specifications
+        if request.terms:
+            # Check if terms already exist
+            statement = select(ContractualTermsSpecifications).where(
+                ContractualTermsSpecifications.full_main_quote_number == request.fullQuoteNumber
+            )
+            existing_terms = session.exec(statement).first()
+            
+            # Map frontend terms to database columns
+            terms_mapping = {
+                'note': 'note',
+                'materialSpecification': 'material_specifications',
+                'warrantyExclusions': 'warranty_conditions',  # Frontend uses warrantyExclusions
+                'termsConditions': 'terms_and_conditions',    # Frontend uses termsConditions
+                'supplierScope': 'supplier_scope',
+                'customerScope': 'customer_scope',
+                'extraNote': 'note_second',
+                'scopeOfWork': 'scope_of_work',
+                'workExcluded': 'work_excluded'
+            }
+            
+            if existing_terms:
+                # Update existing terms
+                for frontend_key, db_column in terms_mapping.items():
+                    if frontend_key in request.terms:
+                        setattr(existing_terms, db_column, request.terms[frontend_key])
+                existing_terms.last_updated_time = datetime.utcnow()
+                print(f"✓ Updated contractual terms for: {request.fullQuoteNumber}")
+            else:
+                # Create new terms
+                terms_data = {}
+                for frontend_key, db_column in terms_mapping.items():
+                    if frontend_key in request.terms:
+                        terms_data[db_column] = request.terms[frontend_key]
+                
+                contractual_terms = ContractualTermsSpecifications(
+                    full_main_quote_number=request.fullQuoteNumber,
+                    **terms_data
+                )
+                session.add(contractual_terms)
+                print(f"✓ Created contractual terms for: {request.fullQuoteNumber}")
+        
         session.commit()
         
         print(f"{'='*60}\n")
@@ -832,7 +964,7 @@ async def get_quotation(quote_number: str, session: Session = Depends(get_sessio
         quotation = session.exec(statement).first()
         
         if not quotation:
-            raise HTTPException(status_code=404, detail=f"Quotation not found: {full_quote_number}")
+            raise HTTPException(status_code=404, detail=f"Quotation not found: {quote_number}")
         
         # Get related data
         company = session.get(CompanyDetails, quotation.company_id)
@@ -842,19 +974,40 @@ async def get_quotation(quote_number: str, session: Session = Depends(get_sessio
         if quotation.project_manager_id:
             project_manager = session.get(ProjectManagerDetails, quotation.project_manager_id)
         
-        # Map company name
-        company_name_map = {
-            "grp": "GRP TANKS TRADING L.L.C",
-            "grp pipeco": "GRP PIPECO TANKS TRADING L.L.C",
-            "colex": "COLEX TANKS TRADING L.L.C"
-        }
+        print(f"✓ Found company: {company.full_name if company else 'None'} (ID: {quotation.company_id})")
+        
+        # Get contractual terms
+        statement_terms = select(ContractualTermsSpecifications).where(
+            ContractualTermsSpecifications.full_main_quote_number == quote_number
+        )
+        contractual_terms = session.exec(statement_terms).first()
+        
+        # Map database columns to frontend terms
+        terms_data = {}
+        if contractual_terms:
+            db_to_frontend_mapping = {
+                'note': 'note',
+                'material_specifications': 'materialSpecification',
+                'warranty_conditions': 'warrantyExclusions',  # Frontend uses warrantyExclusions
+                'terms_and_conditions': 'termsConditions',    # Frontend uses termsConditions
+                'supplier_scope': 'supplierScope',
+                'customer_scope': 'customerScope',
+                'note_second': 'extraNote',
+                'scope_of_work': 'scopeOfWork',
+                'work_excluded': 'workExcluded'
+            }
+            
+            for db_column, frontend_key in db_to_frontend_mapping.items():
+                db_value = getattr(contractual_terms, db_column, None)
+                if db_value:
+                    terms_data[frontend_key] = db_value
         
         # Build response
         response = {
             "quotationNumber": quotation.quotation_number,
             "fullQuoteNumber": quotation.full_main_quote_number,
             "finalDocFilePath": quotation.final_doc_file_path,
-            "fromCompany": company_name_map.get(company.company_name, company.full_name) if company else "",
+            "fromCompany": company.full_name if company else "",
             "recipientTitle": "Mr.",  # Default, can be enhanced
             "recipientName": recipient.recipient_name if recipient else "",
             "role": recipient.role_of_recipient if recipient else "",
@@ -871,6 +1024,7 @@ async def get_quotation(quote_number: str, session: Session = Depends(get_sessio
             "tanksData": quotation.tanks_data,
             "formOptions": quotation.form_options or {},
             "additionalData": quotation.additional_data or {},
+            "terms": terms_data,
             "revisionNumber": quotation.revision_number,
             "status": quotation.status,
             "createdTime": quotation.created_time.isoformat(),

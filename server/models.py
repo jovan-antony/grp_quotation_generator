@@ -148,3 +148,22 @@ class QuotationWebpageInputDetailsSave(SQLModel, table=True):
     revision: Optional[str] = None
     created_time: datetime = Field(default_factory=datetime.utcnow)
     last_updated_time: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ContractualTermsSpecifications(SQLModel, table=True):
+    """Contractual terms and specifications table"""
+    __tablename__ = "contractual_terms_specifications"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    full_main_quote_number: str = Field(unique=True, index=True)
+    note: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    material_specifications: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    warranty_conditions: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    terms_and_conditions: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    supplier_scope: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    customer_scope: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    note_second: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    scope_of_work: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    work_excluded: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    created_time: datetime = Field(default_factory=datetime.utcnow)
+    last_updated_time: datetime = Field(default_factory=datetime.utcnow)

@@ -1,0 +1,26 @@
+{
+    "Sheet1": [
+        {
+            "id ": 1,
+            "manager_name": "Anoop Mohan                                                                                                                     ",
+            "code": "AM",
+            "sign_path": "signs&seals/AM_sign",
+            "designation": "Manager - Projects ",
+            "phone_number": "+971 50 952 4282                         ",
+            "email_name": "anoop",
+            "created_time": "",
+            "last_updated_time": ""
+        },
+        {
+            "id ": 2,
+            "manager_name": "Midhun Murali                                                                                                                     ",
+            "code": "MM",
+            "sign_path": "signs&seals/MM_sign",
+            "designation": "Sales Manager                                                                 ",
+            "phone_number": "+971 50 265 3282                                                                                  ",
+            "email_name": "midhun",
+            "created_time": "",
+            "last_updated_time": ""
+        }
+    ]
+}

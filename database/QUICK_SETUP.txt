@@ -1,0 +1,48 @@
+===============================================
+GRP QUOTATION DATABASE - QUICK SETUP
+===============================================
+
+FOR YOUR FRIEND'S LAPTOP
+------------------------
+
+STEP 1: Install PostgreSQL
+- Download from: https://www.postgresql.org/download/
+- Install with default settings
+- Remember the password for 'postgres' user
+
+STEP 2: Copy These Files
+- setup_with_company_data.sql
+- SETUP_WITH_COMPANY_DATA_SAFE.bat (Windows)
+- Or use the commands below (any OS)
+
+STEP 3: Run Setup
+
+WINDOWS (Easiest):
+   Double-click: SETUP_WITH_COMPANY_DATA_SAFE.bat
+   Enter password when prompted
+
+WINDOWS (Command Prompt):
+   psql -U postgres -d postgres -c "CREATE DATABASE grp_quotation_fresh;"
+   psql -U postgres -d grp_quotation_fresh -f setup_with_company_data.sql
+
+MAC/LINUX (Terminal):
+   psql -U postgres -d postgres -c "CREATE DATABASE grp_quotation_fresh;"
+   psql -U postgres -d grp_quotation_fresh -f setup_with_company_data.sql
+
+STEP 4: Verify
+   psql -U postgres -d grp_quotation_fresh -c "\dt"
+
+DONE! Database Ready
+--------------------
+Database: grp_quotation_fresh
+7 Tables Created
+3 Companies, 6 Sales, 2 Managers loaded
+
+Quote Format: GRPT/2602/VV/0001
+
+===============================================
+
+NEED HELP?
+- See SIMPLE_SETUP_GUIDE.md for detailed steps
+- Problem with "too many clients"? Restart PostgreSQL service
+- Already exists? Use SETUP_WITH_COMPANY_DATA_SAFE.bat

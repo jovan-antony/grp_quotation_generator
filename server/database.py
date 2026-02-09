@@ -7,7 +7,7 @@ import os
 # Format: postgresql://username:password@host:port/database_name
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql://postgres:postgres@localhost:5432/grp_quotation"
+    "postgresql://postgres:postgres@localhost:5432/grp_quotation_fresh"
 )
 
 # Create engine

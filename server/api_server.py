@@ -7,11 +7,18 @@ import os
 
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, date
 from pathlib import Path
 import pandas as pd
 # Import the generator class
 from user_input_tank_generator import TankInvoiceGenerator
+# Import database models and session
+from models import (
+    SalesDetails, ProjectManagerDetails, CompanyDetails, 
+    RecipientDetails, QuotationWebpageInputDetailsSave
+)
+from database import get_session
+from sqlmodel import Session, select
 
 app = FastAPI()
 
@@ -88,7 +95,7 @@ class QuotationRequest(BaseModel):
 
 
 @app.post("/generate-quotation")
-async def generate_quotation(request: QuotationRequest):
+async def generate_quotation(request: QuotationRequest, session: Session = Depends(get_session)):
     try:
         # Determine template path based on company
         template_map = {
@@ -115,26 +122,24 @@ async def generate_quotation(request: QuotationRequest):
         date_parts = request.quotationDate.split('/')
         yymm = f"{date_parts[2]}{date_parts[1]}" if len(date_parts) == 3 else "0000"
         
-        # Read Excel files once for efficiency
-        sales_df = None
-        pm_df = None
+        # Get person code from database
         person_code = ""
         
         try:
             if request.quotationFrom == 'Sales' and request.salesPersonName:
-                sales_df = pd.read_excel(os.path.join(script_dir, 'sales_person_details.xlsx'))
                 person_name = request.salesPersonName.split('(')[0].strip()
-                person_row = sales_df[sales_df['NAME'].str.strip() == person_name]
-                if not person_row.empty:
-                    person_code = str(person_row.iloc[0]['CODE']).strip()
+                statement = select(SalesDetails).where(SalesDetails.sales_person_name == person_name)
+                result = session.exec(statement).first()
+                if result:
+                    person_code = result.code
             elif request.officePersonName:
-                pm_df = pd.read_excel(os.path.join(script_dir, 'Project_manager_details.xlsx'))
                 person_name = request.officePersonName.split('(')[0].strip()
-                person_row = pm_df[pm_df['NAME'].str.strip() == person_name]
-                if not person_row.empty:
-                    person_code = str(person_row.iloc[0]['CODE']).strip()
+                statement = select(ProjectManagerDetails).where(ProjectManagerDetails.manager_name == person_name)
+                result = session.exec(statement).first()
+                if result:
+                    person_code = result.code
         except Exception as e:
-            print(f"⚠ Error fetching CODE from Excel: {e}")
+            print(f"⚠ Error fetching CODE from database: {e}")
         
         person_code = person_code or "XX"
         constructed_quote_number = f"{company_code}/{yymm}/{person_code}/{request.quotationNumber}"
@@ -352,122 +357,85 @@ async def generate_quotation(request: QuotationRequest):
             right_email = ""
             signature_image = ""
             
+            # Helper function to construct email based on template
+            def construct_email(email_name, template_filename):
+                if not email_name:
+                    return ""
+                # Determine domain based on template
+                if template_filename.lower().endswith("template_grp.docx"):
+                    domain = "grptanks.com"
+                elif template_filename.lower().endswith("template_pipeco.docx"):
+                    domain = "grppipeco.com"
+                elif template_filename.lower().endswith("template_colex.docx"):
+                    domain = "colextanks.com"
+                else:
+                    domain = "grptanks.com"
+                return f"{email_name}@{domain}"
+            
             try:
                 if sig_type == 's':  # UI "Sales"
-                    # Reuse sales_df if already loaded, otherwise load it
-                    if sales_df is None:
-                        sales_df = pd.read_excel(os.path.join(script_dir, 'sales_person_details.xlsx'))
-                    
+                    # Get sales person details from database
                     if request.salesPersonName:
                         person_name = request.salesPersonName.split('(')[0].strip() if '(' in request.salesPersonName else request.salesPersonName.strip()
-                        person_row = sales_df[sales_df['NAME'].str.strip() == person_name]
+                        statement = select(SalesDetails).where(SalesDetails.sales_person_name == person_name)
+                        selected_sales = session.exec(statement).first()
                         
-                        if not person_row.empty:
-                            selected_sales = person_row.iloc[0]
+                        if selected_sales:
+                            left_name = selected_sales.sales_person_name
+                            left_title = selected_sales.designation or "Sales Executive"
+                            left_mobile = selected_sales.phone_number or ""
+                            left_email = construct_email(selected_sales.email_name, template_filename)
                             
-                            # Determine email column based on template
-                            if template_filename.lower().endswith("template_grp.docx"):
-                                email_col = 'EMAIL-GRPTANKS'
-                            elif template_filename.lower().endswith("template_pipeco.docx"):
-                                email_col = 'EMAIL-PIPECO'
-                            elif template_filename.lower().endswith("template_colex.docx"):
-                                email_col = 'EMAIL-COLEX'
-                            else:
-                                email_col = 'EMAIL-GRPTANKS'
-                            
-                            left_name = str(selected_sales['NAME'])
-                            left_title = str(selected_sales['DESIGNATION']) if 'DESIGNATION' in sales_df.columns else "Sales Executive"
-                            left_mobile = str(selected_sales['MOB']) if 'MOB' in sales_df.columns else ""
-                            left_email = str(selected_sales[email_col]) if email_col in sales_df.columns else ""
-                            
-                            # Get CODE for signature images
-                            if 'CODE' in sales_df.columns:
-                                code = str(selected_sales['CODE'])
-                                signs_dir = os.path.join(script_dir, 'signs&seals')
-                                # Look for signature image
-                                for ext in ['.png', '.jpg', '.jpeg']:
-                                    if not signature_image:
-                                        sign_path = os.path.join(signs_dir, f"{code}_sign{ext}")
-                                        if os.path.exists(sign_path):
-                                            signature_image = sign_path
-                    
-                    # Right side: Office Person - reuse pm_df if already loaded
-                    if pm_df is None:
-                        pm_df = pd.read_excel(os.path.join(script_dir, 'Project_manager_details.xlsx'))
-                    
-                    if request.officePersonName:
-                        person_name = request.officePersonName.split('(')[0].strip() if '(' in request.officePersonName else request.officePersonName.strip()
-                        person_row = pm_df[pm_df['NAME'].str.strip() == person_name]
-                        
-                        if not person_row.empty:
-                            selected_pm = person_row.iloc[0]
-                        else:
-                            # Use first project manager as fallback
-                            selected_pm = pm_df.iloc[0] if len(pm_df) > 0 else None
-                    else:
-                        # Use first project manager as default
-                        selected_pm = pm_df.iloc[0] if len(pm_df) > 0 else None
-                    
-                    if selected_pm is not None:
-                        # Determine email column based on template
-                        if template_filename.lower().endswith("template_grp.docx"):
-                            pm_email_col = 'EMAIL-GRPTANKS'
-                        elif template_filename.lower().endswith("template_pipeco.docx"):
-                            pm_email_col = 'EMAIL-PIPECO'
-                        elif template_filename.lower().endswith("template_colex.docx"):
-                            pm_email_col = 'EMAIL-COLEX'
-                        else:
-                            pm_email_col = 'EMAIL-GRPTANKS'
-                        
-                        right_name = str(selected_pm['NAME'])
-                        right_title = str(selected_pm['DESIGNATION']) if 'DESIGNATION' in pm_df.columns else "Manager - Projects"
-                        right_mobile = str(selected_pm['MOB']) if 'MOB' in pm_df.columns else ""
-                        right_email = str(selected_pm[pm_email_col]) if pm_email_col in pm_df.columns else ""
-                    
-                else:  # sig_type == 'o', UI "Office"
-                    # Reuse pm_df if already loaded
-                    if pm_df is None:
-                        pm_df = pd.read_excel(os.path.join(script_dir, 'Project_manager_details.xlsx'))
-                    
-                    if request.officePersonName:
-                        person_name = request.officePersonName.split('(')[0].strip() if '(' in request.officePersonName else request.officePersonName.strip()
-                        person_row = pm_df[pm_df['NAME'].str.strip() == person_name]
-                        
-                        if not person_row.empty:
-                            selected_pm = person_row.iloc[0]
-                        else:
-                            # Use first project manager as fallback
-                            selected_pm = pm_df.iloc[0] if len(pm_df) > 0 else None
-                    else:
-                        # Use first project manager as default
-                        selected_pm = pm_df.iloc[0] if len(pm_df) > 0 else None
-                    
-                    if selected_pm is not None:
-                        # Determine email column
-                        if template_filename.lower().endswith("template_grp.docx"):
-                            pm_email_col = 'EMAIL-GRPTANKS'
-                        elif template_filename.lower().endswith("template_pipeco.docx"):
-                            pm_email_col = 'EMAIL-PIPECO'
-                        elif template_filename.lower().endswith("template_colex.docx"):
-                            pm_email_col = 'EMAIL-COLEX'
-                        else:
-                            pm_email_col = 'EMAIL-GRPTANKS'
-                        
-                        left_name = str(selected_pm['NAME'])
-                        left_title = str(selected_pm['DESIGNATION']) if 'DESIGNATION' in pm_df.columns else "Manager - Projects"
-                        left_mobile = str(selected_pm['MOB']) if 'MOB' in pm_df.columns else ""
-                        left_email = str(selected_pm[pm_email_col]) if pm_email_col in pm_df.columns else ""
-                        
-                        # Get CODE for signature images
-                        if 'CODE' in pm_df.columns:
-                            code = str(selected_pm['CODE'])
+                            # Get signature image
+                            code = selected_sales.code
                             signs_dir = os.path.join(script_dir, 'signs&seals')
-                            # Look for signature image
                             for ext in ['.png', '.jpg', '.jpeg']:
                                 if not signature_image:
                                     sign_path = os.path.join(signs_dir, f"{code}_sign{ext}")
                                     if os.path.exists(sign_path):
                                         signature_image = sign_path
+                    
+                    # Right side: Office Person (Project Manager)
+                    if request.officePersonName:
+                        person_name = request.officePersonName.split('(')[0].strip() if '(' in request.officePersonName else request.officePersonName.strip()
+                        statement = select(ProjectManagerDetails).where(ProjectManagerDetails.manager_name == person_name)
+                        selected_pm = session.exec(statement).first()
+                    else:
+                        # Use first project manager as default
+                        statement = select(ProjectManagerDetails)
+                        selected_pm = session.exec(statement).first()
+                    
+                    if selected_pm:
+                        right_name = selected_pm.manager_name
+                        right_title = selected_pm.designation or "Manager - Projects"
+                        right_mobile = selected_pm.phone_number or ""
+                        right_email = construct_email(selected_pm.email_name, template_filename)
+                    
+                else:  # sig_type == 'o', UI "Office"
+                    # Get project manager details from database
+                    if request.officePersonName:
+                        person_name = request.officePersonName.split('(')[0].strip() if '(' in request.officePersonName else request.officePersonName.strip()
+                        statement = select(ProjectManagerDetails).where(ProjectManagerDetails.manager_name == person_name)
+                        selected_pm = session.exec(statement).first()
+                    else:
+                        # Use first project manager as default
+                        statement = select(ProjectManagerDetails)
+                        selected_pm = session.exec(statement).first()
+                    
+                    if selected_pm:
+                        left_name = selected_pm.manager_name
+                        left_title = selected_pm.designation or "Manager - Projects"
+                        left_mobile = selected_pm.phone_number or ""
+                        left_email = construct_email(selected_pm.email_name, template_filename)
+                        
+                        # Get signature image
+                        code = selected_pm.code
+                        signs_dir = os.path.join(script_dir, 'signs&seals')
+                        for ext in ['.png', '.jpg', '.jpeg']:
+                            if not signature_image:
+                                sign_path = os.path.join(signs_dir, f"{code}_sign{ext}")
+                                if os.path.exists(sign_path):
+                                    signature_image = sign_path
                     
                     # No right signatory for office
                     right_name = ""
@@ -476,11 +444,11 @@ async def generate_quotation(request: QuotationRequest):
                     right_email = ""
                     
             except Exception as e:
-                print(f"⚠ Error reading Excel files for signature: {e}")
+                print(f"⚠ Error reading database for signature: {e}")
                 # Fallback to extracting name from provided fields
-                if request.quotationFrom == 'Sales' and request.officePersonName:
-                    left_name = request.officePersonName.split('(')[0].strip()
-                    left_title = 'Manager - Projects'
+                if request.quotationFrom == 'Sales' and request.salesPersonName:
+                    left_name = request.salesPersonName.split('(')[0].strip()
+                    left_title = 'Sales Executive'
                 elif request.quotationFrom == 'Office' and request.officePersonName:
                     left_name = request.officePersonName.split('(')[0].strip()
                     left_title = 'Manager - Projects'
@@ -537,32 +505,287 @@ async def health_check():
     return {"status": "ok"}
 
 
-@app.get("/api/person-names/{person_type}")
-async def get_person_names(person_type: str):
+# Pydantic models for request/response
+class SaveQuotationRequest(BaseModel):
+    quotationNumber: str
+    fullQuoteNumber: str
+    finalDocFilePath: Optional[str] = None
+    fromCompany: str
+    recipientTitle: str
+    recipientName: str
+    role: Optional[str] = ""
+    companyName: str
+    location: Optional[str] = ""
+    phoneNumber: Optional[str] = ""
+    email: Optional[str] = ""
+    quotationDate: str
+    quotationFrom: str
+    salesPersonName: Optional[str] = ""
+    officePersonName: Optional[str] = ""
+    subject: str
+    projectLocation: str
+    tanksData: Dict[str, Any]
+    formOptions: Optional[Dict[str, Any]] = None
+    additionalData: Optional[Dict[str, Any]] = None
+    terms: Optional[Dict[str, Any]] = None
+    revisionNumber: int = 0
+    status: str = "draft"
+
+
+@app.post("/api/save-quotation")
+async def save_quotation(request: SaveQuotationRequest, session: Session = Depends(get_session)):
     """
-    Get person names from Excel files based on person type.
+    Save quotation form data to database
+    """
+    try:
+        print(f"\n{'='*60}")
+        print(f"SAVING QUOTATION TO DATABASE")
+        print(f"{'='*60}")
+        print(f"Full Quote Number: {request.fullQuoteNumber}")
+        
+        # Get or create company
+        company_map = {
+            "GRP TANKS TRADING L.L.C": "grp",
+            "GRP PIPECO TANKS TRADING L.L.C": "grp pipeco",
+            "COLEX TANKS TRADING L.L.C": "colex"
+        }
+        company_name = company_map.get(request.fromCompany, "grp")
+        
+        statement = select(CompanyDetails).where(CompanyDetails.company_name == company_name)
+        company = session.exec(statement).first()
+        if not company:
+            raise HTTPException(status_code=404, detail=f"Company not found: {company_name}")
+        
+        # Create or update recipient
+        statement = select(RecipientDetails).where(
+            RecipientDetails.recipient_name == request.recipientName,
+            RecipientDetails.to_company_name == request.companyName
+        )
+        recipient = session.exec(statement).first()
+        
+        if recipient:
+            # Update existing recipient
+            recipient.role_of_recipient = request.role
+            recipient.to_company_location = request.location
+            recipient.phone_number = request.phoneNumber
+            recipient.email = request.email
+            recipient.last_updated_time = datetime.utcnow()
+        else:
+            # Create new recipient
+            recipient = RecipientDetails(
+                recipient_name=request.recipientName,
+                role_of_recipient=request.role,
+                to_company_name=request.companyName,
+                to_company_location=request.location,
+                phone_number=request.phoneNumber,
+                email=request.email
+            )
+            session.add(recipient)
+        
+        session.flush()  # Get recipient ID
+        
+        # Get sales person or project manager
+        sales_person_id = None
+        project_manager_id = None
+        
+        if request.quotationFrom == 'Sales' and request.salesPersonName:
+            person_name = request.salesPersonName.split('(')[0].strip()
+            statement = select(SalesDetails).where(SalesDetails.sales_person_name == person_name)
+            sales_person = session.exec(statement).first()
+            if sales_person:
+                sales_person_id = sales_person.id
+        
+        if request.officePersonName:
+            person_name = request.officePersonName.split('(')[0].strip()
+            statement = select(ProjectManagerDetails).where(ProjectManagerDetails.manager_name == person_name)
+            pm = session.exec(statement).first()
+            if pm:
+                project_manager_id = pm.id
+        
+        # Use first sales person as default if not found
+        if not sales_person_id:
+            statement = select(SalesDetails)
+            first_sales = session.exec(statement).first()
+            if first_sales:
+                sales_person_id = first_sales.id
+        
+        if not sales_person_id:
+            raise HTTPException(status_code=404, detail="No sales person found in database")
+        
+        # Parse date
+        try:
+            date_parts = request.quotationDate.split('/')
+            if len(date_parts) == 3:
+                quotation_date = date(int(f"20{date_parts[2]}"), int(date_parts[1]), int(date_parts[0]))
+            else:
+                quotation_date = date.fromisoformat(request.quotationDate)
+        except:
+            quotation_date = date.today()
+        
+        # Check if quotation already exists (for updates)
+        statement = select(QuotationWebpageInputDetailsSave).where(
+            QuotationWebpageInputDetailsSave.full_main_quote_number == request.fullQuoteNumber
+        )
+        existing_quotation = session.exec(statement).first()
+        
+        if existing_quotation:
+            # Update existing quotation
+            existing_quotation.quotation_number = request.quotationNumber
+            existing_quotation.final_doc_file_path = request.finalDocFilePath
+            existing_quotation.company_id = company.id
+            existing_quotation.recipient_id = recipient.id
+            existing_quotation.sales_person_id = sales_person_id
+            existing_quotation.project_manager_id = project_manager_id
+            existing_quotation.quotation_date = quotation_date
+            existing_quotation.subject = request.subject
+            existing_quotation.project_location = request.projectLocation
+            existing_quotation.tanks_data = request.tanksData
+            existing_quotation.form_options = request.formOptions or {}
+            existing_quotation.additional_data = request.additionalData or {}
+            existing_quotation.revision_number = request.revisionNumber
+            existing_quotation.status = request.status
+            existing_quotation.last_updated_time = datetime.utcnow()
+            
+            print(f"✓ Updated existing quotation: {request.fullQuoteNumber}")
+        else:
+            # Create new quotation
+            quotation = QuotationWebpageInputDetailsSave(
+                quotation_number=request.quotationNumber,
+                full_main_quote_number=request.fullQuoteNumber,
+                final_doc_file_path=request.finalDocFilePath,
+                company_id=company.id,
+                recipient_id=recipient.id,
+                sales_person_id=sales_person_id,
+                project_manager_id=project_manager_id,
+                quotation_date=quotation_date,
+                subject=request.subject,
+                project_location=request.projectLocation,
+                tanks_data=request.tanksData,
+                form_options=request.formOptions or {},
+                additional_data=request.additionalData or {},
+                revision_number=request.revisionNumber,
+                status=request.status
+            )
+            session.add(quotation)
+            print(f"✓ Created new quotation: {request.fullQuoteNumber}")
+        
+        session.commit()
+        
+        print(f"{'='*60}\n")
+        
+        return {
+            "success": True,
+            "message": "Quotation saved successfully",
+            "fullQuoteNumber": request.fullQuoteNumber
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        session.rollback()
+        print(f"⚠ Error saving quotation: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error saving quotation: {str(e)}")
+
+
+@app.get("/api/quotation")
+async def get_quotation(quote_number: str, session: Session = Depends(get_session)):
+    """
+    Retrieve quotation form data by full quote number
+    Query parameter: quote_number (full quote number like GRPT/2602/VV/0001)
+    """
+    try:
+        print(f"\n{'='*60}")
+        print(f"RETRIEVING QUOTATION FROM DATABASE")
+        print(f"{'='*60}")
+        print(f"Full Quote Number: {quote_number}")
+        
+        # Query quotation with all related data
+        statement = select(QuotationWebpageInputDetailsSave).where(
+            QuotationWebpageInputDetailsSave.full_main_quote_number == quote_number
+        )
+        quotation = session.exec(statement).first()
+        
+        if not quotation:
+            raise HTTPException(status_code=404, detail=f"Quotation not found: {full_quote_number}")
+        
+        # Get related data
+        company = session.get(CompanyDetails, quotation.company_id)
+        recipient = session.get(RecipientDetails, quotation.recipient_id)
+        sales_person = session.get(SalesDetails, quotation.sales_person_id)
+        project_manager = None
+        if quotation.project_manager_id:
+            project_manager = session.get(ProjectManagerDetails, quotation.project_manager_id)
+        
+        # Map company name
+        company_name_map = {
+            "grp": "GRP TANKS TRADING L.L.C",
+            "grp pipeco": "GRP PIPECO TANKS TRADING L.L.C",
+            "colex": "COLEX TANKS TRADING L.L.C"
+        }
+        
+        # Build response
+        response = {
+            "quotationNumber": quotation.quotation_number,
+            "fullQuoteNumber": quotation.full_main_quote_number,
+            "finalDocFilePath": quotation.final_doc_file_path,
+            "fromCompany": company_name_map.get(company.company_name, company.full_name) if company else "",
+            "recipientTitle": "Mr.",  # Default, can be enhanced
+            "recipientName": recipient.recipient_name if recipient else "",
+            "role": recipient.role_of_recipient if recipient else "",
+            "companyName": recipient.to_company_name if recipient else "",
+            "location": recipient.to_company_location if recipient else "",
+            "phoneNumber": recipient.phone_number if recipient else "",
+            "email": recipient.email if recipient else "",
+            "quotationDate": quotation.quotation_date.strftime("%d/%m/%y"),
+            "quotationFrom": "Sales" if sales_person else "Office",
+            "salesPersonName": sales_person.sales_person_name if sales_person else "",
+            "officePersonName": project_manager.manager_name if project_manager else "",
+            "subject": quotation.subject,
+            "projectLocation": quotation.project_location,
+            "tanksData": quotation.tanks_data,
+            "formOptions": quotation.form_options or {},
+            "additionalData": quotation.additional_data or {},
+            "revisionNumber": quotation.revision_number,
+            "status": quotation.status,
+            "createdTime": quotation.created_time.isoformat(),
+            "lastUpdatedTime": quotation.last_updated_time.isoformat()
+        }
+        
+        print(f"✓ Retrieved quotation successfully")
+        print(f"{'='*60}\n")
+        
+        return response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"⚠ Error retrieving quotation: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error retrieving quotation: {str(e)}")
+
+
+@app.get("/api/person-names/{person_type}")
+async def get_person_names(person_type: str, session: Session = Depends(get_session)):
+    """
+    Get person names from database based on person type.
     person_type can be 'sales' or 'office'
     """
     try:
         if person_type == "sales":
-            file_path = os.path.join(os.path.dirname(__file__), "sales_person_details.xlsx")
+            # Query sales_details table
+            statement = select(SalesDetails)
+            results = session.exec(statement).all()
+            names = [person.sales_person_name for person in results]
         elif person_type == "office":
-            file_path = os.path.join(os.path.dirname(__file__), "Project_manager_details.xlsx")
+            # Query project_manager_details table
+            statement = select(ProjectManagerDetails)
+            results = session.exec(statement).all()
+            names = [person.manager_name for person in results]
         else:
             raise HTTPException(status_code=400, detail="Invalid person type. Use 'sales' or 'office'")
-        
-        if not os.path.exists(file_path):
-            raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
-        
-        # Read Excel file
-        df = pd.read_excel(file_path)
-        
-        # Check if NAME column exists
-        if 'NAME' not in df.columns:
-            raise HTTPException(status_code=500, detail="NAME column not found in Excel file")
-        
-        # Get names and remove any NaN values
-        names = df['NAME'].dropna().tolist()
         
         return {"names": names}
         
@@ -576,59 +799,48 @@ async def get_person_names(person_type: str):
 
 
 @app.get("/api/person-code")
-async def get_person_code(name: str, type: str):
+async def get_person_code(name: str, type: str, session: Session = Depends(get_session)):
     """
-    Get CODE from Excel file based on person name and type.
+    Get CODE from database based on person name and type.
     type can be 'sales' or 'office'
     name should be the person's name
     """
     try:
         print(f"\n{'='*60}")
-        print(f"FETCHING CODE")
+        print(f"FETCHING CODE FROM DATABASE")
         print(f"{'='*60}")
         print(f"Name: {name}")
         print(f"Type: {type}")
-        
-        if type == "sales":
-            file_path = os.path.join(os.path.dirname(__file__), "sales_person_details.xlsx")
-        elif type == "office":
-            file_path = os.path.join(os.path.dirname(__file__), "Project_manager_details.xlsx")
-        else:
-            raise HTTPException(status_code=400, detail="Invalid type. Use 'sales' or 'office'")
-        
-        if not os.path.exists(file_path):
-            print(f"⚠ File not found: {file_path}")
-            raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
-        
-        # Read Excel file
-        df = pd.read_excel(file_path)
-        print(f"Excel columns: {df.columns.tolist()}")
-        
-        # Check if required columns exist
-        if 'NAME' not in df.columns or 'CODE' not in df.columns:
-            print(f"⚠ Missing columns. Available: {df.columns.tolist()}")
-            raise HTTPException(status_code=500, detail="NAME or CODE column not found in Excel file")
         
         # Extract name without (CODE) suffix if present
         clean_name = name.split('(')[0].strip()
         print(f"Clean name: '{clean_name}'")
         
-        # Show all names in Excel for debugging
-        print(f"Names in Excel: {df['NAME'].tolist()}")
+        code = "XX"  # Default code
         
-        # Find the person by name
-        person_row = df[df['NAME'].str.strip() == clean_name]
+        if type == "sales":
+            # Query sales_details table
+            statement = select(SalesDetails).where(SalesDetails.sales_person_name == clean_name)
+            result = session.exec(statement).first()
+            if result:
+                code = result.code
+                print(f"✓ Found sales person CODE: {code}")
+            else:
+                print(f"⚠ Sales person not found: '{clean_name}'")
+                
+        elif type == "office":
+            # Query project_manager_details table
+            statement = select(ProjectManagerDetails).where(ProjectManagerDetails.manager_name == clean_name)
+            result = session.exec(statement).first()
+            if result:
+                code = result.code
+                print(f"✓ Found project manager CODE: {code}")
+            else:
+                print(f"⚠ Project manager not found: '{clean_name}'")
+        else:
+            raise HTTPException(status_code=400, detail="Invalid type. Use 'sales' or 'office'")
         
-        if person_row.empty:
-            print(f"⚠ Person not found: '{clean_name}'")
-            print(f"Available names: {df['NAME'].str.strip().tolist()}")
-            return {"code": "XX"}  # Default code
-        
-        # Get CODE
-        code = str(person_row.iloc[0]['CODE']).strip()
-        print(f"✓ Found CODE: {code}")
         print(f"{'='*60}\n")
-        
         return {"code": code}
         
     except HTTPException:

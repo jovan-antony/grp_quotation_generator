@@ -1,0 +1,70 @@
+{
+    "Sheet1": [
+        {
+            "id": 1,
+            "sales_person_name": "Viwin Varghese                                                                                                                           ",
+            "code": "VV",
+            "sign_path": "signs&seals/VV_sign",
+            "designation": "Sales Executive                                                                 ",
+            "phone_number": "+971 54 450 4282                                                                                  ",
+            "email_name": "viwin",
+            "created_time": "",
+            "last_updated_time": ""
+        },
+        {
+            "id": 2,
+            "sales_person_name": "Midhun Murali                                                                                                                     ",
+            "code": "MM",
+            "sign_path": "signs&seals/MM_sign",
+            "designation": "Business Development Manager                                                                 ",
+            "phone_number": "+971 50 265 3282                                                                                  ",
+            "email_name": "midhun                                                             ",
+            "created_time": "",
+            "last_updated_time": ""
+        },
+        {
+            "id": 3,
+            "sales_person_name": "Somiya Joy                                                                                                               ",
+            "code": "SJ",
+            "sign_path": "signs&seals/SJ_sign",
+            "designation": "Sales & Administrative Assistant                                                                        ",
+            "phone_number": "+971 50 295 4282                                                                                        ",
+            "email_name": "sales",
+            "created_time": "",
+            "last_updated_time": ""
+        },
+        {
+            "id": 4,
+            "sales_person_name": "AKSHAYA SHAJI",
+            "code": "AS",
+            "sign_path": "signs&seals/AS_sign",
+            "designation": " Business Development Executive",
+            "phone_number": "+971 54 382 4282",
+            "email_name": "akshaya",
+            "created_time": "",
+            "last_updated_time": ""
+        },
+        {
+            "id": 5,
+            "sales_person_name": "Vismay Krishnan                                                                                                     ",
+            "code": "VK",
+            "sign_path": "signs&seals/VK_sign",
+            "designation": "Business Development Executive                                                                       ",
+            "phone_number": "+971 50 911 5210                                                                                         ",
+            "email_name": "vismay",
+            "created_time": "",
+            "last_updated_time": ""
+        },
+        {
+            "id": 6,
+            "sales_person_name": "LEYON PAUL",
+            "code": "LP",
+            "sign_path": "signs&seals/LP_sign",
+            "designation": "Business Development Executive                                                                       ",
+            "phone_number": "+971 50 603 4282",
+            "email_name": "leyon",
+            "created_time": "",
+            "last_updated_time": ""
+        }
+    ]
+}

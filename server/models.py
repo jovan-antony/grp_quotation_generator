@@ -1,7 +1,9 @@
 """SQLModel database models for quotation system"""
-from sqlmodel import SQLModel, Field, Relationship
-from typing import Optional, List
-from datetime import datetime
+from sqlmodel import SQLModel, Field, Relationship, Column
+from sqlalchemy import JSON
+from typing import Optional, List, Dict, Any
+from datetime import datetime, date
+from decimal import Decimal
 
 
 class Quotation(SQLModel, table=True):
@@ -55,3 +57,94 @@ class QuotationTank(SQLModel, table=True):
     
     # Relationship
     quotation: Optional[Quotation] = Relationship(back_populates="tanks")
+
+
+class SalesDetails(SQLModel, table=True):
+    """Sales person details table"""
+    __tablename__ = "sales_details"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    sales_person_name: str
+    code: str = Field(unique=True)
+    sign_path: Optional[str] = None
+    designation: Optional[str] = None
+    phone_number: Optional[str] = None
+    email_name: Optional[str] = None
+    created_time: datetime = Field(default_factory=datetime.utcnow)
+    last_updated_time: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ProjectManagerDetails(SQLModel, table=True):
+    """Project manager details table"""
+    __tablename__ = "project_manager_details"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    manager_name: str
+    code: str = Field(unique=True)
+    sign_path: Optional[str] = None
+    designation: Optional[str] = None
+    phone_number: Optional[str] = None
+    email_name: Optional[str] = None
+    created_time: datetime = Field(default_factory=datetime.utcnow)
+    last_updated_time: datetime = Field(default_factory=datetime.utcnow)
+
+
+class CompanyDetails(SQLModel, table=True):
+    """Company details table"""
+    __tablename__ = "company_details"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    company_name: str
+    full_name: str
+    code: str = Field(unique=True)
+    seal_path: Optional[str] = None
+    template_path: Optional[str] = None
+    company_domain: Optional[str] = None
+    created_time: datetime = Field(default_factory=datetime.utcnow)
+    last_updated_time: datetime = Field(default_factory=datetime.utcnow)
+
+
+class RecipientDetails(SQLModel, table=True):
+    """Recipient details table"""
+    __tablename__ = "recipient_details"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    recipient_name: str
+    role_of_recipient: Optional[str] = None
+    to_company_name: Optional[str] = None
+    to_company_location: Optional[str] = None
+    phone_number: Optional[str] = None
+    email: Optional[str] = None
+    created_time: datetime = Field(default_factory=datetime.utcnow)
+    last_updated_time: datetime = Field(default_factory=datetime.utcnow)
+
+
+class QuotationWebpageInputDetailsSave(SQLModel, table=True):
+    """Main quotation webpage input details save table"""
+    __tablename__ = "quotation_webpage_input_details_save"
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    quotation_number: str
+    full_main_quote_number: str = Field(unique=True, index=True)
+    final_doc_file_path: Optional[str] = None
+    company_id: int = Field(foreign_key="company_details.id")
+    recipient_id: int = Field(foreign_key="recipient_details.id")
+    sales_person_id: int = Field(foreign_key="sales_details.id")
+    project_manager_id: Optional[int] = Field(default=None, foreign_key="project_manager_details.id")
+    quotation_date: date
+    subject: Optional[str] = None
+    project_location: Optional[str] = None
+    tanks_data: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    form_options: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    additional_data: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    subtotal: Optional[Decimal] = None
+    discount_percentage: Optional[Decimal] = Field(default=Decimal("0"))
+    discount_amount: Optional[Decimal] = Field(default=Decimal("0"))
+    tax_percentage: Optional[Decimal] = Field(default=Decimal("0"))
+    tax_amount: Optional[Decimal] = Field(default=Decimal("0"))
+    total_amount: Optional[Decimal] = None
+    status: str = Field(default="draft")
+    revision_number: int = Field(default=0)
+    revision: Optional[str] = None
+    created_time: datetime = Field(default_factory=datetime.utcnow)
+    last_updated_time: datetime = Field(default_factory=datetime.utcnow)

@@ -26,12 +26,15 @@ export default function QuotationRevisionForm({
   const [searchValues, setSearchValues] = useState({
     recipientName: '',
     companyName: '',
-    date: new Date().toISOString().split('T')[0],
+    dateFrom: '',
+    dateTo: '',
     fromCompany: '',
     yearMonth: '',
     series: '',
     quotationNumber: '',
   });
+
+  const [dateFilterType, setDateFilterType] = useState<'day' | 'week' | 'month'>('day');
 
   const [quotations, setQuotations] = useState<any[]>([]);
   const [selectedQuotation, setSelectedQuotation] = useState<any>(null);
@@ -50,19 +53,28 @@ export default function QuotationRevisionForm({
         params.append('company_name', searchValues.companyName);
       }
       
-      if (filters.date && searchValues.date) {
-        params.append('date', searchValues.date);
+      if (filters.date) {
+        if (searchValues.dateFrom) {
+          params.append('date_from', searchValues.dateFrom);
+        }
+        if (searchValues.dateTo) {
+          params.append('date_to', searchValues.dateTo);
+        }
       }
       
       if (filters.quoteNo) {
-        let quoteNoPattern = '';
-        if (searchValues.fromCompany) quoteNoPattern += searchValues.fromCompany;
-        if (searchValues.yearMonth) quoteNoPattern += searchValues.yearMonth;
-        if (searchValues.series) quoteNoPattern += searchValues.series;
-        if (searchValues.quotationNumber) quoteNoPattern += searchValues.quotationNumber;
-        
-        if (quoteNoPattern) {
-          params.append('quotation_number', quoteNoPattern);
+        // Send each component separately for independent filtering
+        if (searchValues.fromCompany) {
+          params.append('quote_company', searchValues.fromCompany);
+        }
+        if (searchValues.yearMonth) {
+          params.append('quote_yearmonth', searchValues.yearMonth);
+        }
+        if (searchValues.series) {
+          params.append('quote_series', searchValues.series);
+        }
+        if (searchValues.quotationNumber) {
+          params.append('quote_number', searchValues.quotationNumber);
         }
       }
       
@@ -143,7 +155,7 @@ export default function QuotationRevisionForm({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pt-12">
       <Card className="border border-blue-200 rounded-xl shadow-sm bg-white">
         <CardHeader className="bg-white text-blue-600 border-b border-blue-200 rounded-t-xl px-6 py-4">
           <CardTitle className="flex items-center text-base font-semibold">
@@ -254,49 +266,178 @@ export default function QuotationRevisionForm({
             )}
 
             {filters.date && (
-              <div>
-                <Label htmlFor="searchDate">Date (DD/MM/YYYY)</Label>
-                <Input
-                  id="searchDate"
-                  type="date"
-                  value={searchValues.date}
-                  onChange={(e) =>
-                    setSearchValues({ ...searchValues, date: e.target.value })
-                  }
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') {
-                      const next = document.querySelector('#fromCompanyQuoteNo');
-                      if (next) (next as HTMLElement).focus();
-                    }
-                  }}
-                />
+              <div className="space-y-2">
+                <Label>Date Filter</Label>
+                <div className="flex gap-2 mb-3">
+                  <Button
+                    type="button"
+                    variant={dateFilterType === 'day' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => {
+                      setDateFilterType('day');
+                      setSearchValues({ ...searchValues, dateFrom: '', dateTo: '' });
+                    }}
+                    className={`text-xs flex-1 ${dateFilterType === 'day' ? 'bg-blue-400 text-white hover:bg-blue-500' : 'border border-blue-400 text-blue-600 bg-white hover:bg-blue-50'}`}
+                  >
+                    Day
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={dateFilterType === 'week' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => {
+                      setDateFilterType('week');
+                      setSearchValues({ ...searchValues, dateFrom: '', dateTo: '' });
+                    }}
+                    className={`text-xs flex-1 ${dateFilterType === 'week' ? 'bg-blue-400 text-white hover:bg-blue-500' : 'border border-blue-400 text-blue-600 bg-white hover:bg-blue-50'}`}
+                  >
+                    Week
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={dateFilterType === 'month' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => {
+                      setDateFilterType('month');
+                      setSearchValues({ ...searchValues, dateFrom: '', dateTo: '' });
+                    }}
+                    className={`text-xs flex-1 ${dateFilterType === 'month' ? 'bg-blue-400 text-white hover:bg-blue-500' : 'border border-blue-400 text-blue-600 bg-white hover:bg-blue-50'}`}
+                  >
+                    Month
+                  </Button>
+                </div>
+                
+                {dateFilterType === 'day' && (
+                  <div>
+                    <Label htmlFor="searchDate" className="text-xs text-gray-600">Select Date</Label>
+                    <Input
+                      id="searchDate"
+                      type="date"
+                      value={searchValues.dateFrom}
+                      onChange={(e) => {
+                        const selectedDate = e.target.value;
+                        setSearchValues({ ...searchValues, dateFrom: selectedDate, dateTo: selectedDate });
+                      }}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          const next = document.querySelector('#fromCompanyQuoteNo');
+                          if (next) (next as HTMLElement).focus();
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+
+                {dateFilterType === 'week' && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label htmlFor="searchWeekFrom" className="text-xs text-gray-600">Week Start</Label>
+                      <Input
+                        id="searchWeekFrom"
+                        type="date"
+                        value={searchValues.dateFrom}
+                        onChange={(e) =>
+                          setSearchValues({ ...searchValues, dateFrom: e.target.value })
+                        }
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            const next = document.querySelector('#searchWeekTo');
+                            if (next) (next as HTMLElement).focus();
+                          }
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="searchWeekTo" className="text-xs text-gray-600">Week End</Label>
+                      <Input
+                        id="searchWeekTo"
+                        type="date"
+                        value={searchValues.dateTo}
+                        onChange={(e) =>
+                          setSearchValues({ ...searchValues, dateTo: e.target.value })
+                        }
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            const next = document.querySelector('#fromCompanyQuoteNo');
+                            if (next) (next as HTMLElement).focus();
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {dateFilterType === 'month' && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label htmlFor="searchMonthFrom" className="text-xs text-gray-600">Month Start</Label>
+                      <Input
+                        id="searchMonthFrom"
+                        type="date"
+                        value={searchValues.dateFrom}
+                        onChange={(e) =>
+                          setSearchValues({ ...searchValues, dateFrom: e.target.value })
+                        }
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            const next = document.querySelector('#searchMonthTo');
+                            if (next) (next as HTMLElement).focus();
+                          }
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="searchMonthTo" className="text-xs text-gray-600">Month End</Label>
+                      <Input
+                        id="searchMonthTo"
+                        type="date"
+                        value={searchValues.dateTo}
+                        onChange={(e) =>
+                          setSearchValues({ ...searchValues, dateTo: e.target.value })
+                        }
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            const next = document.querySelector('#fromCompanyQuoteNo');
+                            if (next) (next as HTMLElement).focus();
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
             {filters.quoteNo && (
               <div className="space-y-2">
-                <Label>Quote Number Components</Label>
+                <Label>Quote Number Components (Each can filter independently)</Label>
+                <p className="text-xs text-gray-500">Example: GRPPT/2512/MM/0324</p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  <Input
-                    id="fromCompanyQuoteNo"
-                    placeholder="Company"
-                    value={searchValues.fromCompany}
-                    onChange={(e) =>
-                      setSearchValues({
-                        ...searchValues,
-                        fromCompany: e.target.value,
-                      })
-                    }
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') {
-                        const next = document.querySelector('#yearMonthQuoteNo');
-                        if (next) (next as HTMLElement).focus();
+                  <div>
+                    <Label htmlFor="fromCompanyQuoteNo" className="text-xs text-gray-600">Company Code</Label>
+                    <Input
+                      id="fromCompanyQuoteNo"
+                      placeholder="e.g., GRPPT"
+                      value={searchValues.fromCompany}
+                      onChange={(e) =>
+                        setSearchValues({
+                          ...searchValues,
+                          fromCompany: e.target.value,
+                        })
                       }
-                    }}
-                  />
-                  <Input
-                    id="yearMonthQuoteNo"
-                    placeholder="YY/MM"
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          const next = document.querySelector('#yearMonthQuoteNo');
+                          if (next) (next as HTMLElement).focus();
+                        }
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="yearMonthQuoteNo" className="text-xs text-gray-600">YY/MM</Label>
+                    <Input
+                      id="yearMonthQuoteNo"
+                      placeholder="e.g., 2512"
                     value={searchValues.yearMonth}
                     onChange={(e) =>
                       setSearchValues({
@@ -311,23 +452,29 @@ export default function QuotationRevisionForm({
                       }
                     }}
                   />
-                  <Input
-                    id="seriesQuoteNo"
-                    placeholder="Series"
-                    value={searchValues.series}
-                    onChange={(e) =>
-                      setSearchValues({ ...searchValues, series: e.target.value })
-                    }
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') {
-                        const next = document.querySelector('#numberQuoteNo');
-                        if (next) (next as HTMLElement).focus();
+                  </div>
+                  <div>
+                    <Label htmlFor="seriesQuoteNo" className="text-xs text-gray-600">Series</Label>
+                    <Input
+                      id="seriesQuoteNo"
+                      placeholder="e.g., MM, JB"
+                      value={searchValues.series}
+                      onChange={(e) =>
+                        setSearchValues({ ...searchValues, series: e.target.value })
                       }
-                    }}
-                  />
-                  <Input
-                    id="numberQuoteNo"
-                    placeholder="Number"
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          const next = document.querySelector('#numberQuoteNo');
+                          if (next) (next as HTMLElement).focus();
+                        }
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="numberQuoteNo" className="text-xs text-gray-600">Number</Label>
+                    <Input
+                      id="numberQuoteNo"
+                      placeholder="e.g., 0324"
                     value={searchValues.quotationNumber}
                     onChange={(e) =>
                       setSearchValues({
@@ -342,6 +489,7 @@ export default function QuotationRevisionForm({
                       }
                     }}
                   />
+                  </div>
                 </div>
               </div>
             )}

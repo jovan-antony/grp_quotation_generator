@@ -119,8 +119,7 @@ class QuotationRequest(BaseModel):
     salesPersonName: Optional[str] = ""
     officePersonName: Optional[str] = ""
     quotationNumber: str
-    revisionEnabled: bool
-    revisionNumber: str
+    revisionNumber: int = 0
     subject: str
     projectLocation: str
     additionalDetails: Optional[List[AdditionalDetail]] = []
@@ -754,6 +753,9 @@ async def get_recipient_details(name: str, session: Session = Depends(get_sessio
 
 
 # Pydantic models for request/response
+class UpdateRevisionRequest(BaseModel):
+    revision_number: int
+
 class SaveQuotationRequest(BaseModel):
     quotationNumber: str
     fullQuoteNumber: str
@@ -789,6 +791,8 @@ async def save_quotation(request: SaveQuotationRequest, session: Session = Depen
         print(f"\n{'='*60}")
         print(f"SAVING QUOTATION TO DATABASE")
         print(f"{'='*60}")
+        print(f"Quotation Number: {request.quotationNumber}")
+        print(f"Revision Number: {request.revisionNumber}")
         print(f"Full Quote Number: {request.fullQuoteNumber}")
         print(f"From Company: {request.fromCompany}")
         
@@ -872,14 +876,18 @@ async def save_quotation(request: SaveQuotationRequest, session: Session = Depen
             quotation_date = date.today()
         
         # Check if quotation already exists (for updates)
+        # Check by quotation_number AND revision_number to ensure revisions create new rows
+        print(f"Checking for existing quotation: quote_number={request.quotationNumber}, revision={request.revisionNumber}")
         statement = select(QuotationWebpageInputDetailsSave).where(
-            QuotationWebpageInputDetailsSave.full_main_quote_number == request.fullQuoteNumber
+            QuotationWebpageInputDetailsSave.quotation_number == request.quotationNumber,
+            QuotationWebpageInputDetailsSave.revision_number == request.revisionNumber
         )
         existing_quotation = session.exec(statement).first()
         
         if existing_quotation:
-            # Update existing quotation
-            existing_quotation.quotation_number = request.quotationNumber
+            print(f"Found existing quotation (ID: {existing_quotation.id}), updating...")
+            # Update existing quotation (same quotation number and revision)
+            existing_quotation.full_main_quote_number = request.fullQuoteNumber
             existing_quotation.final_doc_file_path = request.finalDocFilePath
             existing_quotation.company_id = company.id
             existing_quotation.recipient_id = recipient.id
@@ -895,8 +903,9 @@ async def save_quotation(request: SaveQuotationRequest, session: Session = Depen
             existing_quotation.status = request.status
             existing_quotation.last_updated_time = datetime.utcnow()
             
-            print(f"✓ Updated existing quotation: {request.fullQuoteNumber}")
+            print(f"✓ Updated existing quotation: {request.fullQuoteNumber} (revision: {request.revisionNumber})")
         else:
+            print(f"No existing quotation found, creating new with revision: {request.revisionNumber}")
             # Create new quotation
             quotation = QuotationWebpageInputDetailsSave(
                 quotation_number=request.quotationNumber,
@@ -916,7 +925,7 @@ async def save_quotation(request: SaveQuotationRequest, session: Session = Depen
                 status=request.status
             )
             session.add(quotation)
-            print(f"✓ Created new quotation: {request.fullQuoteNumber}")
+            print(f"✓ Created new quotation: {request.fullQuoteNumber} (quotation_number: {quotation.quotation_number}, revision_number: {quotation.revision_number})")
         
         # Save contractual terms & specifications
         if request.terms:
@@ -981,25 +990,35 @@ async def save_quotation(request: SaveQuotationRequest, session: Session = Depen
 
 
 @app.get("/api/quotation")
-async def get_quotation(quote_number: str, session: Session = Depends(get_session)):
+async def get_quotation(quote_number: str, revision: str = "0", session: Session = Depends(get_session)):
     """
-    Retrieve quotation form data by full quote number
-    Query parameter: quote_number (full quote number like GRPT/2602/VV/0001)
+    Retrieve quotation form data by quotation number and revision
+    Query parameters: 
+    - quote_number: quotation number (e.g., "3024")
+    - revision: revision number (default "0")
     """
     try:
         print(f"\n{'='*60}")
         print(f"RETRIEVING QUOTATION FROM DATABASE")
         print(f"{'='*60}")
-        print(f"Full Quote Number: {quote_number}")
+        print(f"Quotation Number: {quote_number}")
+        print(f"Revision: {revision}")
         
-        # Query quotation with all related data
+        # Convert revision to integer
+        try:
+            revision_int = int(revision)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid revision number: {revision}")
+        
+        # Query quotation with all related data using quotation_number AND revision_number
         statement = select(QuotationWebpageInputDetailsSave).where(
-            QuotationWebpageInputDetailsSave.full_main_quote_number == quote_number
+            QuotationWebpageInputDetailsSave.quotation_number == quote_number,
+            QuotationWebpageInputDetailsSave.revision_number == revision_int
         )
         quotation = session.exec(statement).first()
         
         if not quotation:
-            raise HTTPException(status_code=404, detail=f"Quotation not found: {quote_number}")
+            raise HTTPException(status_code=404, detail=f"Quotation not found: {quote_number}-{revision}")
         
         # Get related data
         company = session.get(CompanyDetails, quotation.company_id)
@@ -1011,9 +1030,9 @@ async def get_quotation(quote_number: str, session: Session = Depends(get_sessio
         
         print(f"✓ Found company: {company.full_name if company else 'None'} (ID: {quotation.company_id})")
         
-        # Get contractual terms
+        # Get contractual terms using the full_main_quote_number from the found quotation
         statement_terms = select(ContractualTermsSpecifications).where(
-            ContractualTermsSpecifications.full_main_quote_number == quote_number
+            ContractualTermsSpecifications.full_main_quote_number == quotation.full_main_quote_number
         )
         contractual_terms = session.exec(statement_terms).first()
         
@@ -1078,6 +1097,311 @@ async def get_quotation(quote_number: str, session: Session = Depends(get_sessio
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error retrieving quotation: {str(e)}")
+
+
+@app.get("/api/quotations")
+async def search_quotations(
+    recipient_name: Optional[str] = None,
+    company_name: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    quote_company: Optional[str] = None,
+    quote_yearmonth: Optional[str] = None,
+    quote_series: Optional[str] = None,
+    quote_number: Optional[str] = None,
+    session: Session = Depends(get_session)
+):
+    """
+    Search quotations based on filters
+    Query parameters:
+    - recipient_name: Filter by recipient name (partial match)
+    - company_name: Filter by company name (partial match)
+    - date_from: Filter by start date (YYYY-MM-DD format)
+    - date_to: Filter by end date (YYYY-MM-DD format)
+    - quote_company: Filter by company code in quote number (e.g., GRPPT, PIPECO)
+    - quote_yearmonth: Filter by year/month in quote number (e.g., 2512)
+    - quote_series: Filter by series in quote number (e.g., MM, JB)
+    - quote_number: Filter by quotation number (e.g., 0324)
+    """
+    try:
+        print(f"\n{'='*60}")
+        print(f"SEARCHING QUOTATIONS")
+        print(f"{'='*60}")
+        print(f"Filters: recipient_name={recipient_name}, company_name={company_name}")
+        print(f"  date_from={date_from}, date_to={date_to}")
+        print(f"  quote_company={quote_company}, quote_yearmonth={quote_yearmonth}, quote_series={quote_series}, quote_number={quote_number}")
+        
+        # Build query
+        statement = select(QuotationWebpageInputDetailsSave)
+        
+        # Apply filters - we'll filter after fetching to avoid complex joins
+        quotations = session.exec(statement).all()
+        
+        # Filter in Python for simplicity
+        filtered_quotations = []
+        for quotation in quotations:
+            # Get recipient for filtering
+            recipient = session.get(RecipientDetails, quotation.recipient_id) if quotation.recipient_id else None
+            
+            # Apply filters
+            if recipient_name and recipient:
+                if recipient_name.lower() not in recipient.recipient_name.lower():
+                    continue
+            elif recipient_name:
+                continue
+            
+            if company_name and recipient:
+                if company_name.lower() not in (recipient.to_company_name or "").lower():
+                    continue
+            elif company_name:
+                continue
+            
+            # Date range filtering
+            if date_from or date_to:
+                from datetime import datetime
+                try:
+                    if date_from:
+                        from_date = datetime.strptime(date_from, "%Y-%m-%d").date()
+                        if quotation.quotation_date < from_date:
+                            continue
+                    if date_to:
+                        to_date = datetime.strptime(date_to, "%Y-%m-%d").date()
+                        if quotation.quotation_date > to_date:
+                            continue
+                except ValueError:
+                    raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+            
+            # Quote number component filtering - each component filters independently
+            # full_main_quote_number format: GRPPT/2512/MM/0324 or GRPPT/2512/MM/0324-R1
+            if quote_company or quote_yearmonth or quote_series or quote_number:
+                full_quote = quotation.full_main_quote_number or ""
+                
+                # Split by / to get components
+                quote_parts = full_quote.split('/')
+                
+                # Check each component independently
+                if quote_company:
+                    # First component is company code
+                    if len(quote_parts) < 1 or quote_company.upper() not in quote_parts[0].upper():
+                        continue
+                
+                if quote_yearmonth:
+                    # Second component is year/month
+                    if len(quote_parts) < 2 or quote_yearmonth not in quote_parts[1]:
+                        continue
+                
+                if quote_series:
+                    # Third component is series (person code)
+                    if len(quote_parts) < 3 or quote_series.upper() not in quote_parts[2].upper():
+                        continue
+                
+                if quote_number:
+                    # Fourth component is the number (may have -R suffix)
+                    if len(quote_parts) < 4:
+                        continue
+                    # Remove revision suffix if present
+                    number_part = quote_parts[3].split('-')[0]
+                    if quote_number not in number_part:
+                        continue
+            
+            filtered_quotations.append(quotation)
+        
+        # Build response
+        result = []
+        for quotation in filtered_quotations:
+            # Get related data
+            recipient = session.get(RecipientDetails, quotation.recipient_id)
+            company = session.get(CompanyDetails, quotation.company_id)
+            
+            result.append({
+                "id": quotation.id,
+                "quotation_number": quotation.quotation_number,
+                "full_main_quote_number": quotation.full_main_quote_number,
+                "revision_number": quotation.revision_number,
+                "recipient_name": recipient.recipient_name if recipient else "",
+                "recipient_company": recipient.to_company_name if recipient else "",
+                "quotation_date": quotation.quotation_date.isoformat(),
+                "subject": quotation.subject,
+                "from_company": company.full_name if company else "",
+                "status": quotation.status
+            })
+        
+        print(f"✓ Found {len(result)} quotation(s)")
+        print(f"{'='*60}\n")
+        
+        return {"quotations": result, "count": len(result)}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"⚠ Error searching quotations: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error searching quotations: {str(e)}")
+
+
+@app.get("/api/quotations/{quotation_id}")
+async def get_quotation_by_id(quotation_id: int, session: Session = Depends(get_session)):
+    """
+    Get full quotation details by ID
+    """
+    try:
+        print(f"\n{'='*60}")
+        print(f"RETRIEVING QUOTATION BY ID")
+        print(f"{'='*60}")
+        print(f"Quotation ID: {quotation_id}")
+        
+        # Get quotation
+        quotation = session.get(QuotationWebpageInputDetailsSave, quotation_id)
+        
+        if not quotation:
+            raise HTTPException(status_code=404, detail=f"Quotation not found with ID: {quotation_id}")
+        
+        # Get related data
+        company = session.get(CompanyDetails, quotation.company_id)
+        recipient = session.get(RecipientDetails, quotation.recipient_id)
+        sales_person = session.get(SalesDetails, quotation.sales_person_id)
+        project_manager = None
+        if quotation.project_manager_id:
+            project_manager = session.get(ProjectManagerDetails, quotation.project_manager_id)
+        
+        # Get contractual terms
+        statement_terms = select(ContractualTermsSpecifications).where(
+            ContractualTermsSpecifications.full_main_quote_number == quotation.full_main_quote_number
+        )
+        contractual_terms = session.exec(statement_terms).first()
+        
+        # Map database columns to frontend terms
+        terms_data = {}
+        if contractual_terms:
+            db_to_frontend_mapping = {
+                'note': 'note',
+                'material_specifications': 'materialSpecification',
+                'warranty_conditions': 'warrantyExclusions',
+                'terms_and_conditions': 'termsConditions',
+                'supplier_scope': 'supplierScope',
+                'customer_scope': 'customerScope',
+                'note_second': 'extraNote',
+                'scope_of_work': 'scopeOfWork',
+                'work_excluded': 'workExcluded'
+            }
+            
+            for db_column, frontend_key in db_to_frontend_mapping.items():
+                db_value = getattr(contractual_terms, db_column, None)
+                if db_value:
+                    terms_data[frontend_key] = db_value
+        
+        # Build response
+        response = {
+            "quotation": {
+                "id": quotation.id,
+                "quotation_number": quotation.quotation_number,
+                "full_main_quote_number": quotation.full_main_quote_number,
+                "revision_number": quotation.revision_number,
+                "from_company": company.full_name if company else "",
+                "recipient_title": "Mr.",
+                "recipient_name": recipient.recipient_name if recipient else "",
+                "role": recipient.role_of_recipient if recipient else "",
+                "recipient_company": recipient.to_company_name if recipient else "",
+                "location": recipient.to_company_location if recipient else "",
+                "phone_number": recipient.phone_number if recipient else "",
+                "email": recipient.email if recipient else "",
+                "quotation_date": quotation.quotation_date.strftime("%d/%m/%y"),
+                "quotation_from": "Sales" if sales_person else "Office",
+                "sales_person_name": sales_person.sales_person_name if sales_person else "",
+                "office_person_name": project_manager.manager_name if project_manager else "",
+                "subject": quotation.subject,
+                "project_location": quotation.project_location,
+                "status": quotation.status
+            },
+            "tanks": quotation.tanks_data,
+            "terms": terms_data
+        }
+        
+        print(f"✓ Retrieved quotation successfully")
+        print(f"{'='*60}\n")
+        
+        return response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"⚠ Error retrieving quotation: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error retrieving quotation by ID: {str(e)}")
+
+
+@app.put("/api/quotations/{quotation_id}")
+async def update_quotation_revision(quotation_id: int, request: UpdateRevisionRequest, session: Session = Depends(get_session)):
+    """
+    Update the revision number of a quotation
+    Note: This creates a new quotation entry with the new revision number
+    """
+    try:
+        print(f"\n{'='*60}")
+        print(f"UPDATING QUOTATION REVISION")
+        print(f"{'='*60}")
+        print(f"Quotation ID: {quotation_id}")
+        print(f"New Revision Number: {request.revision_number}")
+        
+        # Get the original quotation
+        original_quotation = session.get(QuotationWebpageInputDetailsSave, quotation_id)
+        
+        if not original_quotation:
+            raise HTTPException(status_code=404, detail=f"Quotation not found with ID: {quotation_id}")
+        
+        # Check if a quotation with this quotation_number and revision_number already exists
+        statement = select(QuotationWebpageInputDetailsSave).where(
+            QuotationWebpageInputDetailsSave.quotation_number == original_quotation.quotation_number,
+            QuotationWebpageInputDetailsSave.revision_number == request.revision_number
+        )
+        existing = session.exec(statement).first()
+        
+        if existing and existing.id != quotation_id:
+            raise HTTPException(status_code=400, detail=f"Quotation with revision {request.revision_number} already exists")
+        
+        # Create new quotation entry with updated revision
+        new_quotation = QuotationWebpageInputDetailsSave(
+            quotation_number=original_quotation.quotation_number,
+            revision_number=request.revision_number,
+            full_main_quote_number=f"{original_quotation.quotation_number}-R{request.revision_number}" if request.revision_number > 0 else original_quotation.quotation_number,
+            final_doc_file_path=None,  # Will be updated when document is generated
+            company_id=original_quotation.company_id,
+            recipient_id=original_quotation.recipient_id,
+            quotation_date=original_quotation.quotation_date,
+            sales_person_id=original_quotation.sales_person_id,
+            project_manager_id=original_quotation.project_manager_id,
+            subject=original_quotation.subject,
+            project_location=original_quotation.project_location,
+            tanks_data=original_quotation.tanks_data,
+            form_options=original_quotation.form_options,
+            additional_data=original_quotation.additional_data,
+            status=original_quotation.status
+        )
+        
+        session.add(new_quotation)
+        session.commit()
+        session.refresh(new_quotation)
+        
+        print(f"✓ Created new quotation with revision {request.revision_number}")
+        print(f"  New ID: {new_quotation.id}")
+        print(f"{'='*60}\n")
+        
+        return {
+            "id": new_quotation.id,
+            "quotation_number": new_quotation.quotation_number,
+            "revision_number": new_quotation.revision_number,
+            "full_main_quote_number": new_quotation.full_main_quote_number
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"⚠ Error updating quotation revision: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error updating quotation revision: {str(e)}")
 
 
 @app.get("/api/person-names/{person_type}")

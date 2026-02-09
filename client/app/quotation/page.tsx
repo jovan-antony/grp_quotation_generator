@@ -24,7 +24,7 @@ export default function QuotationPage() {
         <div className="container mx-auto px-6 py-5">
           {/* Header title removed as requested */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 bg-white border border-blue-200 p-1.5 h-11 rounded-xl shadow-sm">
+            <TabsList className="grid w-full max-w-2xl mx-auto grid-cols-3 bg-white border border-blue-200 p-1.5 h-11 rounded-xl shadow-sm">
               <TabsTrigger
                 value="new"
                 className="text-sm font-medium rounded-lg data-[state=active]:bg-blue-400 data-[state=active]:text-white data-[state=inactive]:text-blue-600 data-[state=inactive]:bg-transparent transition-all duration-200 h-8 hover:text-blue-700"
@@ -37,13 +37,24 @@ export default function QuotationPage() {
                 </span>
               </TabsTrigger>
               <TabsTrigger
+                value="search"
+                className="text-sm font-medium rounded-lg data-[state=active]:bg-blue-400 data-[state=active]:text-white data-[state=inactive]:text-blue-600 data-[state=inactive]:bg-transparent transition-all duration-200 h-8 hover:text-blue-700"
+              >
+                <span className="flex items-center justify-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="m21 21-4.35-4.35"/>
+                  </svg>
+                  Search Quotation
+                </span>
+              </TabsTrigger>
+              <TabsTrigger
                 value="revision"
                 className="text-sm font-medium rounded-lg data-[state=active]:bg-blue-400 data-[state=active]:text-white data-[state=inactive]:text-blue-600 data-[state=inactive]:bg-transparent transition-all duration-200 h-8 hover:text-blue-700"
               >
                 <span className="flex items-center justify-center gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
-                    <polyline points="14 2 14 8 20 8"/>
+                    <path d="M21 12a9 9 0 1 1-2.7-6.3L21 8M21 3v5h-5"/>
                   </svg>
                   Quotation Revision
                 </span>
@@ -53,12 +64,12 @@ export default function QuotationPage() {
         </div>
       </div>
 
-      {/* Content Section with further reduced top padding for minimal gap below header */}
-      <div className="container mx-auto px-6 pt-6 pb-8">
+      {/* Content Section with proper top padding to avoid header overlap */}
+      <div className="container mx-auto px-6 pt-20 pb-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="order-2 lg:order-1">
-              <Card className="border border-blue-200 rounded-xl shadow-sm sticky top-[105px] bg-white">
+            <div className="order-2 lg:order-1 lg:pt-8">
+              <Card className="border border-blue-200 rounded-xl shadow-sm sticky top-28 bg-white">
                 <CardHeader className="bg-white text-blue-600 border-b border-blue-200 rounded-t-xl px-6 py-4">
                   <CardTitle className="text-base font-semibold">Live Preview</CardTitle>
                 </CardHeader>
@@ -77,12 +88,18 @@ export default function QuotationPage() {
             </div>
 
             <div className="order-1 lg:order-2">
-              <TabsContent value="new" className="mt-8">
+              <TabsContent value="new" className="-mt-4">
                 <NewQuotationForm onPreviewUpdate={setPreviewHtml} />
               </TabsContent>
 
-              <TabsContent value="revision" className="mt-8">
+              <TabsContent value="search" className="-mt-4">
                 <QuotationRevisionForm onPreviewUpdate={setPreviewHtml} />
+              </TabsContent>
+
+              <TabsContent value="revision" className="-mt-4">
+                <div className="text-center pt-24 pb-12">
+                  <p className="text-gray-500">Quotation Revision form coming soon...</p>
+                </div>
               </TabsContent>
             </div>
           </div>

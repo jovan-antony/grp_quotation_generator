@@ -156,6 +156,11 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
     const fullQuoteNumber = quotationNumber 
       ? `${companyCode || ''}/${yymm}/${personCode || 'XX'}/${quotationNumber}` 
       : '';
+    
+    // Add revision suffix if enabled and > 0
+    const displayQuoteNumber = (fullQuoteNumber && revisionEnabled && parseInt(revisionNumber) > 0)
+      ? `${fullQuoteNumber}-R${revisionNumber}`
+      : fullQuoteNumber;
 
     // Calculate tank totals
     let subTotal = 0;
@@ -221,7 +226,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
               ${email ? `<p style="margin: 6px 0; font-size: 13px; color: #6b7280;">${email}</p>` : ''}
             </div>
             <div style="text-align: right; color: #374151;">
-              <p style="margin: 6px 0; font-size: 13px;"><strong style="color: #111827;">Quote No:</strong> ${fullQuoteNumber || '-'}</p>
+              <p style="margin: 6px 0; font-size: 13px;"><strong style="color: #111827;">Quote No:</strong> ${displayQuoteNumber || '-'}</p>
               <p style="margin: 6px 0; font-size: 13px;"><strong style="color: #111827;">Date:</strong> ${quotationDate || '-'}</p>
               ${revisionEnabled ? `<p style="margin: 6px 0; font-size: 13px;"><strong style="color: #111827;">Revision:</strong> ${revisionNumber}</p>` : ''}
               ${quotationFrom === 'Sales' && salesPersonName ? `<p style="margin: 6px 0; font-size: 13px;"><strong style="color: #111827;">Sales Person:</strong> ${salesPersonName}</p>` : ''}
@@ -563,7 +568,12 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
       const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
       const yymm = `${yy}${mm}`;
       const codeForQuote = personCode || 'XX';
-      const fullQuoteNumber = `${companyCode}/${yymm}/${codeForQuote}/${quotationNumber}`;
+      
+      // Include revision in full quote number if revision is enabled and > 0
+      let fullQuoteNumber = `${companyCode}/${yymm}/${codeForQuote}/${quotationNumber}`;
+      if (revisionEnabled && parseInt(revisionNumber) > 0) {
+        fullQuoteNumber = `${companyCode}/${yymm}/${codeForQuote}/${quotationNumber}-R${revisionNumber}`;
+      }
 
       // Send all data to Python backend for document generation
       const response = await fetch('/api/generate-quotation', {
@@ -616,6 +626,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
         try {
           const finalDocPath = `Final_Doc/${fullQuoteNumber.replace(/\//g, '-')}.docx`;
           
+          console.log(`💾 Saving quotation - Number: ${quotationNumber}, Revision: ${revisionNumber}`);
           const saveResponse = await fetch('http://localhost:8000/api/save-quotation', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -913,9 +924,20 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
       return;
     }
 
+    // Parse quotation_number or quotation_number-revision format
+    // "0324" or "0324-0" loads revision 0
+    // "0324-1" loads revision 1, etc.
+    const parts = loadQuoteNumber.split('-');
+    const quotationNum = parts[0].trim();
+    let revisionNum = '0'; // Default to revision 0
+    
+    if (parts.length === 2) {
+      revisionNum = parts[1].trim();
+    }
+
     setIsLoading(true);
     try {
-      const response = await fetch(`http://localhost:8000/api/quotation?quote_number=${encodeURIComponent(loadQuoteNumber)}`);
+      const response = await fetch(`http://localhost:8000/api/quotation?quote_number=${encodeURIComponent(quotationNum)}&revision=${encodeURIComponent(revisionNum)}`);
       
       if (!response.ok) {
         if (response.status === 404) {
@@ -950,7 +972,11 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
       setSalesPersonName(data.salesPersonName);
       setOfficePersonName(data.officePersonName);
       setQuotationNumber(data.quotationNumber);
+      
+      // Set the loaded revision number
+      console.log(`📊 Loaded quotation - Current revision: ${data.revisionNumber}`);
       setRevisionNumber(data.revisionNumber.toString());
+      
       setSubject(data.subject);
       setProjectLocation(data.projectLocation);
       
@@ -1023,7 +1049,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                 id="loadQuoteNumber"
                 value={loadQuoteNumber}
                 onChange={(e) => setLoadQuoteNumber(e.target.value)}
-                placeholder="Enter full quote number (e.g., GRPT/2602/VV/0001)"
+                placeholder="Enter quotation (e.g., 0324 or 0324-0 or 0324-1)"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     handleLoadQuotation();
@@ -1041,14 +1067,27 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
             </Button>
           </div>
           <p className="text-xs text-green-600 mt-2">
-            Enter the full quotation number to load and edit an existing quotation
+            Enter quotation number (e.g., 0324) or with revision (e.g., 0324-1)
           </p>
         </CardContent>
       </Card>
 
       <Card className="border border-blue-200 rounded-xl shadow-sm bg-white">
         <CardHeader className="bg-white text-blue-600 border-b border-blue-200 rounded-t-xl px-6 py-4">
-          <CardTitle className="text-base font-semibold">Company & Recipient Details</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base font-semibold">Company & Recipient Details</CardTitle>
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="revisionNumber" className="text-sm font-medium text-blue-700">Revision:</Label>
+              <Input
+                id="revisionNumber"
+                type="number"
+                min="0"
+                value={revisionNumber}
+                onChange={(e) => setRevisionNumber(e.target.value)}
+                className="w-20 h-8 text-center"
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="pt-6 space-y-4 px-6">
           <div>
@@ -1325,28 +1364,15 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
               />
             </div>
 
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="revision"
-                    checked={revisionEnabled}
-                    onCheckedChange={(checked) =>
-                      setRevisionEnabled(checked as boolean)
-                    }
-                    className="accent-blue-600"
-                  />
-                <Label htmlFor="revision" className="cursor-pointer">
-                  Enable Revision
-                </Label>
-              </div>
-              {revisionEnabled && (
+            {revisionEnabled && (
+              <div>
+                <Label htmlFor="revisionNumber">Revision Number</Label>
                 <Input
                   id="revisionNumber"
                   type="number"
                   value={revisionNumber}
                   onChange={(e) => setRevisionNumber(e.target.value)}
                   placeholder="Rev. No"
-                  className="w-24"
                   onKeyDown={e => {
                     if (e.key === 'Enter') {
                       const next = document.querySelector('#subject');
@@ -1354,8 +1380,8 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                     }
                   }}
                 />
-              )}
-            </div>
+              </div>
+            )}
 
             <div className="md:col-span-2">
               <Label htmlFor="subject">Subject</Label>

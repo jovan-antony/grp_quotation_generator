@@ -7,6 +7,14 @@ import { Input } from "@/components/ui/input"
 export interface AutocompleteOption {
   value: string
   label: string
+  description?: string
+  metadata?: {
+    role?: string
+    company?: string
+    location?: string
+    phone?: string
+    email?: string
+  }
 }
 
 interface AutocompleteInputProps {
@@ -17,6 +25,9 @@ interface AutocompleteInputProps {
   className?: string
   id?: string
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void
+  showOnFocus?: boolean  // If false, only show dropdown after typing at least minLength characters
+  maxResults?: number  // Maximum number of suggestions to show in dropdown
+  minLength?: number  // Minimum characters to type before showing dropdown (only applies when showOnFocus=false)
 }
 
 export function AutocompleteInput({
@@ -27,6 +38,9 @@ export function AutocompleteInput({
   className,
   id,
   onKeyDown: customOnKeyDown,
+  showOnFocus = true,  // Default to true for backward compatibility
+  maxResults,  // Optional limit on number of results
+  minLength = 1,  // Default to 1 character minimum
 }: AutocompleteInputProps) {
   const [inputValue, setInputValue] = React.useState(value)
   const [showSuggestions, setShowSuggestions] = React.useState(false)
@@ -44,11 +58,13 @@ export function AutocompleteInput({
       const filtered = options.filter((option) =>
         option.label.toLowerCase().includes(inputValue.toLowerCase())
       )
-      setFilteredOptions(filtered)
+      // Apply maxResults limit if specified
+      setFilteredOptions(maxResults ? filtered.slice(0, maxResults) : filtered)
     } else {
-      setFilteredOptions(options)
+      // Apply maxResults limit even when showing all options
+      setFilteredOptions(maxResults ? options.slice(0, maxResults) : options)
     }
-  }, [inputValue, options])
+  }, [inputValue, options, maxResults])
 
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -65,7 +81,14 @@ export function AutocompleteInput({
     const newValue = e.target.value
     setInputValue(newValue)
     onValueChange?.(newValue)
-    setShowSuggestions(true)
+    
+    // Only show suggestions if input length >= minLength when showOnFocus is false
+    if (!showOnFocus) {
+      setShowSuggestions(newValue.length >= minLength)
+    } else {
+      setShowSuggestions(true)
+    }
+    
     setSelectedIndex(-1)
   }
 
@@ -120,26 +143,53 @@ export function AutocompleteInput({
         id={id}
         value={inputValue}
         onChange={handleInputChange}
-        onFocus={() => setShowSuggestions(true)}
+        onFocus={() => {
+          // Only show suggestions on focus if showOnFocus is true
+          if (showOnFocus) {
+            setShowSuggestions(true)
+          }
+        }}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         className={className}
       />
       {showSuggestions && filteredOptions.length > 0 && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-auto">
+        <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-80 overflow-auto">
           <div className="py-1">
             {filteredOptions.map((option, index) => (
               <div
                 key={option.value}
                 onClick={() => handleSelectOption(option)}
                 className={cn(
-                  "px-3 py-2 cursor-pointer text-sm rounded-md mx-1",
+                  "px-3 py-2 cursor-pointer rounded-md mx-1",
                   index === selectedIndex
                     ? "bg-blue-400 text-white"
                     : "hover:bg-blue-100"
                 )}
               >
-                {option.label}
+                <div className="font-medium text-sm">{option.label}</div>
+                {option.metadata && (
+                  <div className={cn(
+                    "text-xs mt-1 space-y-0.5",
+                    index === selectedIndex ? "text-blue-50" : "text-slate-600"
+                  )}>
+                    {option.metadata.role && (
+                      <div>🎯 {option.metadata.role}</div>
+                    )}
+                    {option.metadata.company && (
+                      <div>🏢 {option.metadata.company}</div>
+                    )}
+                    {option.metadata.location && (
+                      <div>📍 {option.metadata.location}</div>
+                    )}
+                    {option.metadata.phone && (
+                      <div>📞 {option.metadata.phone}</div>
+                    )}
+                    {option.metadata.email && (
+                      <div>📧 {option.metadata.email}</div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>

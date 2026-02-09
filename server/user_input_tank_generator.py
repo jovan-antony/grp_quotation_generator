@@ -2858,8 +2858,10 @@ class TankInvoiceGenerator:
         print(f"\n>>> INSIDE _add_terms_section()")
         print(f">>>   section_content['terms'] exists: {'terms' in self.section_content}")
         if 'terms' in self.section_content:
-            print(f">>>   Number of terms: {len(self.section_content['terms'])}")
+            print(f">>>   Number of formatted terms: {len(self.section_content['terms'])}")
             print(f">>>   Terms keys: {list(self.section_content['terms'].keys())}")
+        if 'terms_plain' in self.section_content:
+            print(f">>>   Number of plain terms: {len(self.section_content['terms_plain'])}")
         
         spacer = self.doc.add_paragraph()
         spacer.paragraph_format.space_before = Pt(0)
@@ -2874,7 +2876,7 @@ class TankInvoiceGenerator:
         run.font.size = Pt(10)
         run.font.bold = True
         
-        # Add each term with specific spacing before colon for alignment
+        # Add each formatted term (key: value) with specific spacing before colon for alignment
         spacing_map = {
             'Price': '         ',      # 9 spaces
             'Validity': '    ',         # 4 spaces
@@ -2896,6 +2898,21 @@ class TankInvoiceGenerator:
             run.font.name = 'Calibri'
             run.font.size = Pt(10)
             terms_added += 1
+        
+        # Add plain custom terms (without key: value format)
+        if 'terms_plain' in self.section_content:
+            for plain_term in self.section_content['terms_plain']:
+                if plain_term and plain_term.strip():  # Only add non-empty terms
+                    para = self.doc.add_paragraph()
+                    para.paragraph_format.space_before = Pt(0)
+                    para.paragraph_format.space_after = Pt(0)
+                    para.paragraph_format.left_indent = Inches(0.5)
+                    para.paragraph_format.first_line_indent = Inches(-0.25)
+                    
+                    run = para.add_run(f'➢  {plain_term}')
+                    run.font.name = 'Calibri'
+                    run.font.size = Pt(10)
+                    terms_added += 1
         
         print(f">>>   Terms actually added to document: {terms_added}")
         print(f">>> EXITING _add_terms_section()\n")

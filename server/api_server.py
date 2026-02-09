@@ -403,7 +403,8 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
         # TERMS AND CONDITIONS
         if generator.sections['terms']:
             terms_data = request.terms['termsConditions']
-            # For terms, we need to format as dict
+            # For terms, we need to format as dict for key-value terms
+            # and keep a list for plain custom terms without colons
             terms_list = terms_data.details + terms_data.custom
             print(f"  Terms & Conditions - Total entries: {len(terms_list)}")
             print(f"    Default entries: {len(terms_data.details)}")
@@ -412,17 +413,22 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
                 print(f"    Custom entries content: {terms_data.custom}")
             
             generator.section_content['terms'] = {}
+            generator.section_content['terms_plain'] = []  # For custom terms without colons
+            
             for idx, term in enumerate(terms_list):
                 if ':' in term:
                     key, value = term.split(':', 1)
                     key_clean = key.strip()
                     value_clean = value.strip()
                     generator.section_content['terms'][key_clean] = value_clean
-                    print(f"      Added term: '{key_clean}' = '{value_clean[:50]}...'")
+                    print(f"      Added formatted term: '{key_clean}' = '{value_clean[:50]}...'")
                 else:
-                    print(f"    WARNING: Term #{idx+1} skipped (no colon): {term[:50]}")
+                    # Add plain custom terms to separate list
+                    generator.section_content['terms_plain'].append(term.strip())
+                    print(f"      Added plain term: {term[:50]}")
             
-            print(f"    Final terms dict has {len(generator.section_content['terms'])} entries")
+            print(f"    Final terms dict has {len(generator.section_content['terms'])} formatted entries")
+            print(f"    Final terms_plain list has {len(generator.section_content['terms_plain'])} plain entries")
         
         # EXTRA NOTE
         if generator.sections['extra_note']:

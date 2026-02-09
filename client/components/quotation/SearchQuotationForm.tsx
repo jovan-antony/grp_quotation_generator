@@ -11,10 +11,12 @@ import { Checkbox } from '@/components/ui/checkbox';
 
 interface SearchQuotationFormProps {
   onPreviewUpdate: (html: string) => void;
+  onLoadQuotation?: (quotationData: any) => void;
 }
 
 export default function SearchQuotationForm({
   onPreviewUpdate,
+  onLoadQuotation,
 }: SearchQuotationFormProps) {
   const [filters, setFilters] = useState({
     recipientName: false,
@@ -437,30 +439,55 @@ export default function SearchQuotationForm({
               {quotations.map((quotation) => (
                 <div
                   key={quotation.id}
-                  className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                  className={`p-4 border-2 rounded-lg transition-all ${
                     selectedQuotation?.id === quotation.id
                       ? 'border-blue-400 bg-blue-50/50'
                       : 'border-blue-200 hover:border-blue-300'
                   }`}
-                  onClick={() => handleSelectQuotation(quotation)}
                 >
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
-                    <div>
-                      <span className="font-semibold">Quote No:</span>{' '}
-                      {quotation.quotation_number}
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-2 text-sm cursor-pointer" onClick={() => handleSelectQuotation(quotation)}>
+                      <div>
+                        <span className="font-semibold">Quote No:</span>{' '}
+                        {quotation.quotation_number}
+                      </div>
+                      <div>
+                        <span className="font-semibold">Recipient:</span>{' '}
+                        {quotation.recipient_name}
+                      </div>
+                      <div>
+                        <span className="font-semibold">Company:</span>{' '}
+                        {quotation.recipient_company}
+                      </div>
+                      <div>
+                        <span className="font-semibold">Date:</span>{' '}
+                        {new Date(quotation.quotation_date).toLocaleDateString()}
+                      </div>
                     </div>
-                    <div>
-                      <span className="font-semibold">Recipient:</span>{' '}
-                      {quotation.recipient_name}
-                    </div>
-                    <div>
-                      <span className="font-semibold">Company:</span>{' '}
-                      {quotation.recipient_company}
-                    </div>
-                    <div>
-                      <span className="font-semibold">Date:</span>{' '}
-                      {new Date(quotation.quotation_date).toLocaleDateString()}
-                    </div>
+                    {onLoadQuotation && (
+                      <Button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            // Fetch full quotation details before loading
+                            const response = await fetch(`http://localhost:8000/api/quotations/${quotation.id}`);
+                            if (!response.ok) {
+                              throw new Error('Failed to fetch quotation details');
+                            }
+                            const data = await response.json();
+                            onLoadQuotation(data);
+                            toast.success('Loading quotation to Revision page...');
+                          } catch (error) {
+                            console.error('Error fetching quotation:', error);
+                            toast.error('Failed to load quotation');
+                          }
+                        }}
+                        size="sm"
+                        className="bg-green-500 hover:bg-green-600 text-white font-medium rounded-lg px-4 py-2 text-xs shrink-0"
+                      >
+                        Load
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}

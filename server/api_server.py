@@ -219,6 +219,10 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
         person_code = person_code or "XX"
         constructed_quote_number = f"{company_code}/{yymm}/{person_code}/{request.quotationNumber}"
         
+        # Add revision suffix if revision number is greater than 0
+        if request.revisionNumber > 0:
+            constructed_quote_number = f"{constructed_quote_number}-R{request.revisionNumber}"
+        
         # Set header data
         # Add role to recipient name with hyphen if role is provided
         recipient_name_with_role = request.recipientName
@@ -912,9 +916,10 @@ async def save_quotation(request: SaveQuotationRequest, session: Session = Depen
             quotation_date = date.today()
         
         # Check if quotation already exists (for updates)
-        # Check by quotation_number AND revision_number to ensure revisions create new rows
-        print(f"Checking for existing quotation: quote_number={request.quotationNumber}, revision={request.revisionNumber}")
+        # Check by company_id, quotation_number, and revision_number (composite unique key)
+        print(f"Checking for existing quotation: company_id={company.id}, quote_number={request.quotationNumber}, revision={request.revisionNumber}")
         statement = select(QuotationWebpageInputDetailsSave).where(
+            QuotationWebpageInputDetailsSave.company_id == company.id,
             QuotationWebpageInputDetailsSave.quotation_number == request.quotationNumber,
             QuotationWebpageInputDetailsSave.revision_number == request.revisionNumber
         )
@@ -922,8 +927,8 @@ async def save_quotation(request: SaveQuotationRequest, session: Session = Depen
         
         if existing_quotation:
             print(f"Found existing quotation (ID: {existing_quotation.id}), updating...")
-            # Update existing quotation (same quotation number and revision)
-            existing_quotation.full_main_quote_number = request.fullQuoteNumber
+            # Update existing quotation
+            existing_quotation.quotation_number = request.quotationNumber
             existing_quotation.final_doc_file_path = request.finalDocFilePath
             existing_quotation.company_id = company.id
             existing_quotation.recipient_id = recipient.id
@@ -941,7 +946,7 @@ async def save_quotation(request: SaveQuotationRequest, session: Session = Depen
             
             print(f"✓ Updated existing quotation: {request.fullQuoteNumber} (revision: {request.revisionNumber})")
         else:
-            print(f"No existing quotation found, creating new with revision: {request.revisionNumber}")
+            print(f"No existing quotation found, creating new: {request.fullQuoteNumber} (revision: {request.revisionNumber})")
             # Create new quotation
             quotation = QuotationWebpageInputDetailsSave(
                 quotation_number=request.quotationNumber,

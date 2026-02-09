@@ -17,6 +17,12 @@ const paytoneOne = Paytone_One({
 export default function QuotationPage() {
   const [activeTab, setActiveTab] = useState('new');
   const [previewHtml, setPreviewHtml] = useState('');
+  const [loadQuotationData, setLoadQuotationData] = useState<any>(null);
+
+  const handleLoadQuotation = (quotationData: any) => {
+    setLoadQuotationData(quotationData);
+    setActiveTab('revision');
+  };
 
   return (
     <div className="min-h-screen bg-blue-50">
@@ -94,11 +100,11 @@ export default function QuotationPage() {
               </TabsContent>
 
               <TabsContent value="search" className="-mt-4">
-                <SearchQuotationForm onPreviewUpdate={setPreviewHtml} />
+                <SearchQuotationForm onPreviewUpdate={setPreviewHtml} onLoadQuotation={handleLoadQuotation} />
               </TabsContent>
 
               <TabsContent value="revision" className="-mt-4">
-                <QuotationRevisionForm onPreviewUpdate={setPreviewHtml} />
+                <QuotationRevisionForm onPreviewUpdate={setPreviewHtml} loadQuotationData={loadQuotationData} />
               </TabsContent>
             </div>
           </div>

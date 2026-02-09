@@ -35,6 +35,41 @@ app.add_middleware(
 )
 
 
+# Auto-sync Excel files to database on startup
+@app.on_event("startup")
+async def startup_event():
+    """Automatically sync Excel files to database when server starts"""
+    print("\n" + "="*70)
+    print("🔄 AUTO-SYNCING EXCEL FILES TO DATABASE")
+    print("="*70)
+    
+    try:
+        from sync_excel_to_db import (
+            sync_company_details,
+            sync_sales_details,
+            sync_project_manager_details
+        )
+        
+        # Run all sync functions
+        results = {
+            'company_details': sync_company_details(),
+            'sales_details': sync_sales_details(),
+            'project_manager_details': sync_project_manager_details()
+        }
+        
+        if all(results.values()):
+            print("\n✅ AUTO-SYNC COMPLETED SUCCESSFULLY")
+        else:
+            print("\n⚠️  AUTO-SYNC COMPLETED WITH SOME WARNINGS")
+        
+        print("="*70 + "\n")
+        
+    except Exception as e:
+        print(f"\n⚠️  AUTO-SYNC ERROR: {e}")
+        print("Server will continue running, but data may not be up-to-date.")
+        print("="*70 + "\n")
+
+
 class TankOption(BaseModel):
     tankName: str
     quantity: int

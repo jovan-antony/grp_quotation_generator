@@ -41,7 +41,18 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
   const [companyShortName, setCompanyShortName] = useState(''); // company_name (brand name) from company_details.xlsx
   const [templatePath, setTemplatePath] = useState(''); // template_path from company_details.xlsx
   const [companyOptions, setCompanyOptions] = useState<Array<{value: string; label: string}>>([]);
-  const [recipientOptions, setRecipientOptions] = useState<Array<{value: string; label: string}>>([]);
+  const [recipientOptions, setRecipientOptions] = useState<Array<{
+    value: string;
+    label: string;
+    metadata?: {
+      role?: string;
+      company?: string;
+      location?: string;
+      phone?: string;
+      email?: string;
+    }
+  }>>([]);
+  const [companyNameOptions, setCompanyNameOptions] = useState<Array<{value: string; label: string}>>([]);
   const [showSubTotal, setShowSubTotal] = useState(true);
   const [showVat, setShowVat] = useState(true);
   const [showGrandTotal, setShowGrandTotal] = useState(true);
@@ -397,11 +408,35 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
       if (response.ok) {
         const data = await response.json();
         setRecipientOptions(
-          data.recipients.map((name: string) => ({ value: name, label: name }))
+          data.recipients.map((recipient: any) => ({
+            value: recipient.name,
+            label: recipient.name,
+            metadata: {
+              role: recipient.role,
+              company: recipient.company,
+              location: recipient.location,
+              phone: recipient.phone,
+              email: recipient.email
+            }
+          }))
         );
       }
     } catch (error) {
       console.error('Error fetching recipients:', error);
+    }
+  };
+
+  const fetchCompanyNames = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/company-names');
+      if (response.ok) {
+        const data = await response.json();
+        setCompanyNameOptions(
+          data.company_names.map((name: string) => ({ value: name, label: name }))
+        );
+      }
+    } catch (error) {
+      console.error('Error fetching company names:', error);
     }
   };
 
@@ -427,7 +462,17 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
         if (response.ok) {
           const data = await response.json();
           setRecipientOptions(
-            data.recipients.map((name: string) => ({ value: name, label: name }))
+            data.recipients.map((recipient: any) => ({
+              value: recipient.name,
+              label: recipient.name,
+              metadata: {
+                role: recipient.role,
+                company: recipient.company,
+                location: recipient.location,
+                phone: recipient.phone,
+                email: recipient.email
+              }
+            }))
           );
         }
       } catch (error) {
@@ -435,8 +480,23 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
       }
     };
 
+    const fetchCompanyNamesInitial = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/company-names');
+        if (response.ok) {
+          const data = await response.json();
+          setCompanyNameOptions(
+            data.company_names.map((name: string) => ({ value: name, label: name }))
+          );
+        }
+      } catch (error) {
+        console.error('Error fetching company names:', error);
+      }
+    };
+
     fetchCompanies();
     fetchRecipientsInitial();
+    fetchCompanyNamesInitial();
   }, []);
 
   // Fetch company details when fromCompany changes
@@ -1107,6 +1167,8 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                   }}
                   options={recipientOptions}
                   placeholder="Enter or select recipient name"
+                  showOnFocus={false}  // Only show dropdown after typing starts
+                  maxResults={10}  // Show maximum 10 recipients in dropdown
                   onKeyDown={e => {
                     if (e.key === 'Enter') {
                       const next = document.querySelector('#role');
@@ -1135,11 +1197,15 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
 
             <div>
               <Label htmlFor="companyName"> To Company Name</Label>
-              <Input
+              <AutocompleteInput
                 id="companyName"
                 value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
+                onValueChange={setCompanyName}
+                options={companyNameOptions}
                 placeholder="M/s. Company Name"
+                showOnFocus={false}
+                minLength={2}
+                maxResults={10}
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
                     const next = document.querySelector('#location');

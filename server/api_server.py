@@ -692,25 +692,61 @@ async def get_company_details(name: str, session: Session = Depends(get_session)
 @app.get("/api/recipients")
 async def get_recipients(session: Session = Depends(get_session)):
     """
-    Get all recipient names from recipient_details table in database
-    Returns list of unique recipient names
+    Get all recipients with full details from recipient_details table in database
+    Returns list of recipients with name, role, company, location, phone, email
     """
     try:
         # Query all recipients from database
         statement = select(RecipientDetails)
         recipients = session.exec(statement).all()
         
-        # Extract unique recipient names
-        recipient_names = list(set([recipient.recipient_name for recipient in recipients if recipient.recipient_name]))
-        recipient_names.sort()  # Sort alphabetically
+        # Build recipient list with all details
+        recipient_list = []
+        for recipient in recipients:
+            if recipient.recipient_name:  # Only include if name exists
+                recipient_list.append({
+                    "name": recipient.recipient_name,
+                    "role": recipient.role_of_recipient or "",
+                    "company": recipient.to_company_name or "",
+                    "location": recipient.to_company_location or "",
+                    "phone": recipient.phone_number or "",
+                    "email": recipient.email or ""
+                })
         
-        return {"recipients": recipient_names}
+        # Sort alphabetically by name
+        recipient_list.sort(key=lambda x: x["name"])
+        
+        return {"recipients": recipient_list}
         
     except Exception as e:
-        print(f"Error reading recipient names from database: {str(e)}")
+        print(f"Error reading recipients from database: {str(e)}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Error reading recipient names from database: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error reading recipients from database: {str(e)}")
+
+
+@app.get("/api/company-names")
+async def get_company_names(session: Session = Depends(get_session)):
+    """
+    Get all unique company names from recipient_details table in database
+    Returns list of unique company names from to_company_name column
+    """
+    try:
+        # Query all recipients from database
+        statement = select(RecipientDetails)
+        recipients = session.exec(statement).all()
+        
+        # Extract unique company names
+        company_names = list(set([recipient.to_company_name for recipient in recipients if recipient.to_company_name]))
+        company_names.sort()  # Sort alphabetically
+        
+        return {"company_names": company_names}
+        
+    except Exception as e:
+        print(f"Error reading company names from database: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error reading company names from database: {str(e)}")
 
 
 @app.get("/api/recipient-details")

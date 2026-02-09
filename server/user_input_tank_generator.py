@@ -1638,44 +1638,48 @@ class TankInvoiceGenerator:
             p = left_cell.paragraphs[0]._element
             p.getparent().remove(p)
         
-        # Recipient name
-        para = left_cell.add_paragraph()
-        para.paragraph_format.space_before = Pt(0)
-        para.paragraph_format.space_after = Pt(0)
-        run = para.add_run(self.recipient_name)
-        run.font.name = 'Calibri'
-        run.font.size = Pt(10)
-        run.font.bold = True
+        # Recipient name (only add if not empty)
+        if self.recipient_name:
+            para = left_cell.add_paragraph()
+            para.paragraph_format.space_before = Pt(0)
+            para.paragraph_format.space_after = Pt(0)
+            run = para.add_run(self.recipient_name)
+            run.font.name = 'Calibri'
+            run.font.size = Pt(10)
+            run.font.bold = True
         
-        # Company name
-        para = left_cell.add_paragraph()
-        para.paragraph_format.space_before = Pt(0)
-        para.paragraph_format.space_after = Pt(0)
-        run = para.add_run(self.recipient_company)
-        run.font.name = 'Calibri'
-        run.font.size = Pt(10)
-        run.font.bold = True
+        # Company name (only add if not empty)
+        if self.recipient_company:
+            para = left_cell.add_paragraph()
+            para.paragraph_format.space_before = Pt(0)
+            para.paragraph_format.space_after = Pt(0)
+            run = para.add_run(self.recipient_company)
+            run.font.name = 'Calibri'
+            run.font.size = Pt(10)
+            run.font.bold = True
         
-        # Location
-        para = left_cell.add_paragraph()
-        para.paragraph_format.space_before = Pt(0)
-        para.paragraph_format.space_after = Pt(0)
-        run = para.add_run(self.recipient_location)
-        run.font.name = 'Calibri'
-        run.font.size = Pt(10)
-        run.font.bold = True
+        # Location (only add if not empty)
+        if self.recipient_location:
+            para = left_cell.add_paragraph()
+            para.paragraph_format.space_before = Pt(0)
+            para.paragraph_format.space_after = Pt(0)
+            run = para.add_run(self.recipient_location)
+            run.font.name = 'Calibri'
+            run.font.size = Pt(10)
+            run.font.bold = True
         
-        # Phone
-        para = left_cell.add_paragraph()
-        para.paragraph_format.space_before = Pt(0)
-        para.paragraph_format.space_after = Pt(0)
-        run = para.add_run(self.recipient_phone)
-        run.font.name = 'Calibri'
-        run.font.size = Pt(10)
-        run.font.bold = True
+        # Phone (only add if not empty)
+        if self.recipient_phone and self.recipient_phone.strip():
+            para = left_cell.add_paragraph()
+            para.paragraph_format.space_before = Pt(0)
+            para.paragraph_format.space_after = Pt(0)
+            run = para.add_run(self.recipient_phone)
+            run.font.name = 'Calibri'
+            run.font.size = Pt(10)
+            run.font.bold = True
         
-        # Email (optional)
-        if self.recipient_email:
+        # Email (only add if not empty)
+        if self.recipient_email and self.recipient_email.strip():
             para = left_cell.add_paragraph()
             para.paragraph_format.space_before = Pt(0)
             para.paragraph_format.space_after = Pt(0)

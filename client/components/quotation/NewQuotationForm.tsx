@@ -562,6 +562,127 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
     }
   }, [officePersonName, quotationFrom]);
 
+  const handleSave = async () => {
+    try {
+      // Validate required fields
+      if (!fromCompany) {
+        toast.error('Please select a company');
+        return;
+      }
+      if (!recipientName) {
+        toast.error('Please enter recipient name');
+        return;
+      }
+      if (!companyName) {
+        toast.error('Please enter company name');
+        return;
+      }
+      if (!quotationNumber) {
+        toast.error('Please enter quotation number');
+        return;
+      }
+      if (!gallonType) {
+        toast.error('Please select gallon type');
+        return;
+      }
+
+      toast.success('Saving quotation...');
+
+      // Format data for database
+      const formattedRecipientName = `${recipientTitle} ${recipientName}`;
+      const formattedPhone = phoneNumber ? `Phone: ${phoneNumber}` : '';
+      const formattedEmail = email ? `Email: ${email}` : '';
+
+      // Convert date from YYYY-MM-DD to DD/MM/YY
+      const dateObj = new Date(quotationDate);
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const year = String(dateObj.getFullYear()).slice(-2);
+      const formattedDate = `${day}/${month}/${year}`;
+
+      // Convert gallon type to Python format (USG or IMG)
+      const formattedGallonType = gallonType === 'US Gallons' ? 'USG' : gallonType === 'Imperial Gallons' ? 'IMG' : gallonType;
+
+      // Convert terms.action boolean to 'yes'/'no' string for backend
+      const formattedTerms = Object.fromEntries(
+        Object.entries(terms).map(([key, value]) => ({
+          [key]: {
+            ...value,
+            action: value.action ? 'yes' : 'no',
+          }
+        })).flatMap(obj => Object.entries(obj))
+      );
+
+      // Construct full quote number
+      const yy = String(dateObj.getFullYear()).slice(-2);
+      const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const yymm = `${yy}${mm}`;
+      const codeForQuote = personCode || 'XX';
+      
+      let fullQuoteNumber = `${companyCode}/${yymm}/${codeForQuote}/${quotationNumber}`;
+      if (revisionEnabled && parseInt(revisionNumber) > 0) {
+        fullQuoteNumber = `${companyCode}/${yymm}/${codeForQuote}/${quotationNumber}-R${revisionNumber}`;
+      }
+
+      // Save to database
+      console.log(`💾 Saving quotation - Number: ${quotationNumber}, Revision: ${revisionNumber}`);
+      const saveResponse = await fetch('http://localhost:8000/api/save-quotation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          quotationNumber,
+          fullQuoteNumber,
+          finalDocFilePath: null, // No document generated yet
+          fromCompany,
+          recipientTitle,
+          recipientName,
+          role,
+          companyName,
+          location,
+          phoneNumber,
+          email,
+          quotationDate: formattedDate,
+          quotationFrom,
+          salesPersonName,
+          officePersonName,
+          subject,
+          projectLocation,
+          tanksData: {
+            numberOfTanks: tanks.length,
+            gallonType: formattedGallonType,
+            tanks: tanks
+          },
+          formOptions: {
+            showSubTotal,
+            showVat,
+            showGrandTotal
+          },
+          additionalData: {
+            additionalDetails
+          },
+          terms: formattedTerms,
+          revisionNumber: parseInt(revisionNumber) || 0,
+          status: 'draft'
+        })
+      });
+
+      if (saveResponse.ok) {
+        const savedData = await saveResponse.json();
+        console.log('✓ Quotation saved to database:', savedData.fullQuoteNumber);
+        toast.success('Quotation saved to database successfully!');
+        // Refresh recipient list to include newly added recipient
+        fetchRecipients();
+      } else {
+        const errorData = await saveResponse.json();
+        throw new Error(errorData.error || 'Failed to save quotation');
+      }
+    } catch (error) {
+      console.error('Save Error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save quotation. Please check if the server is running.';
+      toast.error(errorMessage);
+    }
+  };
+
   const handleExport = async () => {
     try {
       // Validate required fields
@@ -974,164 +1095,8 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
     }));
   };
 
-  // Load existing quotation
-  const [loadQuoteNumber, setLoadQuoteNumber] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleLoadQuotation = async () => {
-    if (!loadQuoteNumber.trim()) {
-      toast.error('Please enter a quote number');
-      return;
-    }
-
-    // Parse quotation_number or quotation_number-revision format
-    // "0324" or "0324-0" loads revision 0
-    // "0324-1" loads revision 1, etc.
-    const parts = loadQuoteNumber.split('-');
-    const quotationNum = parts[0].trim();
-    let revisionNum = '0'; // Default to revision 0
-    
-    if (parts.length === 2) {
-      revisionNum = parts[1].trim();
-    }
-
-    setIsLoading(true);
-    try {
-      const response = await fetch(`http://localhost:8000/api/quotation?quote_number=${encodeURIComponent(quotationNum)}&revision=${encodeURIComponent(revisionNum)}`);
-      
-      if (!response.ok) {
-        if (response.status === 404) {
-          toast.error('Quotation not found');
-        } else {
-          toast.error('Failed to load quotation');
-        }
-        return;
-      }
-
-      const data = await response.json();
-      
-      // Populate form fields
-      setFromCompany(data.fromCompany);
-      setRecipientTitle(data.recipientTitle);
-      setRecipientName(data.recipientName);
-      setRole(data.role);
-      setCompanyName(data.companyName);
-      setLocation(data.location);
-      setPhoneNumber(data.phoneNumber);
-      setEmail(data.email);
-      
-      // Convert date from DD/MM/YY to YYYY-MM-DD
-      const dateParts = data.quotationDate.split('/');
-      if (dateParts.length === 3) {
-        const [day, month, year] = dateParts;
-        const fullYear = `20${year}`;
-        setQuotationDate(`${fullYear}-${month}-${day}`);
-      }
-      
-      setQuotationFrom(data.quotationFrom);
-      setSalesPersonName(data.salesPersonName);
-      setOfficePersonName(data.officePersonName);
-      setQuotationNumber(data.quotationNumber);
-      
-      // Set the loaded revision number
-      console.log(`📊 Loaded quotation - Current revision: ${data.revisionNumber}`);
-      setRevisionNumber(data.revisionNumber.toString());
-      
-      setSubject(data.subject);
-      setProjectLocation(data.projectLocation);
-      
-      // Load tanks data
-      if (data.tanksData && data.tanksData.tanks) {
-        setTanks(data.tanksData.tanks);
-        setNumberOfTanks(data.tanksData.tanks.length);
-      }
-      
-      // Load gallon type
-      if (data.tanksData && data.tanksData.gallonType) {
-        const gallonMap: Record<string, string> = {
-          'USG': 'US Gallons',
-          'IMG': 'Imperial Gallons'
-        };
-        setGallonType(gallonMap[data.tanksData.gallonType] || data.tanksData.gallonType);
-      }
-      
-      // Load form options
-      if (data.formOptions) {
-        setShowSubTotal(data.formOptions.showSubTotal !== false);
-        setShowVat(data.formOptions.showVat !== false);
-        setShowGrandTotal(data.formOptions.showGrandTotal !== false);
-      }
-      
-      // Load additional details
-      if (data.additionalData && data.additionalData.additionalDetails) {
-        setAdditionalDetails(data.additionalData.additionalDetails);
-      }
-      
-      // Load contractual terms & specifications
-      if (data.terms) {
-        setTerms(prev => {
-          const newTerms = { ...prev };
-          
-          // Update each term section if it exists in loaded data
-          Object.keys(data.terms).forEach(key => {
-            if (newTerms[key]) {
-              newTerms[key] = {
-                ...newTerms[key],
-                ...data.terms[key]
-              };
-            }
-          });
-          
-          return newTerms;
-        });
-      }
-      
-      toast.success('Quotation loaded successfully!');
-    } catch (error) {
-      console.error('Error loading quotation:', error);
-      toast.error('Failed to load quotation');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <div className="space-y-10 pt-12">
-      {/* Load Existing Quotation */}
-      <Card className="border border-green-200 rounded-xl shadow-sm bg-green-50">
-        <CardHeader className="bg-green-100 text-green-700 border-b border-green-200 rounded-t-xl px-6 py-3">
-          <CardTitle className="text-base font-semibold">Load Existing Quotation</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-4 px-6 pb-4">
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <Input
-                id="loadQuoteNumber"
-                value={loadQuoteNumber}
-                onChange={(e) => setLoadQuoteNumber(e.target.value)}
-                placeholder="Enter quotation (e.g., 0324 or 0324-0 or 0324-1)"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleLoadQuotation();
-                  }
-                }}
-                disabled={isLoading}
-              />
-            </div>
-            <Button 
-              onClick={handleLoadQuotation} 
-              disabled={isLoading}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {isLoading ? 'Loading...' : 'Load'}
-            </Button>
-          </div>
-          <p className="text-xs text-green-600 mt-2">
-            Enter quotation number (e.g., 0324) or with revision (e.g., 0324-1)
-          </p>
-        </CardContent>
-      </Card>
-
       <Card className="border border-blue-200 rounded-xl shadow-sm bg-white">
         <CardHeader className="bg-white text-blue-600 border-b border-blue-200 rounded-t-xl px-6 py-4">
           <div className="flex items-center justify-between">
@@ -1734,7 +1699,18 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
         </CardContent>
       </Card>
 
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-3">
+        <Button
+          onClick={handleSave}
+          className="bg-green-400 hover:bg-green-500 text-white px-8 py-4 text-base rounded-xl transition-colors duration-200 shadow-sm font-medium"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="mr-2 h-5 w-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+            <polyline points="17 21 17 13 7 13 7 21"/>
+            <polyline points="7 3 7 8 15 8"/>
+          </svg>
+          Save Quotation
+        </Button>
         <Button
           onClick={handleExport}
           className="bg-blue-400 hover:bg-blue-500 text-white px-8 py-4 text-base rounded-xl transition-colors duration-200 shadow-sm font-medium"

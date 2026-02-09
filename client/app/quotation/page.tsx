@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import NewQuotationForm from '@/components/quotation/NewQuotationForm';
+import SearchQuotationForm from '@/components/quotation/SearchQuotationForm';
 import QuotationRevisionForm from '@/components/quotation/QuotationRevisionForm';
 import { Paytone_One } from 'next/font/google';
 
@@ -93,13 +94,11 @@ export default function QuotationPage() {
               </TabsContent>
 
               <TabsContent value="search" className="-mt-4">
-                <QuotationRevisionForm onPreviewUpdate={setPreviewHtml} />
+                <SearchQuotationForm onPreviewUpdate={setPreviewHtml} />
               </TabsContent>
 
               <TabsContent value="revision" className="-mt-4">
-                <div className="text-center pt-24 pb-12">
-                  <p className="text-gray-500">Quotation Revision form coming soon...</p>
-                </div>
+                <QuotationRevisionForm onPreviewUpdate={setPreviewHtml} />
               </TabsContent>
             </div>
           </div>

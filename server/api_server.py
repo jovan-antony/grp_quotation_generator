@@ -547,37 +547,6 @@ async def health_check():
     return {"status": "ok"}
 
 
-<<<<<<< HEAD
-# Pydantic models for request/response
-class SaveQuotationRequest(BaseModel):
-    quotationNumber: str
-    fullQuoteNumber: str
-    finalDocFilePath: Optional[str] = None
-    fromCompany: str
-    recipientTitle: str
-    recipientName: str
-    role: Optional[str] = ""
-    companyName: str
-    location: Optional[str] = ""
-    phoneNumber: Optional[str] = ""
-    email: Optional[str] = ""
-    quotationDate: str
-    quotationFrom: str
-    salesPersonName: Optional[str] = ""
-    officePersonName: Optional[str] = ""
-    subject: str
-    projectLocation: str
-    tanksData: Dict[str, Any]
-    formOptions: Optional[Dict[str, Any]] = None
-    additionalData: Optional[Dict[str, Any]] = None
-    terms: Optional[Dict[str, Any]] = None
-    revisionNumber: int = 0
-    status: str = "draft"
-
-
-@app.post("/api/save-quotation")
-async def save_quotation(request: SaveQuotationRequest, session: Session = Depends(get_session)):
-=======
 @app.get("/api/companies")
 async def get_companies():
     """
@@ -660,9 +629,35 @@ async def get_company_details(name: str):
         raise HTTPException(status_code=500, detail=f"Error reading company details: {str(e)}")
 
 
-@app.get("/api/person-names/{person_type}")
-async def get_person_names(person_type: str):
->>>>>>> 8c2e724a49beec2daaccf1a3c07120574ea5f3e9
+# Pydantic models for request/response
+class SaveQuotationRequest(BaseModel):
+    quotationNumber: str
+    fullQuoteNumber: str
+    finalDocFilePath: Optional[str] = None
+    fromCompany: str
+    recipientTitle: str
+    recipientName: str
+    role: Optional[str] = ""
+    companyName: str
+    location: Optional[str] = ""
+    phoneNumber: Optional[str] = ""
+    email: Optional[str] = ""
+    quotationDate: str
+    quotationFrom: str
+    salesPersonName: Optional[str] = ""
+    officePersonName: Optional[str] = ""
+    subject: str
+    projectLocation: str
+    tanksData: Dict[str, Any]
+    formOptions: Optional[Dict[str, Any]] = None
+    additionalData: Optional[Dict[str, Any]] = None
+    terms: Optional[Dict[str, Any]] = None
+    revisionNumber: int = 0
+    status: str = "draft"
+
+
+@app.post("/api/save-quotation")
+async def save_quotation(request: SaveQuotationRequest, session: Session = Depends(get_session)):
     """
     Save quotation form data to database
     """

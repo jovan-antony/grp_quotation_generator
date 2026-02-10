@@ -211,12 +211,15 @@ def sync_sales_details():
             statement = select(SalesDetails).where(SalesDetails.code == code)
             existing = session.exec(statement).first()
             
-            name = str(row.get('NAME', '')).strip()
+            # Support both old (NAME, MOB, EMAIL) and new (SALES_PERSON_NAME, PHONE_NUMBER, EMAIL_NAME) column names
+            name = str(row.get('SALES_PERSON_NAME', row.get('NAME', ''))).strip()
             designation = str(row.get('DESIGNATION', '')).strip()
-            phone = str(row.get('MOB', '')).strip()
-            email = str(row.get('EMAIL', '')).strip()
-            # Extract only the username part (before @) from email
-            email_name = email.split('@')[0] if '@' in email else email
+            phone = str(row.get('PHONE_NUMBER', row.get('MOB', ''))).strip()
+            email_name = str(row.get('EMAIL_NAME', '')).strip()
+            # If EMAIL_NAME is empty, try to extract from EMAIL column
+            if not email_name:
+                email = str(row.get('EMAIL', '')).strip()
+                email_name = email.split('@')[0] if '@' in email else email
             sign_path = str(row.get('SIGN_PATH', '')).strip()
             
             if existing:
@@ -325,12 +328,15 @@ def sync_project_manager_details():
             statement = select(ProjectManagerDetails).where(ProjectManagerDetails.code == code)
             existing = session.exec(statement).first()
             
-            name = str(row.get('NAME', '')).strip()
+            # Support both old (NAME, MOB, EMAIL) and new (MANAGER_NAME, PHONE_NUMBER, EMAIL_NAME) column names
+            name = str(row.get('MANAGER_NAME', row.get('NAME', ''))).strip()
             designation = str(row.get('DESIGNATION', '')).strip()
-            phone = str(row.get('MOB', '')).strip()
-            email = str(row.get('EMAIL', '')).strip()
-            # Extract only the username part (before @) from email
-            email_name = email.split('@')[0] if '@' in email else email
+            phone = str(row.get('PHONE_NUMBER', row.get('MOB', ''))).strip()
+            email_name = str(row.get('EMAIL_NAME', '')).strip()
+            # If EMAIL_NAME is empty, try to extract from EMAIL column
+            if not email_name:
+                email = str(row.get('EMAIL', '')).strip()
+                email_name = email.split('@')[0] if '@' in email else email
             sign_path = str(row.get('SIGN_PATH', '')).strip()
             
             if existing:

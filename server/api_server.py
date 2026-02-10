@@ -978,18 +978,15 @@ async def save_quotation(request: SaveQuotationRequest, session: Session = Depen
         except:
             quotation_date = date.today()
         
-        # Check if quotation already exists (for updates)
-        # Check by company_id, quotation_number, and revision_number (composite unique key)
-        print(f"Checking for existing quotation: company_id={company.id}, quote_number={request.quotationNumber}, revision={request.revisionNumber}")
+        # Check if quotation already exists by full_main_quote_number (unique constraint)
+        print(f"Checking for existing quotation by full_main_quote_number: {request.fullQuoteNumber}")
         statement = select(QuotationWebpageInputDetailsSave).where(
-            QuotationWebpageInputDetailsSave.company_id == company.id,
-            QuotationWebpageInputDetailsSave.quotation_number == request.quotationNumber,
-            QuotationWebpageInputDetailsSave.revision_number == request.revisionNumber
+            QuotationWebpageInputDetailsSave.full_main_quote_number == request.fullQuoteNumber
         )
         existing_quotation = session.exec(statement).first()
         
         if existing_quotation:
-            print(f"Found existing quotation (ID: {existing_quotation.id}), updating...")
+            print(f"⚠ Found existing quotation (ID: {existing_quotation.id}), replacing with new data...")
             # Update existing quotation
             existing_quotation.quotation_number = request.quotationNumber
             existing_quotation.final_doc_file_path = request.finalDocFilePath
@@ -1007,7 +1004,7 @@ async def save_quotation(request: SaveQuotationRequest, session: Session = Depen
             existing_quotation.status = request.status
             existing_quotation.last_updated_time = datetime.utcnow()
             
-            print(f"✓ Updated existing quotation: {request.fullQuoteNumber} (revision: {request.revisionNumber})")
+            print(f"✓ Replaced existing quotation: {request.fullQuoteNumber} (revision: {request.revisionNumber})")
         else:
             print(f"No existing quotation found, creating new: {request.fullQuoteNumber} (revision: {request.revisionNumber})")
             # Create new quotation

@@ -21,14 +21,9 @@ export async function POST(request: NextRequest) {
       throw new Error('Failed to generate quotation from backend');
     }
 
-    const docxBlob = await response.blob();
+    const result = await response.json();
 
-    return new NextResponse(docxBlob, {
-      headers: {
-        'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'Content-Disposition': 'attachment; filename="quotation.docx"',
-      },
-    });
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Error generating quotation:', error);
     return NextResponse.json(

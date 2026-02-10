@@ -4,6 +4,9 @@
 
 Generate professional Word documents (`.docx`) for quotations with one click. Supports multiple company templates (GRP, PIPECO, COLEX) with automatic calculations, customizable terms, signature management, and full database storage.
 
+Python: Run pip install -r requirements.txt in the server directory
+Node.js: Run npm install in the client directory
+
 ---
 
 ## ✨ Features
@@ -171,6 +174,28 @@ grp_quotation_generator/
 
 ## 🔐 Environment Variables
 
+### Server Configuration
+
+Create `server/.env`:
+
+```env
+# Database
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=grp_quotation_fresh
+DB_USER=postgres
+DB_PASSWORD=your_password
+
+# Document Storage (Optional - defaults to server/Final_Doc)
+# Set to absolute path for production: C:/Documents/Quotations or /mnt/shared/quotations
+FINAL_DOC_PATH=Final_Doc
+```
+
+**📁 Document Storage**: The `FINAL_DOC_PATH` can be configured to any location on your system or network.  
+See **[DOCUMENT_STORAGE_CONFIG.md](DOCUMENT_STORAGE_CONFIG.md)** for detailed configuration guide.
+
+### Client Configuration
+
 Create `client/.env.local`:
 
 ```env
@@ -225,11 +250,31 @@ See [HOW_TO_RUN_LOCALLY.md](HOW_TO_RUN_LOCALLY.md) for detailed troubleshooting.
 
 ## 📦 Output
 
-Generated documents are saved in:
-- `server/Final_Doc/` folder
-- Your browser's Downloads folder
+Generated documents are saved on the server in company-specific folders:
+- **Default Location**: `server/Final_Doc/{COMPANY_CODE}/`
+- **Configurable**: Set `FINAL_DOC_PATH` in `.env` to save anywhere on your system
+- Example paths:
+  - `server/Final_Doc/GRPPT/GRPPT_2502_VV_2582.docx` (default)
+  - `C:/CompanyDocs/GRPT/GRPT_2502_SJ_1001.docx` (custom Windows path)
+  - `/mnt/shared/quotations/CLX/CLX_2502_AS_3001.docx` (custom Linux path)
 
-Filename format: `quotation_GRPPT_2502_VV_2582.docx`
+Filename format: 
+- New quotation: `GRPPT_2502_VV_2582.docx`
+- Revision: `GRPPT_2502_VV_2582_R1.docx`
+
+**Note**: Files are saved on the server only (no auto-download to browser).
+
+**Folder Structure**:
+```
+{FINAL_DOC_PATH}/
+  ├── GRPPT/    # GRP PIPECO quotations
+  ├── GRPT/     # GRP TANKS quotations
+  └── CLX/      # COLEX quotations
+```
+
+Company folders are automatically created on server startup based on company data.
+
+**Configuration**: See [DOCUMENT_STORAGE_CONFIG.md](DOCUMENT_STORAGE_CONFIG.md) for detailed setup guide.
 
 ---
 

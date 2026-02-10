@@ -4,12 +4,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import os
+from dotenv import load_dotenv
 
 import os
 import sys
 from datetime import datetime, date
 from pathlib import Path
 import pandas as pd
+
+# Load environment variables from .env file in the same directory
+script_dir = os.path.dirname(os.path.abspath(__file__))
+env_file = os.path.join(script_dir, '.env')
+if os.path.exists(env_file):
+    load_dotenv(dotenv_path=env_file, override=True)
+
 # Import the generator class
 from user_input_tank_generator import TankInvoiceGenerator
 # Import database models and session
@@ -22,6 +30,181 @@ from database import get_session
 from sqlmodel import Session, select
 
 app = FastAPI()
+
+# Helper function to get Final_Doc path from environment or default
+def get_final_doc_path():
+    """
+    Get the Final_Doc path from environment variable or use default.
+    Supports both absolute and relative paths.
+    Returns absolute path.
+    """
+    env_path = os.getenv('FINAL_DOC_PATH', '').strip()
+    
+    if env_path:
+        # If path is provided in env
+        if os.path.isabs(env_path):
+            # Absolute path - use as is
+            final_doc_path = env_path
+        else:
+            # Relative path - make it relative to server directory
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            final_doc_path = os.path.join(script_dir, env_path)
+    else:
+        # Default: server/Final_Doc
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        final_doc_path = os.path.join(script_dir, "Final_Doc")
+    
+    # Convert to absolute path and normalize
+    final_doc_path = os.path.abspath(final_doc_path)
+    return final_doc_path
+
+# Helper function to get DATA path from environment or default
+def get_data_path():
+    """
+    Get the DATA path from environment variable or use default.
+    DATA folder contains: template/, signs&seals/, default_details/
+    Supports both absolute and relative paths.
+    Returns absolute path.
+    """
+    env_path = os.getenv('DATA_PATH', '').strip()
+    
+    if env_path:
+        # If path is provided in env
+        if os.path.isabs(env_path):
+            # Absolute path - use as is
+            data_path = env_path
+        else:
+            # Relative path - make it relative to server directory
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            data_path = os.path.join(script_dir, env_path)
+    else:
+        # Default: server/DATA
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        data_path = os.path.join(script_dir, "DATA")
+    
+    # Convert to absolute path and normalize
+    data_path = os.path.abspath(data_path)
+    return data_path
+
+# Helper function to update .env with company paths
+def update_company_paths_in_env(company_codes: List[str]):
+    """
+    Update .env file with company-specific path variables (absolute paths).
+    Only adds missing company paths - preserves existing ones to allow manual editing.
+    Format: <COMPANY_CODE>_PATH=C:/absolute/path/to/Final_Doc/<COMPANY_CODE>
+    """
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    env_file_path = os.path.join(script_dir, '.env')
+    
+    if not os.path.exists(env_file_path):
+        print(f"⚠️  .env file not found at {env_file_path}")
+        return
+    
+    # Read existing .env content
+    with open(env_file_path, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+    
+    # Find existing company path variables
+    existing_company_codes = set()
+    company_paths_section_start = -1
+    company_paths_section_end = -1
+    
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        
+        # Find company paths section
+        if '# Company-specific Document Paths' in line:
+            company_paths_section_start = i
+        
+        # Check for company path variables (format: CODE_PATH=...)
+        if stripped and '_PATH=' in stripped and not stripped.startswith('#'):
+            # Extract company code from variable name (e.g., GRPPT_PATH -> GRPPT)
+            var_name = stripped.split('=')[0].strip()
+            if var_name.endswith('_PATH') and var_name not in ['DATA_PATH', 'FINAL_DOC_PATH']:
+                company_code = var_name[:-5]  # Remove '_PATH' suffix
+                existing_company_codes.add(company_code)
+                if company_paths_section_start != -1 and company_paths_section_end == -1:
+                    company_paths_section_end = i
+    
+    # Determine which company codes are missing
+    missing_codes = sorted(set(company_codes) - existing_company_codes)
+    
+    if not missing_codes:
+        print(f"✓ All {len(company_codes)} company paths already exist in .env")
+        return
+    
+    # Generate absolute paths for missing companies
+    final_doc_dir = get_final_doc_path()
+    new_path_lines = []
+    
+    for code in missing_codes:
+        company_abs_path = os.path.abspath(os.path.join(final_doc_dir, code))
+        # Use forward slashes for cross-platform compatibility
+        company_abs_path = company_abs_path.replace('\\', '/')
+        new_path_lines.append(f'{code}_PATH={company_abs_path}\n')
+    
+    # Insert missing paths
+    if company_paths_section_start == -1:
+        # No company paths section exists - create one after DATA_PATH
+        insert_index = len(lines)
+        for i, line in enumerate(lines):
+            if 'DATA_PATH=' in line:
+                insert_index = i + 1
+                # Skip blank lines after DATA_PATH
+                while insert_index < len(lines) and lines[insert_index].strip() == '':
+                    insert_index += 1
+                break
+        
+        # Add section header and paths
+        lines.insert(insert_index, '\n')
+        lines.insert(insert_index + 1, '# Company-specific Document Paths (Auto-generated - Edit manually if needed)\n')
+        for j, path_line in enumerate(new_path_lines):
+            lines.insert(insert_index + 2 + j, path_line)
+    else:
+        # Company paths section exists - append to end of section
+        if company_paths_section_end == -1:
+            company_paths_section_end = company_paths_section_start
+        
+        insert_index = company_paths_section_end + 1
+        for path_line in new_path_lines:
+            lines.insert(insert_index, path_line)
+            insert_index += 1
+    
+    # Write back to .env
+    with open(env_file_path, 'w', encoding='utf-8') as f:
+        f.writelines(lines)
+    
+    print(f"✅ Added {len(missing_codes)} new company path(s) to .env: {', '.join(missing_codes)}")
+    if existing_company_codes:
+        print(f"✓ Preserved {len(existing_company_codes)} existing company path(s)")
+    
+    # Reload environment variables to pick up the new paths
+    load_dotenv(dotenv_path=env_file_path, override=True)
+
+# Helper function to get company-specific path from environment
+def get_company_path(company_code: str) -> str:
+    """
+    Get company-specific path from environment variable.
+    Falls back to Final_Doc/<company_code> if not found in .env.
+    Returns absolute path.
+    """
+    env_var_name = f'{company_code}_PATH'
+    env_path = os.getenv(env_var_name, '').strip()
+    
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    if env_path:
+        # If path is relative, make it relative to server directory
+        if not os.path.isabs(env_path):
+            company_path = os.path.join(script_dir, env_path)
+        else:
+            company_path = env_path
+    else:
+        # Fallback: use Final_Doc/<company_code>
+        final_doc_dir = get_final_doc_path()
+        company_path = os.path.join(final_doc_dir, company_code)
+    
+    return os.path.abspath(company_path)
 
 # Database setup disabled
 
@@ -38,10 +221,23 @@ app.add_middleware(
 # Auto-sync Excel files to database on startup
 @app.on_event("startup")
 async def startup_event():
-    """Automatically sync Excel files to database when server starts"""
+    """Automatically sync Excel files to database and create company folders when server starts"""
+    
+    # Reload environment variables to ensure latest values
+    env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+    if os.path.exists(env_file):
+        load_dotenv(dotenv_path=env_file, override=True)
+        print(f"✓ Loaded environment from: {env_file}")
+    
     print("\n" + "="*70)
     print("🔄 AUTO-SYNCING EXCEL FILES TO DATABASE")
     print("="*70)
+    
+    # Show DATA_PATH being used
+    data_path = get_data_path()
+    print(f"\nDATA_PATH environment variable: {os.getenv('DATA_PATH', 'NOT SET')}")
+    print(f"Resolved DATA_PATH: {data_path}")
+    print(f"Excel files location: {os.path.join(data_path, 'default_details/')}\n")
     
     try:
         from sync_excel_to_db import (
@@ -61,12 +257,63 @@ async def startup_event():
             print("\n✅ AUTO-SYNC COMPLETED SUCCESSFULLY")
         else:
             print("\n⚠️  AUTO-SYNC COMPLETED WITH SOME WARNINGS")
+            print(f"Results: {results}")
         
         print("="*70 + "\n")
         
     except Exception as e:
         print(f"\n⚠️  AUTO-SYNC ERROR: {e}")
         print("Server will continue running, but data may not be up-to-date.")
+        import traceback
+        traceback.print_exc()
+        print("="*70 + "\n")
+    
+    # Create company folders in Final_Doc
+    print("\n" + "="*70)
+    print("📁 CREATING COMPANY FOLDERS")
+    print("="*70)
+    
+    try:
+        # Get company codes from database
+        session_gen = get_session()
+        session = next(session_gen)
+        
+        statement = select(CompanyDetails)
+        companies = session.exec(statement).all()
+        
+        company_codes = [company.code for company in companies]
+        
+        # Update .env file with company paths (adds missing ones only)
+        if company_codes:
+            update_company_paths_in_env(company_codes)
+        
+        print()
+        
+        # Now create folders based on paths from .env
+        created_folders = []
+        existing_folders = []
+        
+        for company_code in company_codes:
+            # Get the path from .env (respects manual edits)
+            company_folder = get_company_path(company_code)
+            if not os.path.exists(company_folder):
+                os.makedirs(company_folder, exist_ok=True)
+                created_folders.append(f"{company_code} → {company_folder}")
+                print(f"  ✓ Created folder: {company_folder}")
+            else:
+                existing_folders.append(f"{company_code} → {company_folder}")
+                print(f"  ✓ Folder exists: {company_folder}")
+        
+        if created_folders:
+            print(f"\n✅ Created {len(created_folders)} new company folder(s)")
+        if existing_folders:
+            print(f"✓ {len(existing_folders)} folder(s) already existed")
+        
+        print("="*70 + "\n")
+        
+    except Exception as e:
+        print(f"\n⚠️  FOLDER CREATION ERROR: {e}")
+        print("Server will continue running.")
         print("="*70 + "\n")
 
 
@@ -154,6 +401,9 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
         # Use template path from request if provided, otherwise use default mapping
         if request.templatePath:
             template_filename = request.templatePath
+            # Remove 'template/' prefix if present (for backward compatibility with old data)
+            if template_filename.startswith('template/'):
+                template_filename = template_filename[9:]  # Remove 'template/' prefix
             # Add .docx extension if not present
             if not template_filename.endswith('.docx'):
                 template_filename = template_filename + '.docx'
@@ -166,14 +416,16 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
             }
             template_filename = template_map.get(request.fromCompany, "template_grp.docx")
         
-        script_dir = os.path.dirname(__file__)
-        template_path = os.path.join(script_dir, template_filename)
+        # Get DATA path and construct template path
+        data_dir = get_data_path()
+        template_dir = os.path.join(data_dir, "template")
+        template_path = os.path.join(template_dir, template_filename)
         
         # Verify template file exists
         if not os.path.exists(template_path):
             print(f"⚠ Template file not found: {template_path}")
             print(f"Template filename requested: {template_filename}")
-            print(f"Script directory: {script_dir}")
+            print(f"Template directory: {template_dir}")
             raise HTTPException(status_code=404, detail=f"Template file not found: {template_filename}")
         
         print(f"✓ Using template: {template_path}")
@@ -523,9 +775,10 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
                             print(f"  Sales email_name from DB: '{selected_sales.email_name}'")
                             left_email = construct_email(selected_sales.email_name)
                             
-                            # Get signature image
+                            # Get signature image from DATA/signs&seals
                             code = selected_sales.code
-                            signs_dir = os.path.join(script_dir, 'signs&seals')
+                            data_dir = get_data_path()
+                            signs_dir = os.path.join(data_dir, 'signs&seals')
                             for ext in ['.png', '.jpg', '.jpeg']:
                                 if not signature_image:
                                     sign_path = os.path.join(signs_dir, f"{code}_sign{ext}")
@@ -567,9 +820,10 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
                         print(f"  Manager (left) email_name from DB: '{selected_pm.email_name}'")
                         left_email = construct_email(selected_pm.email_name)
                         
-                        # Get signature image
+                        # Get signature image from DATA/signs&seals
                         code = selected_pm.code
-                        signs_dir = os.path.join(script_dir, 'signs&seals')
+                        data_dir = get_data_path()
+                        signs_dir = os.path.join(data_dir, 'signs&seals')
                         for ext in ['.png', '.jpg', '.jpeg']:
                             if not signature_image:
                                 sign_path = os.path.join(signs_dir, f"{code}_sign{ext}")
@@ -639,21 +893,33 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
         # Generate the document
         generator.create_invoice_table()
         
-        # Save the document
-        output_filename = f"quotation_{constructed_quote_number.replace('/', '_')}.docx"
-        output_dir = os.path.join(script_dir, "Final_Doc")
-        os.makedirs(output_dir, exist_ok=True)
-        output_path = os.path.join(output_dir, output_filename)
+        # Save the document in company-specific folder
+        # Format: GRPPT_2502_VV_2582.docx or GRPPT_2502_VV_2582_R1.docx for revisions
+        output_filename = f"{constructed_quote_number.replace('/', '_').replace('-R', '_R')}.docx"
+        
+        # Extract company code from filename (first part before underscore)
+        company_code = output_filename.split('_')[0]
+        
+        # Get company-specific path from environment variable
+        company_folder = get_company_path(company_code)
+        os.makedirs(company_folder, exist_ok=True)
+        
+        output_path = os.path.join(company_folder, output_filename)
         
         generator.save(output_path)
         
-        # Return the file
+        # Return success response with file path
         if os.path.exists(output_path):
-            return FileResponse(
-                output_path,
-                media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                filename=output_filename
-            )
+            # Return both absolute and relative paths
+            relative_path = os.path.join(company_code, output_filename)
+            return {
+                "success": True,
+                "message": "Quotation generated successfully",
+                "filename": output_filename,
+                "filepath": relative_path,  # Relative: GRPPT/GRPPT_2502_VV_2582.docx
+                "absolute_filepath": output_path,  # Full system path
+                "company_code": company_code
+            }
         else:
             raise HTTPException(status_code=500, detail="Failed to generate document")
         
@@ -789,6 +1055,92 @@ async def get_company_names(session: Session = Depends(get_session)):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error reading company names from database: {str(e)}")
+
+
+@app.post("/api/sync-excel")
+async def sync_excel_data():
+    """
+    Manually trigger sync of Excel files to database
+    Useful when Excel files are updated without restarting the server
+    """
+    try:
+        # Reload environment variables first
+        env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+        if os.path.exists(env_file):
+            load_dotenv(dotenv_path=env_file, override=True)
+        
+        print("\n" + "="*70)
+        print("🔄 MANUAL SYNC: EXCEL FILES TO DATABASE")
+        print("="*70)
+        
+        # Show DATA_PATH being used
+        data_path = get_data_path()
+        print(f"\nDATA_PATH: {data_path}")
+        print(f"Excel files location: {os.path.join(data_path, 'default_details/')}\n")
+        
+        from sync_excel_to_db import (
+            sync_company_details,
+            sync_sales_details,
+            sync_project_manager_details
+        )
+        
+        # Run all sync functions
+        results = {
+            'company_details': sync_company_details(),
+            'sales_details': sync_sales_details(),
+            'project_manager_details': sync_project_manager_details()
+        }
+        
+        # After syncing, update .env with new company paths if needed
+        if results['company_details']:
+            try:
+                from models import CompanyDetails
+                from sqlmodel import select
+                
+                # Get updated company codes from database
+                session_gen = get_session()
+                session = next(session_gen)
+                statement = select(CompanyDetails)
+                companies = session.exec(statement).all()
+                company_codes = [company.code for company in companies]
+                
+                # Update .env with any new company paths
+                if company_codes:
+                    update_company_paths_in_env(company_codes)
+                    
+                    # Create folders for any new companies
+                    for company_code in company_codes:
+                        company_folder = get_company_path(company_code)
+                        if not os.path.exists(company_folder):
+                            os.makedirs(company_folder, exist_ok=True)
+                            print(f"  ✓ Created folder for new company: {company_folder}")
+                
+            except Exception as e:
+                print(f"  ⚠️  Warning: Could not update company folders: {e}")
+        
+        if all(results.values()):
+            print("\n✅ MANUAL SYNC COMPLETED SUCCESSFULLY")
+            print("="*70 + "\n")
+            return {
+                "success": True,
+                "message": "All Excel files synced successfully",
+                "results": results
+            }
+        else:
+            print("\n⚠️  MANUAL SYNC COMPLETED WITH SOME WARNINGS")
+            print("="*70 + "\n")
+            return {
+                "success": False,
+                "message": "Some Excel files failed to sync",
+                "results": results
+            }
+        
+    except Exception as e:
+        print(f"\n⚠️  MANUAL SYNC ERROR: {e}")
+        print("="*70 + "\n")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Sync error: {str(e)}")
 
 
 @app.get("/api/recipient-details")
@@ -957,6 +1309,16 @@ async def save_quotation(request: SaveQuotationRequest, session: Session = Depen
         # Check if quotation already exists (for updates)
         # Check by company_id, quotation_number, and revision_number (composite unique key)
         print(f"Checking for existing quotation: company_id={company.id}, quote_number={request.quotationNumber}, revision={request.revisionNumber}")
+        
+        # Generate proper full_main_quote_number with revision suffix
+        base_quote_number = request.fullQuoteNumber.split('-R')[0]  # Remove any existing revision suffix
+        if request.revisionNumber > 0:
+            full_quote_with_revision = f"{base_quote_number}-R{request.revisionNumber}"
+        else:
+            full_quote_with_revision = base_quote_number
+        
+        print(f"Full quote number with revision: {full_quote_with_revision}")
+        
         statement = select(QuotationWebpageInputDetailsSave).where(
             QuotationWebpageInputDetailsSave.company_id == company.id,
             QuotationWebpageInputDetailsSave.quotation_number == request.quotationNumber,
@@ -968,6 +1330,7 @@ async def save_quotation(request: SaveQuotationRequest, session: Session = Depen
             print(f"Found existing quotation (ID: {existing_quotation.id}), updating...")
             # Update existing quotation
             existing_quotation.quotation_number = request.quotationNumber
+            existing_quotation.full_main_quote_number = full_quote_with_revision
             existing_quotation.final_doc_file_path = request.finalDocFilePath
             existing_quotation.company_id = company.id
             existing_quotation.recipient_id = recipient.id
@@ -983,13 +1346,14 @@ async def save_quotation(request: SaveQuotationRequest, session: Session = Depen
             existing_quotation.status = request.status
             existing_quotation.last_updated_time = datetime.utcnow()
             
-            print(f"✓ Updated existing quotation: {request.fullQuoteNumber} (revision: {request.revisionNumber})")
+            print(f"✓ Updated existing quotation: {full_quote_with_revision} (revision: {request.revisionNumber})")
         else:
-            print(f"No existing quotation found, creating new: {request.fullQuoteNumber} (revision: {request.revisionNumber})")
+            print(f"No existing quotation found, creating new: {full_quote_with_revision} (revision: {request.revisionNumber})")
+            
             # Create new quotation
             quotation = QuotationWebpageInputDetailsSave(
                 quotation_number=request.quotationNumber,
-                full_main_quote_number=request.fullQuoteNumber,
+                full_main_quote_number=full_quote_with_revision,
                 final_doc_file_path=request.finalDocFilePath,
                 company_id=company.id,
                 recipient_id=recipient.id,
@@ -1005,13 +1369,13 @@ async def save_quotation(request: SaveQuotationRequest, session: Session = Depen
                 status=request.status
             )
             session.add(quotation)
-            print(f"✓ Created new quotation: {request.fullQuoteNumber} (quotation_number: {quotation.quotation_number}, revision_number: {quotation.revision_number})")
+            print(f"✓ Created new quotation: {full_quote_with_revision} (quotation_number: {quotation.quotation_number}, revision_number: {quotation.revision_number})")
         
         # Save contractual terms & specifications
         if request.terms:
             # Check if terms already exist
             statement = select(ContractualTermsSpecifications).where(
-                ContractualTermsSpecifications.full_main_quote_number == request.fullQuoteNumber
+                ContractualTermsSpecifications.full_main_quote_number == full_quote_with_revision
             )
             existing_terms = session.exec(statement).first()
             
@@ -1034,7 +1398,7 @@ async def save_quotation(request: SaveQuotationRequest, session: Session = Depen
                     if frontend_key in request.terms:
                         setattr(existing_terms, db_column, request.terms[frontend_key])
                 existing_terms.last_updated_time = datetime.utcnow()
-                print(f"✓ Updated contractual terms for: {request.fullQuoteNumber}")
+                print(f"✓ Updated contractual terms for: {full_quote_with_revision}")
             else:
                 # Create new terms
                 terms_data = {}
@@ -1043,11 +1407,11 @@ async def save_quotation(request: SaveQuotationRequest, session: Session = Depen
                         terms_data[db_column] = request.terms[frontend_key]
                 
                 contractual_terms = ContractualTermsSpecifications(
-                    full_main_quote_number=request.fullQuoteNumber,
+                    full_main_quote_number=full_quote_with_revision,
                     **terms_data
                 )
                 session.add(contractual_terms)
-                print(f"✓ Created contractual terms for: {request.fullQuoteNumber}")
+                print(f"✓ Created contractual terms for: {full_quote_with_revision}")
         
         session.commit()
         
@@ -1056,7 +1420,7 @@ async def save_quotation(request: SaveQuotationRequest, session: Session = Depen
         return {
             "success": True,
             "message": "Quotation saved successfully",
-            "fullQuoteNumber": request.fullQuoteNumber
+            "fullQuoteNumber": full_quote_with_revision
         }
         
     except HTTPException:

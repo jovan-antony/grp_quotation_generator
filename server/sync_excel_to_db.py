@@ -46,6 +46,7 @@ def sync_company_details():
     data_dir = get_data_path()
     excel_path = os.path.join(data_dir, 'default_details/company_details.xlsx')
     excel_file = Path(excel_path)
+    temp_file = Path(os.path.join(data_dir, 'default_details/~$company_details.xlsx'))
     
     print("\n" + "="*60)
     print("SYNCING COMPANY DETAILS")
@@ -58,58 +59,99 @@ def sync_company_details():
         print(f"Computed data directory: {data_dir}")
         return False
     
+    if temp_file.exists():
+        print(f"⚠️  WARNING: Excel file appears to be OPEN in another program!")
+        print(f"   Close 'company_details.xlsx' and try again.")
+        print(f"   Will attempt to read anyway...")
+    
     print(f"✓ Excel file found")
     
+    session = None
     try:
         # Read Excel file
         df = pd.read_excel(excel_file)
+        # Convert column names to uppercase and strip whitespace for consistency
+        df.columns = df.columns.str.strip().str.upper()
         print(f"✓ Found {len(df)} companies in Excel file")
+        print(f"Excel columns: {list(df.columns)}")
         
         # Get database session
         session_gen = get_session()
         session = next(session_gen)
         
-        for _, row in df.iterrows():
+        updated_count = 0
+        added_count = 0
+        deleted_count = 0
+        
+        # Track all codes present in Excel
+        excel_codes = set()
+        
+        for idx, row in df.iterrows():
             code = str(row.get('CODE', '')).strip()
             if not code:
+                print(f"  ⚠️ Skipping row {idx + 2}: No CODE value")
                 continue
+            
+            excel_codes.add(code)
             
             # Check if company exists
             statement = select(CompanyDetails).where(CompanyDetails.code == code)
             existing = session.exec(statement).first()
             
+            full_name = str(row.get('FULL_NAME', '')).strip()
+            company_name = str(row.get('COMPANY_NAME', '')).strip().lower()
+            seal_path = str(row.get('SEAL_PATH', '')).strip()
+            template_path = str(row.get('TEMPLATE_PATH', '')).strip()
+            company_domain = str(row.get('COMPANY_DOMAIN', '')).strip()
+            
             if existing:
                 # Update existing company
-                existing.company_name = str(row.get('COMPANY_NAME', '')).strip().lower()
-                existing.full_name = str(row.get('FULL_NAME', '')).strip()
-                existing.seal_path = str(row.get('SEAL_PATH', '')).strip()
-                existing.template_path = str(row.get('TEMPLATE_PATH', '')).strip()
-                existing.company_domain = str(row.get('COMPANY_DOMAIN', '')).strip()
+                existing.company_name = company_name
+                existing.full_name = full_name
+                existing.seal_path = seal_path
+                existing.template_path = template_path
+                existing.company_domain = company_domain
                 existing.last_updated_time = datetime.utcnow()
-                print(f"✓ Updated company: {existing.full_name} ({code})")
+                session.flush()
+                print(f"  ✓ Updated: {full_name} ({code})")
+                updated_count += 1
             else:
                 # Create new company
                 company = CompanyDetails(
-                    company_name=str(row.get('COMPANY_NAME', '')).strip().lower(),
-                    full_name=str(row.get('FULL_NAME', '')).strip(),
+                    company_name=company_name,
+                    full_name=full_name,
                     code=code,
-                    seal_path=str(row.get('SEAL_PATH', '')).strip(),
-                    template_path=str(row.get('TEMPLATE_PATH', '')).strip(),
-                    company_domain=str(row.get('COMPANY_DOMAIN', '')).strip(),
+                    seal_path=seal_path,
+                    template_path=template_path,
+                    company_domain=company_domain,
                     created_time=datetime.utcnow(),
                     last_updated_time=datetime.utcnow()
                 )
                 session.add(company)
-                print(f"✓ Added new company: {company.full_name} ({code})")
+                session.flush()
+                print(f"  ✅ Added NEW: {full_name} ({code})")
+                added_count += 1
+        
+        # Delete companies not in Excel file
+        all_companies = session.exec(select(CompanyDetails)).all()
+        for company in all_companies:
+            if company.code not in excel_codes:
+                print(f"  🗑️ Deleting removed: {company.full_name} ({company.code})")
+                session.delete(company)
+                deleted_count += 1
         
         session.commit()
+        print(f"\n✅ SUCCESS: {added_count} added, {updated_count} updated, {deleted_count} deleted")
         print(f"{'='*60}\n")
         return True
         
     except Exception as e:
-        print(f"✗ Error syncing company details: {e}")
+        if session:
+            session.rollback()
+        print(f"\n❌ ERROR syncing company details: {e}")
         import traceback
         traceback.print_exc()
+        print(f"{'='*60}\n")
         return False
 
 def sync_sales_details():
@@ -117,6 +159,7 @@ def sync_sales_details():
     data_dir = get_data_path()
     excel_path = os.path.join(data_dir, 'default_details/sales_details.xlsx')
     excel_file = Path(excel_path)
+    temp_file = Path(os.path.join(data_dir, 'default_details/~$sales_details.xlsx'))
     
     print("\n" + "="*60)
     print("SYNCING SALES DETAILS")
@@ -125,23 +168,44 @@ def sync_sales_details():
     
     if not excel_file.exists():
         print(f"❌ File not found: {excel_file}")
+        print(f"DATA_PATH environment variable: {os.getenv('DATA_PATH', 'NOT SET')}")
+        print(f"Computed data directory: {data_dir}")
         return False
+    
+    if temp_file.exists():
+        print(f"⚠️  WARNING: Excel file appears to be OPEN in another program!")
+        print(f"   Close 'sales_details.xlsx' and try again.")
+        print(f"   Will attempt to read anyway...")
     
     print(f"✓ Excel file found")
     
+    session = None
     try:
         # Read Excel file
         df = pd.read_excel(excel_file)
+        # Convert column names to uppercase and strip whitespace for consistency
+        df.columns = df.columns.str.strip().str.upper()
         print(f"✓ Found {len(df)} sales persons in Excel file")
+        print(f"Excel columns: {list(df.columns)}")
         
         # Get database session
         session_gen = get_session()
         session = next(session_gen)
         
-        for _, row in df.iterrows():
+        updated_count = 0
+        added_count = 0
+        deleted_count = 0
+        
+        # Track all codes present in Excel
+        excel_codes = set()
+        
+        for idx, row in df.iterrows():
             code = str(row.get('CODE', '')).strip()
             if not code:
+                print(f"  ⚠️ Skipping row {idx + 2}: No CODE value")
                 continue
+            
+            excel_codes.add(code)
             
             # Check if sales person exists
             statement = select(SalesDetails).where(SalesDetails.code == code)
@@ -161,7 +225,9 @@ def sync_sales_details():
                 existing.email_name = email
                 existing.sign_path = sign_path
                 existing.last_updated_time = datetime.utcnow()
-                print(f"✓ Updated sales person: {name} ({code})")
+                session.flush()
+                print(f"  ✓ Updated: {name} ({code})")
+                updated_count += 1
             else:
                 # Create new sales person
                 sales_person = SalesDetails(
@@ -175,14 +241,27 @@ def sync_sales_details():
                     last_updated_time=datetime.utcnow()
                 )
                 session.add(sales_person)
-                print(f"✓ Added new sales person: {name} ({code})")
+                session.flush()
+                print(f"  ✅ Added NEW: {name} ({code})")
+                added_count += 1
+        
+        # Delete sales persons not in Excel file
+        all_sales = session.exec(select(SalesDetails)).all()
+        for sales_person in all_sales:
+            if sales_person.code not in excel_codes:
+                print(f"  🗑️ Deleting removed: {sales_person.sales_person_name} ({sales_person.code})")
+                session.delete(sales_person)
+                deleted_count += 1
         
         session.commit()
+        print(f"\n✅ SUCCESS: {added_count} added, {updated_count} updated, {deleted_count} deleted")
         print(f"{'='*60}\n")
         return True
         
     except Exception as e:
-        print(f"✗ Error syncing sales details: {e}")
+        if session:
+            session.rollback()
+        print(f"\n❌ ERROR syncing sales details: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -192,6 +271,7 @@ def sync_project_manager_details():
     data_dir = get_data_path()
     excel_path = os.path.join(data_dir, 'default_details/project_manager_details.xlsx')
     excel_file = Path(excel_path)
+    temp_file = Path(os.path.join(data_dir, 'default_details/~$project_manager_details.xlsx'))
     
     print("\n" + "="*60)
     print("SYNCING PROJECT MANAGER DETAILS")
@@ -200,23 +280,44 @@ def sync_project_manager_details():
     
     if not excel_file.exists():
         print(f"❌ File not found: {excel_file}")
+        print(f"DATA_PATH environment variable: {os.getenv('DATA_PATH', 'NOT SET')}")
+        print(f"Computed data directory: {data_dir}")
         return False
+    
+    if temp_file.exists():
+        print(f"⚠️  WARNING: Excel file appears to be OPEN in another program!")
+        print(f"   Close 'project_manager_details.xlsx' and try again.")
+        print(f"   Will attempt to read anyway...")
     
     print(f"✓ Excel file found")
     
+    session = None
     try:
         # Read Excel file
         df = pd.read_excel(excel_file)
+        # Convert column names to uppercase and strip whitespace for consistency
+        df.columns = df.columns.str.strip().str.upper()
         print(f"✓ Found {len(df)} project managers in Excel file")
+        print(f"Excel columns: {list(df.columns)}")
         
         # Get database session
         session_gen = get_session()
         session = next(session_gen)
         
-        for _, row in df.iterrows():
+        updated_count = 0
+        added_count = 0
+        deleted_count = 0
+        
+        # Track all codes present in Excel
+        excel_codes = set()
+        
+        for idx, row in df.iterrows():
             code = str(row.get('CODE', '')).strip()
             if not code:
+                print(f"  ⚠️ Skipping row {idx + 2}: No CODE value")
                 continue
+            
+            excel_codes.add(code)
             
             # Check if project manager exists
             statement = select(ProjectManagerDetails).where(ProjectManagerDetails.code == code)
@@ -236,7 +337,9 @@ def sync_project_manager_details():
                 existing.email_name = email
                 existing.sign_path = sign_path
                 existing.last_updated_time = datetime.utcnow()
-                print(f"✓ Updated project manager: {name} ({code})")
+                session.flush()
+                print(f"  ✓ Updated: {name} ({code})")
+                updated_count += 1
             else:
                 # Create new project manager
                 manager = ProjectManagerDetails(
@@ -250,16 +353,30 @@ def sync_project_manager_details():
                     last_updated_time=datetime.utcnow()
                 )
                 session.add(manager)
-                print(f"✓ Added new project manager: {name} ({code})")
+                session.flush()
+                print(f"  ✅ Added NEW: {name} ({code})")
+                added_count += 1
+        
+        # Delete project managers not in Excel file
+        all_managers = session.exec(select(ProjectManagerDetails)).all()
+        for manager in all_managers:
+            if manager.code not in excel_codes:
+                print(f"  🗑️ Deleting removed: {manager.manager_name} ({manager.code})")
+                session.delete(manager)
+                deleted_count += 1
         
         session.commit()
+        print(f"\n✅ SUCCESS: {added_count} added, {updated_count} updated, {deleted_count} deleted")
         print(f"{'='*60}\n")
         return True
         
     except Exception as e:
-        print(f"✗ Error syncing project manager details: {e}")
+        if session:
+            session.rollback()
+        print(f"\n❌ ERROR syncing project manager details: {e}")
         import traceback
         traceback.print_exc()
+        print(f"{'='*60}\n")
         return False
 
 def main():

@@ -47,7 +47,8 @@ async def startup_event():
         from sync_excel_to_db import (
             sync_company_details,
             sync_sales_details,
-            sync_project_manager_details
+            sync_project_manager_details,
+            get_data_path
         )
         
         # Run all sync functions
@@ -135,6 +136,13 @@ class QuotationRequest(BaseModel):
 @app.post("/generate-quotation")
 async def generate_quotation(request: QuotationRequest, session: Session = Depends(get_session)):
     try:
+        # Load environment variables
+        from dotenv import load_dotenv
+        script_dir = os.path.dirname(__file__)
+        env_file = os.path.join(script_dir, '.env')
+        if os.path.exists(env_file):
+            load_dotenv(dotenv_path=env_file, override=True)
+        
         # Debug: Log terms data received from frontend
         print(f"\n{'='*60}")
         print(f"GENERATE QUOTATION - TERMS DEBUG")
@@ -166,14 +174,16 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
             }
             template_filename = template_map.get(request.fromCompany, "template_grp.docx")
         
-        script_dir = os.path.dirname(__file__)
-        template_path = os.path.join(script_dir, template_filename)
+        # Get DATA_PATH from .env and construct template path
+        from sync_excel_to_db import get_data_path
+        data_path = get_data_path()
+        template_path = os.path.join(data_path, template_filename)
         
         # Verify template file exists
         if not os.path.exists(template_path):
             print(f"⚠ Template file not found: {template_path}")
             print(f"Template filename requested: {template_filename}")
-            print(f"Script directory: {script_dir}")
+            print(f"DATA_PATH: {data_path}")
             raise HTTPException(status_code=404, detail=f"Template file not found: {template_filename}")
         
         print(f"✓ Using template: {template_path}")
@@ -505,9 +515,9 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
                             left_mobile = selected_sales.phone_number or ""
                             left_email = construct_email(selected_sales.email_name, template_filename)
                             
-                            # Get signature image
+                            # Get signature image from DATA_PATH/signs&seals
                             code = selected_sales.code
-                            signs_dir = os.path.join(script_dir, 'signs&seals')
+                            signs_dir = os.path.join(data_path, 'signs&seals')
                             for ext in ['.png', '.jpg', '.jpeg']:
                                 if not signature_image:
                                     sign_path = os.path.join(signs_dir, f"{code}_sign{ext}")
@@ -547,9 +557,9 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
                         left_mobile = selected_pm.phone_number or ""
                         left_email = construct_email(selected_pm.email_name, template_filename)
                         
-                        # Get signature image
+                        # Get signature image from DATA_PATH/signs&seals
                         code = selected_pm.code
-                        signs_dir = os.path.join(script_dir, 'signs&seals')
+                        signs_dir = os.path.join(data_path, 'signs&seals')
                         for ext in ['.png', '.jpg', '.jpeg']:
                             if not signature_image:
                                 sign_path = os.path.join(signs_dir, f"{code}_sign{ext}")
@@ -606,23 +616,70 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
         # Generate the document
         generator.create_invoice_table()
         
-        # Save the document
+        # Save the document to company-specific path from .env
         output_filename = f"quotation_{constructed_quote_number.replace('/', '_')}.docx"
-        output_dir = os.path.join(script_dir, "Final_Doc")
+        
+        # Get company-specific output directory from .env
+        company_path_key = f"{company_code}_PATH"
+        output_dir = os.getenv(company_path_key, '')
+        
+        # Fallback to Final_Doc/{company_code} if not in .env
+        if not output_dir:
+            script_dir = os.path.dirname(__file__)
+            output_dir = os.path.join(script_dir, "Final_Doc", company_code)
+        
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, output_filename)
         
-        generator.save(output_path)
-        
-        # Return the file
+        # Delete existing file if it exists
         if os.path.exists(output_path):
-            return FileResponse(
-                output_path,
-                media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                filename=output_filename
-            )
+            try:
+                print(f"⚠ File '{output_filename}' already exists - replacing with new version...")
+                os.remove(output_path)
+                print(f"✓ Successfully deleted existing file")
+            except PermissionError:
+                error_msg = (
+                    f"Cannot replace '{output_filename}' because it is currently open. "
+                    f"Please close the file in Word or any other application and try again."
+                )
+                print(f"❌ {error_msg}")
+                raise HTTPException(status_code=409, detail=error_msg)
+            except Exception as e:
+                error_msg = f"Could not delete existing file: {str(e)}"
+                print(f"❌ {error_msg}")
+                raise HTTPException(status_code=500, detail=error_msg)
+        
+        print(f"📁 Saving document...")
+        print(f"   Output directory: {output_dir}")
+        print(f"   Output filename: {output_filename}")
+        print(f"   Full path: {output_path}")
+        
+        saved_path = generator.save(output_path)
+        
+        print(f"✓ Generator.save() returned: {saved_path}")
+        print(f"   Checking if file exists at: {saved_path}")
+        
+        # Check both the returned path and the requested path
+        if os.path.exists(saved_path):
+            actual_path = saved_path
+        elif os.path.exists(output_path):
+            actual_path = output_path
         else:
-            raise HTTPException(status_code=500, detail="Failed to generate document")
+            print(f"❌ File not found at either location!")
+            print(f"   Expected: {output_path}")
+            print(f"   Returned: {saved_path}")
+            raise HTTPException(status_code=500, detail="Failed to generate document - file not found after save")
+        
+        print(f"✓ Document successfully saved at: {actual_path}")
+        
+        # Return JSON with file details instead of the file itself
+        return {
+            "success": True,
+            "filename": output_filename,
+            "filepath": f"{company_code}/{output_filename}",
+            "absolute_filepath": actual_path,
+            "message": "Quotation generated successfully"
+        }
         
     except Exception as e:
         print(f"Error generating quotation: {str(e)}")

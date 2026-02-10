@@ -16,9 +16,19 @@ export async function POST(request: NextRequest) {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Python API error:', errorText);
-      throw new Error('Failed to generate quotation from backend');
+      let errorMessage = 'Failed to generate quotation from backend';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.detail || errorData.error || errorMessage;
+      } catch (e) {
+        const errorText = await response.text();
+        errorMessage = errorText || errorMessage;
+      }
+      console.error('Python API error:', errorMessage);
+      return NextResponse.json(
+        { error: errorMessage },
+        { status: response.status }
+      );
     }
 
     const result = await response.json();

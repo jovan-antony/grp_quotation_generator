@@ -3097,16 +3097,23 @@ class TankInvoiceGenerator:
             safe_quote_no = quote_no.replace('/', '_').replace('\\', '_').replace(':', '_').replace('*', '_').replace('?', '_').replace('"', '_').replace('<', '_').replace('>', '_').replace('|', '_')
             filename = f"{safe_quote_no}.docx"
         
-        # Create Final_Doc folder if it doesn't exist
-        final_doc_folder = os.path.join(os.path.dirname(__file__), "Final_Doc")
-        os.makedirs(final_doc_folder, exist_ok=True)
-        
-        # Build full path to save in Final_Doc folder
-        full_path = os.path.join(final_doc_folder, filename)
+        # Check if filename is already an absolute path
+        if os.path.isabs(filename):
+            # Use the provided absolute path directly
+            full_path = filename
+            # Create parent directory if it doesn't exist
+            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+        else:
+            # Create Final_Doc folder if it doesn't exist
+            final_doc_folder = os.path.join(os.path.dirname(__file__), "Final_Doc")
+            os.makedirs(final_doc_folder, exist_ok=True)
+            
+            # Build full path to save in Final_Doc folder
+            full_path = os.path.join(final_doc_folder, filename)
         
         # Check if file exists and notify user about replacement
         if os.path.exists(full_path):
-            print(f"\n⚠ File '{filename}' already exists in Final_Doc folder - replacing with new version...")
+            print(f"\n⚠ File '{os.path.basename(full_path)}' already exists - replacing with new version...")
         
         # Save document (will overwrite existing file)
         self.doc.save(full_path)

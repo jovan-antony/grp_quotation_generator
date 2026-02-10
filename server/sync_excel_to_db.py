@@ -108,6 +108,8 @@ def sync_sales_details():
             designation = str(row.get('DESIGNATION', '')).strip()
             phone = str(row.get('MOB', '')).strip()
             email = str(row.get('EMAIL', '')).strip()
+            # Extract only the username part (before @) from email
+            email_name = email.split('@')[0] if '@' in email else email
             sign_path = str(row.get('SIGN_PATH', '')).strip()
             
             if existing:
@@ -115,7 +117,7 @@ def sync_sales_details():
                 existing.sales_person_name = name
                 existing.designation = designation
                 existing.phone_number = phone
-                existing.email_name = email
+                existing.email_name = email_name
                 existing.sign_path = sign_path
                 existing.last_updated_time = datetime.utcnow()
                 print(f"✓ Updated sales person: {name} ({code})")
@@ -127,7 +129,7 @@ def sync_sales_details():
                     sign_path=sign_path,
                     designation=designation,
                     phone_number=phone,
-                    email_name=email,
+                    email_name=email_name,
                     created_time=datetime.utcnow(),
                     last_updated_time=datetime.utcnow()
                 )
@@ -178,6 +180,8 @@ def sync_project_manager_details():
             designation = str(row.get('DESIGNATION', '')).strip()
             phone = str(row.get('MOB', '')).strip()
             email = str(row.get('EMAIL', '')).strip()
+            # Extract only the username part (before @) from email
+            email_name = email.split('@')[0] if '@' in email else email
             sign_path = str(row.get('SIGN_PATH', '')).strip()
             
             if existing:
@@ -185,7 +189,7 @@ def sync_project_manager_details():
                 existing.manager_name = name
                 existing.designation = designation
                 existing.phone_number = phone
-                existing.email_name = email
+                existing.email_name = email_name
                 existing.sign_path = sign_path
                 existing.last_updated_time = datetime.utcnow()
                 print(f"✓ Updated project manager: {name} ({code})")
@@ -197,7 +201,7 @@ def sync_project_manager_details():
                     sign_path=sign_path,
                     designation=designation,
                     phone_number=phone,
-                    email_name=email,
+                    email_name=email_name,
                     created_time=datetime.utcnow(),
                     last_updated_time=datetime.utcnow()
                 )

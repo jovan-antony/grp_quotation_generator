@@ -6,26 +6,64 @@ from their respective Excel files
 import pandas as pd
 from datetime import datetime
 from pathlib import Path
+import os
+from dotenv import load_dotenv
 from database import get_session
 from models import CompanyDetails, SalesDetails, ProjectManagerDetails
 from sqlmodel import select
 
+# Helper function to get DATA path
+def get_data_path():
+    """
+    Get the DATA path from environment variable or use default.
+    DATA folder contains: template/, signs&seals/, default_details/
+    Returns absolute path.
+    """
+    # Get the .env file path (same directory as this script)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    env_file = os.path.join(script_dir, '.env')
+    
+    # Reload environment variables from .env file with override
+    if os.path.exists(env_file):
+        load_dotenv(dotenv_path=env_file, override=True)
+    
+    env_path = os.getenv('DATA_PATH', '').strip()
+    
+    if env_path:
+        if os.path.isabs(env_path):
+            data_path = env_path
+        else:
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            data_path = os.path.join(script_dir, env_path)
+    else:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        data_path = os.path.join(script_dir, "DATA")
+    
+    return os.path.abspath(data_path)
+
 def sync_company_details():
     """Sync company_details.xlsx with company_details table"""
-    excel_file = Path(__file__).parent / "company_details.xlsx"
-    
-    if not excel_file.exists():
-        print(f"⚠ File not found: {excel_file}")
-        return False
+    data_dir = get_data_path()
+    excel_path = os.path.join(data_dir, 'default_details/company_details.xlsx')
+    excel_file = Path(excel_path)
     
     print("\n" + "="*60)
     print("SYNCING COMPANY DETAILS")
     print("="*60)
+    print(f"Looking for Excel file at: {excel_file}")
+    
+    if not excel_file.exists():
+        print(f"❌ File not found: {excel_file}")
+        print(f"DATA_PATH environment variable: {os.getenv('DATA_PATH', 'NOT SET')}")
+        print(f"Computed data directory: {data_dir}")
+        return False
+    
+    print(f"✓ Excel file found")
     
     try:
         # Read Excel file
         df = pd.read_excel(excel_file)
-        print(f"Found {len(df)} companies in Excel file")
+        print(f"✓ Found {len(df)} companies in Excel file")
         
         # Get database session
         session_gen = get_session()
@@ -75,21 +113,26 @@ def sync_company_details():
         return False
 
 def sync_sales_details():
-    """Sync sales_person_details.xlsx with sales_details table"""
-    excel_file = Path(__file__).parent / "sales_person_details.xlsx"
-    
-    if not excel_file.exists():
-        print(f"⚠ File not found: {excel_file}")
-        return False
+    """Sync sales_details.xlsx with sales_details table"""
+    data_dir = get_data_path()
+    excel_path = os.path.join(data_dir, 'default_details/sales_details.xlsx')
+    excel_file = Path(excel_path)
     
     print("\n" + "="*60)
     print("SYNCING SALES DETAILS")
     print("="*60)
+    print(f"Looking for Excel file at: {excel_file}")
+    
+    if not excel_file.exists():
+        print(f"❌ File not found: {excel_file}")
+        return False
+    
+    print(f"✓ Excel file found")
     
     try:
         # Read Excel file
         df = pd.read_excel(excel_file)
-        print(f"Found {len(df)} sales persons in Excel file")
+        print(f"✓ Found {len(df)} sales persons in Excel file")
         
         # Get database session
         session_gen = get_session()
@@ -145,21 +188,26 @@ def sync_sales_details():
         return False
 
 def sync_project_manager_details():
-    """Sync Project_manager_details.xlsx with project_manager_details table"""
-    excel_file = Path(__file__).parent / "Project_manager_details.xlsx"
-    
-    if not excel_file.exists():
-        print(f"⚠ File not found: {excel_file}")
-        return False
+    """Sync project_manager_details.xlsx with project_manager_details table"""
+    data_dir = get_data_path()
+    excel_path = os.path.join(data_dir, 'default_details/project_manager_details.xlsx')
+    excel_file = Path(excel_path)
     
     print("\n" + "="*60)
     print("SYNCING PROJECT MANAGER DETAILS")
     print("="*60)
+    print(f"Looking for Excel file at: {excel_file}")
+    
+    if not excel_file.exists():
+        print(f"❌ File not found: {excel_file}")
+        return False
+    
+    print(f"✓ Excel file found")
     
     try:
         # Read Excel file
         df = pd.read_excel(excel_file)
-        print(f"Found {len(df)} project managers in Excel file")
+        print(f"✓ Found {len(df)} project managers in Excel file")
         
         # Get database session
         session_gen = get_session()
@@ -221,8 +269,8 @@ def main():
     print("="*70)
     print("\nThis will sync data from Excel files to PostgreSQL database:")
     print("  1. company_details.xlsx → company_details table")
-    print("  2. sales_person_details.xlsx → sales_details table")
-    print("  3. Project_manager_details.xlsx → project_manager_details table")
+    print("  2. sales_details.xlsx → sales_details table")
+    print("  3. project_manager_details.xlsx → project_manager_details table")
     print()
     
     results = {

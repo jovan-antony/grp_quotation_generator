@@ -1,0 +1,37 @@
+{
+    "company_details": [
+        {
+            "id": 1,
+            "company_name": "grp",
+            "full_name": "GRP TANKS TRADING L.L.C",
+            "code": "GRPT",
+            "seal_path": "grp_seal",
+            "template_path": "grp_template",
+            "company_domain": "grptanks.com",
+            "created_time": "",
+            "last_updated_time": ""
+        },
+        {
+            "id": 2,
+            "company_name": "grp pipeco",
+            "full_name": "GRP PIPECO TANKS TRADING L.L.C",
+            "code": "GRPPT",
+            "seal_path": "pipeco_seal",
+            "template_path": "pipeco_template",
+            "company_domain": "grppipeco.com",
+            "created_time": "",
+            "last_updated_time": ""
+        },
+        {
+            "id": 3,
+            "company_name": "colex",
+            "full_name": "COLEX TANKS TRADING L.L.C",
+            "code": "CLX",
+            "seal_path": "colex_seal",
+            "template_path": "colex_template",
+            "company_domain": "colextanks.com",
+            "created_time": "",
+            "last_updated_time": ""
+        }
+    ]
+}

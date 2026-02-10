@@ -793,19 +793,18 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
       });
 
       if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        const downloadFilename = `quotation_${fullQuoteNumber.replace(/\//g, '_')}.docx`;
-        a.href = url;
-        a.download = downloadFilename;
-        a.click();
-        window.URL.revokeObjectURL(url);
-        toast.success('Document generated successfully!');
+        const result = await response.json();
+        const filename = result.filename || `${fullQuoteNumber.replace(/\//g, '_').replace(/-R/g, '_R')}.docx`;
+        const filepath = result.filepath || `${companyCode}/${filename}`;
+        const absolutePath = result.absolute_filepath || '';
+        
+        // Show system path if available, otherwise show relative path
+        const displayPath = absolutePath || filepath;
+        toast.success(`Quotation saved successfully!\nFile: ${displayPath}`);
 
         // Save to database after successful document generation
         try {
-          const finalDocPath = `Final_Doc/${fullQuoteNumber.replace(/\//g, '-')}.docx`;
+          const finalDocPath = filepath;
           
           console.log(`💾 Saving quotation - Number: ${quotationNumber}, Revision: ${revisionNumber}`);
           const saveResponse = await fetch('http://localhost:8000/api/save-quotation', {

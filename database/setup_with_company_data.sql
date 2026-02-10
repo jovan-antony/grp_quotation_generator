@@ -221,7 +221,14 @@ BEGIN
     END IF;
     
     IF NEW.final_doc_file_path IS NULL OR NEW.final_doc_file_path = '' THEN
-        NEW.final_doc_file_path := 'Final_Doc/' || REPLACE(NEW.full_main_quote_number, '/', '-') || '.docx';
+        -- Format: Final_Doc/GRPPT/GRPPT_2502_VV_2582.docx or Final_Doc/GRPPT/GRPPT_2502_VV_2582_R1.docx
+        -- Extract company code from full_main_quote_number (first part before /)
+        DECLARE
+            company_code_var TEXT;
+        BEGIN
+            company_code_var := SPLIT_PART(NEW.full_main_quote_number, '/', 1);
+            NEW.final_doc_file_path := 'Final_Doc/' || company_code_var || '/' || REPLACE(REPLACE(NEW.full_main_quote_number, '/', '_'), '-R', '_R') || '.docx';
+        END;
     END IF;
     
     RETURN NEW;
@@ -289,23 +296,23 @@ ORDER BY q.created_time DESC;
 
 -- Insert Company Details (from company_details.json)
 INSERT INTO company_details (company_name, full_name, code, seal_path, template_path, company_domain) VALUES
-('grp', 'GRP TANKS TRADING L.L.C', 'GRPT', 'signs&seals/grp_seal', 'template/grp_template', 'grptanks.com'),
-('grp pipeco', 'GRP PIPECO TANKS TRADING L.L.C', 'GRPPT', 'signs&seals/pipeco_seal', 'template/pipeco_template', 'grppipeco.com'),
-('colex', 'COLEX TANKS TRADING L.L.C', 'CLX', 'signs&seals/colex_seal', 'template/colex_template', 'colextanks.com');
+('grp', 'GRP TANKS TRADING L.L.C', 'GRPT', 'grp_seal', 'grp_template', 'grptanks.com'),
+('grp pipeco', 'GRP PIPECO TANKS TRADING L.L.C', 'GRPPT', 'pipeco_seal', 'pipeco_template', 'grppipeco.com'),
+('colex', 'COLEX TANKS TRADING L.L.C', 'CLX', 'colex_seal', 'colex_template', 'colextanks.com');
 
 -- Insert Sales Details (from sales_details.json)
 INSERT INTO sales_details (sales_person_name, code, sign_path, designation, phone_number, email_name) VALUES
-('Viwin Varghese', 'VV', 'signs&seals/VV_sign', 'Sales Executive', '+971 54 450 4282', 'viwin'),
-('Midhun Murali', 'MM', 'signs&seals/MM_sign', 'Business Development Manager', '+971 50 265 3282', 'midhun'),
-('Somiya Joy', 'SJ', 'signs&seals/SJ_sign', 'Sales & Administrative Assistant', '+971 50 295 4282', 'sales'),
-('AKSHAYA SHAJI', 'AS', 'signs&seals/AS_sign', 'Business Development Executive', '+971 54 382 4282', 'akshaya'),
-('Vismay Krishnan', 'VK', 'signs&seals/VK_sign', 'Business Development Executive', '+971 50 911 5210', 'vismay'),
-('LEYON PAUL', 'LP', 'signs&seals/LP_sign', 'Business Development Executive', '+971 50 603 4282', 'leyon');
+('Viwin Varghese', 'VV', 'VV_sign', 'Sales Executive', '+971 54 450 4282', 'viwin'),
+('Midhun Murali', 'MM', 'MM_sign', 'Business Development Manager', '+971 50 265 3282', 'midhun'),
+('Somiya Joy', 'SJ', 'SJ_sign', 'Sales & Administrative Assistant', '+971 50 295 4282', 'sales'),
+('AKSHAYA SHAJI', 'AS', 'AS_sign', 'Business Development Executive', '+971 54 382 4282', 'akshaya'),
+('Vismay Krishnan', 'VK', 'VK_sign', 'Business Development Executive', '+971 50 911 5210', 'vismay'),
+('LEYON PAUL', 'LP', 'LP_sign', 'Business Development Executive', '+971 50 603 4282', 'leyon');
 
 -- Insert Project Manager Details (from project_manager_details.json)
 INSERT INTO project_manager_details (manager_name, code, sign_path, designation, phone_number, email_name) VALUES
-('Anoop Mohan', 'AM', 'signs&seals/AM_sign', 'Manager - Projects', '+971 50 952 4282', 'anoop'),
-('Midhun Murali', 'MM', 'signs&seals/MM_sign', 'Sales Manager', '+971 50 265 3282', 'midhun');
+('Anoop Mohan', 'AM', 'AM_sign', 'Manager - Projects', '+971 50 952 4282', 'anoop'),
+('Midhun Murali', 'MM', 'MM_sign', 'Sales Manager', '+971 50 265 3282', 'midhun');
 
 -- ============================================================================
 -- SETUP COMPLETE

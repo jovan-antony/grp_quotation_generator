@@ -28,6 +28,7 @@ interface AutocompleteInputProps {
   showOnFocus?: boolean  // If false, only show dropdown after typing at least minLength characters
   maxResults?: number  // Maximum number of suggestions to show in dropdown
   minLength?: number  // Minimum characters to type before showing dropdown (only applies when showOnFocus=false)
+  disabled?: boolean  // Disable the input field
 }
 
 export function AutocompleteInput({
@@ -41,6 +42,7 @@ export function AutocompleteInput({
   showOnFocus = true,  // Default to true for backward compatibility
   maxResults,  // Optional limit on number of results
   minLength = 1,  // Default to 1 character minimum
+  disabled = false,  // Default to false
 }: AutocompleteInputProps) {
   const [inputValue, setInputValue] = React.useState(value)
   const [showSuggestions, setShowSuggestions] = React.useState(false)
@@ -152,6 +154,7 @@ export function AutocompleteInput({
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         className={className}
+        disabled={disabled}
       />
       {showSuggestions && filteredOptions.length > 0 && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-80 overflow-auto">

@@ -37,6 +37,13 @@ interface TankData {
 }
 
 export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationData }: QuotationRevisionFormProps) {
+  // Load functionality states
+  const [loadSearchInput, setLoadSearchInput] = useState('');
+  const [isQuotationLoaded, setIsQuotationLoaded] = useState(false);
+  const [originalQuotationNumber, setOriginalQuotationNumber] = useState('');
+  const [originalRevisionNumber, setOriginalRevisionNumber] = useState(0);
+  const [originalFullQuoteNumber, setOriginalFullQuoteNumber] = useState('');
+  
   const [fromCompany, setFromCompany] = useState('');
   const [companyCode, setCompanyCode] = useState(''); // CODE from company_details.xlsx
   const [companyShortName, setCompanyShortName] = useState(''); // company_name (brand name) from company_details.xlsx
@@ -655,6 +662,108 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
     toast.success('Quotation loaded successfully!');
   }, [loadQuotationData]);
 
+  // Load quotation by last 4 digits + revision
+  const handleLoadByQuotationNumber = async () => {
+    try {
+      if (!loadSearchInput || loadSearchInput.trim() === '') {
+        toast.error('Please enter quotation number (last 4 digits)');
+        return;
+      }
+
+      // Parse input: "4186" or "4186-1" or "4186-R1"
+      const input = loadSearchInput.trim();
+      let searchNumber = input;
+      let searchRevision = '0';
+      
+      // Handle formats: "4186-R1" or "4186-1" or "4186"
+      if (input.includes('-')) {
+        const parts = input.split('-');
+        searchNumber = parts[0];
+        // Remove 'R' prefix if present (e.g., "R1" -> "1")
+        const revisionPart = parts[1] || '0';
+        searchRevision = revisionPart.replace(/^R/i, '');
+      }
+
+      toast.info('Searching for quotation...');
+
+      const response = await fetch(
+        `http://localhost:8000/api/quotation?quote_number=${searchNumber}&revision=${searchRevision}`
+      );
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          toast.error('Not Found');
+          return;
+        }
+        throw new Error('Failed to fetch quotation');
+      }
+
+      const data = await response.json();
+
+      // Store original values for comparison
+      setOriginalQuotationNumber(data.quotationNumber);
+      setOriginalRevisionNumber(data.revisionNumber || 0);
+      setOriginalFullQuoteNumber(data.fullQuoteNumber);
+      setIsQuotationLoaded(true);
+
+      // Load company details
+      setFromCompany(data.fromCompany);
+      await fetchCompanyDetails(data.fromCompany);
+
+      // Load quotation details
+      setRecipientTitle(data.recipientTitle || 'Mr.');
+      setRecipientName(data.recipientName || '');
+      setRole(data.role || '');
+      setCompanyName(data.companyName || '');
+      setLocation(data.location || '');
+      setPhoneNumber(data.phoneNumber || '+971');
+      setEmail(data.email || '');
+      
+      // Convert date from DD/MM/YY to YYYY-MM-DD
+      if (data.quotationDate) {
+        const parts = data.quotationDate.split('/');
+        if (parts.length === 3) {
+          const day = parts[0].padStart(2, '0');
+          const month = parts[1].padStart(2, '0');
+          const year = '20' + parts[2];
+          setQuotationDate(`${year}-${month}-${day}`);
+        }
+      }
+
+      setQuotationFrom(data.quotationFrom || '');
+      setSalesPersonName(data.salesPersonName || '');
+      setOfficePersonName(data.officePersonName || '');
+      setQuotationNumber(data.quotationNumber);
+      setRevisionNumber(String(data.revisionNumber || 0));
+      setSubject(data.subject || '');
+      setProjectLocation(data.projectLocation || '');
+
+      // Load tanks data
+      if (data.tanksData?.tanks && data.tanksData.tanks.length > 0) {
+        setNumberOfTanks(data.tanksData.tanks.length);
+        setTanks(data.tanksData.tanks);
+        setGallonType(data.tanksData.gallonType || 'USG');
+      }
+
+      // Load form options
+      if (data.formOptions) {
+        setShowSubTotal(data.formOptions.showSubTotal ?? true);
+        setShowVat(data.formOptions.showVat ?? true);
+        setShowGrandTotal(data.formOptions.showGrandTotal ?? true);
+      }
+
+      // Load additional details
+      if (data.additionalData?.additionalDetails) {
+        setAdditionalDetails(data.additionalData.additionalDetails);
+      }
+
+      toast.success(`Quotation loaded: ${data.fullQuoteNumber}`);
+    } catch (error) {
+      console.error('Error loading quotation:', error);
+      toast.error('Failed to load quotation');
+    }
+  };
+
   const handleSave = async () => {
     try {
       // Validate required fields
@@ -713,7 +822,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
       const codeForQuote = personCode || 'XX';
       
       let fullQuoteNumber = `${companyCode}/${yymm}/${codeForQuote}/${quotationNumber}`;
-      if (revisionEnabled && parseInt(revisionNumber) > 0) {
+      if (parseInt(revisionNumber) > 0) {
         fullQuoteNumber = `${companyCode}/${yymm}/${codeForQuote}/${quotationNumber}-R${revisionNumber}`;
       }
 
@@ -843,9 +952,9 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
       const yymm = `${yy}${mm}`;
       const codeForQuote = personCode || 'XX';
       
-      // Include revision in full quote number if revision is enabled and > 0
+      // Include revision in full quote number if revision > 0
       let fullQuoteNumber = `${companyCode}/${yymm}/${codeForQuote}/${quotationNumber}`;
-      if (revisionEnabled && parseInt(revisionNumber) > 0) {
+      if (parseInt(revisionNumber) > 0) {
         fullQuoteNumber = `${companyCode}/${yymm}/${codeForQuote}/${quotationNumber}-R${revisionNumber}`;
       }
 
@@ -1319,28 +1428,26 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
           <div className="flex gap-3">
             <div className="flex-1">
               <Input
-                id="loadQuoteNumber"
-                value={loadQuoteNumber}
-                onChange={(e) => setLoadQuoteNumber(e.target.value)}
-                placeholder="Enter quotation (e.g., 0324 or 0324-0 or 0324-1)"
+                id="loadSearchInput"
+                value={loadSearchInput}
+                onChange={(e) => setLoadSearchInput(e.target.value)}
+                placeholder="Enter last 4 digits (e.g., 4186 or 4186-3 or 4186-R3)"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    handleLoadQuotation();
+                    handleLoadByQuotationNumber();
                   }
                 }}
-                disabled={isLoading}
               />
             </div>
             <Button 
-              onClick={handleLoadQuotation} 
-              disabled={isLoading}
+              onClick={handleLoadByQuotationNumber}
               className="bg-green-600 hover:bg-green-700"
             >
-              {isLoading ? 'Loading...' : 'Load'}
+              Load
             </Button>
           </div>
           <p className="text-xs text-green-600 mt-2">
-            Enter quotation number (e.g., 0324) or with revision (e.g., 0324-1)
+            Enter last 4 digits with optional revision (e.g., 4186 or 4186-3 or 4186-R3)
           </p>
         </CardContent>
       </Card>
@@ -1371,6 +1478,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
               value={fromCompany}
               onValueChange={setFromCompany}
               placeholder="Type company name..."
+              disabled={isQuotationLoaded}
               onKeyDown={e => {
                 if (e.key === 'Enter') {
                   const next = document.querySelector('#recipientTitle');
@@ -1553,6 +1661,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
                 value={quotationFrom}
                 onValueChange={setQuotationFrom}
                 placeholder="Type source..."
+                disabled={isQuotationLoaded}
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
                     if (quotationFrom === 'Sales') {
@@ -1581,6 +1690,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
                     onValueChange={setSalesPersonName}
                     placeholder="Type sales person name..."
                     id="salesPerson"
+                    disabled={isQuotationLoaded}
                     onKeyDown={e => {
                       if (e.key === 'Enter') {
                         const next = document.querySelector('#officePersonSales');
@@ -1597,6 +1707,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
                     onValueChange={setOfficePersonName}
                     placeholder="Type office person name..."
                     id="officePersonSales"
+                    disabled={isQuotationLoaded}
                     onKeyDown={e => {
                       if (e.key === 'Enter') {
                         const next = document.querySelector('#quotationNumber');
@@ -1617,6 +1728,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
                   onValueChange={setOfficePersonName}
                   placeholder="Type office person name..."
                   id="officePerson"
+                  disabled={isQuotationLoaded}
                   onKeyDown={e => {
                     if (e.key === 'Enter') {
                       const next = document.querySelector('#quotationNumber');
@@ -1634,6 +1746,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
                 value={quotationNumber}
                 onChange={(e) => setQuotationNumber(e.target.value)}
                 placeholder=""
+                disabled={isQuotationLoaded}
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
                     const next = document.querySelector('#subject');

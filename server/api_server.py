@@ -483,7 +483,7 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
         generator.recipient_name = recipient_name_with_role
         
         # Add M/S. prefix to company name
-        company_name_with_prefix = f"M/S. {request.companyName}"
+        company_name_with_prefix = f"M/s. {request.companyName}"
         generator.recipient_company = company_name_with_prefix
         generator.recipient_location = request.location or ""
         generator.recipient_phone = request.phoneNumber
@@ -728,20 +728,37 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
             right_email = ""
             signature_image = ""
             
-            # Helper function to construct email based on template
-            def construct_email(email_name, template_filename):
+            # Fetch company domain from database
+            company_domain = "grptanks.com"  # Default fallback
+            try:
+                if request.companyCode:
+                    # Query company details using company code
+                    print(f"  Fetching company domain for code: {request.companyCode}")
+                    statement = select(CompanyDetails).where(CompanyDetails.code == request.companyCode)
+                    company_details = session.exec(statement).first()
+                    if company_details and company_details.company_domain:
+                        company_domain = company_details.company_domain
+                        print(f"  Found company domain: {company_domain}")
+                    else:
+                        print(f"  No company details found or no domain set, using default")
+                elif request.fromCompany:
+                    # Query company details using company name
+                    print(f"  Fetching company domain for name: {request.fromCompany}")
+                    statement = select(CompanyDetails).where(CompanyDetails.company_name == request.fromCompany)
+                    company_details = session.exec(statement).first()
+                    if company_details and company_details.company_domain:
+                        company_domain = company_details.company_domain
+                        print(f"  Found company domain: {company_domain}")
+                    else:
+                        print(f"  No company details found or no domain set, using default")
+            except Exception as e:
+                print(f"⚠ Error fetching company domain from database: {e}")
+            
+            # Helper function to construct email using company domain
+            def construct_email(email_name):
                 if not email_name:
                     return ""
-                # Determine domain based on template
-                if template_filename.lower().endswith("template_grp.docx"):
-                    domain = "grptanks.com"
-                elif template_filename.lower().endswith("template_pipeco.docx"):
-                    domain = "grppipeco.com"
-                elif template_filename.lower().endswith("template_colex.docx"):
-                    domain = "colextanks.com"
-                else:
-                    domain = "grptanks.com"
-                return f"{email_name}@{domain}"
+                return f"{email_name}@{company_domain}"
             
             try:
                 if sig_type == 's':  # UI "Sales"
@@ -755,7 +772,8 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
                             left_name = selected_sales.sales_person_name
                             left_title = selected_sales.designation or "Sales Executive"
                             left_mobile = selected_sales.phone_number or ""
-                            left_email = construct_email(selected_sales.email_name, template_filename)
+                            print(f"  Sales email_name from DB: '{selected_sales.email_name}'")
+                            left_email = construct_email(selected_sales.email_name)
                             
                             # Get signature image from DATA/signs&seals
                             code = selected_sales.code
@@ -781,7 +799,8 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
                         right_name = selected_pm.manager_name
                         right_title = selected_pm.designation or "Manager - Projects"
                         right_mobile = selected_pm.phone_number or ""
-                        right_email = construct_email(selected_pm.email_name, template_filename)
+                        print(f"  Manager (right) email_name from DB: '{selected_pm.email_name}'")
+                        right_email = construct_email(selected_pm.email_name)
                     
                 else:  # sig_type == 'o', UI "Office"
                     # Get project manager details from database
@@ -798,7 +817,8 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
                         left_name = selected_pm.manager_name
                         left_title = selected_pm.designation or "Manager - Projects"
                         left_mobile = selected_pm.phone_number or ""
-                        left_email = construct_email(selected_pm.email_name, template_filename)
+                        print(f"  Manager (left) email_name from DB: '{selected_pm.email_name}'")
+                        left_email = construct_email(selected_pm.email_name)
                         
                         # Get signature image from DATA/signs&seals
                         code = selected_pm.code
@@ -825,6 +845,19 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
                 elif request.quotationFrom == 'Office' and request.officePersonName:
                     left_name = request.officePersonName.split('(')[0].strip()
                     left_title = 'Manager - Projects'
+            
+            # Debug: Print email values
+            print(f"\n{'='*60}")
+            print(f"SIGNATURE EMAIL DEBUG")
+            print(f"{'='*60}")
+            print(f"Company Domain: {company_domain}")
+            print(f"Left Signatory:")
+            print(f"  Name: {left_name}")
+            print(f"  Email: {left_email}")
+            print(f"Right Signatory:")
+            print(f"  Name: {right_name}")
+            print(f"  Email: {right_email}")
+            print(f"{'='*60}\n")
             
             generator.section_content['signature'] = {
                 'left_name': left_name,

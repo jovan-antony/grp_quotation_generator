@@ -634,16 +634,23 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
         # Generate the document
         generator.create_invoice_table()
         
-        # Save the document to company-specific path from .env
+        # Save the document to company-specific path from database
         # Format: GRPPT_2602_MM_4186.docx or GRPPT_2602_MM_4186-R1.docx
         output_filename = f"{constructed_quote_number.replace('/', '_')}.docx"
         
-        # Get company-specific output directory from .env
-        company_path_key = f"{company_code}_PATH"
-        output_dir = os.getenv(company_path_key, '')
-        
-        # Fallback to Final_Doc/{company_code} if not in .env
-        if not output_dir:
+        # Get company-specific output directory from database
+        try:
+            statement = select(CompanyDetails).where(CompanyDetails.code == company_code)
+            company_details = session.exec(statement).first()
+            if company_details and company_details.company_storage_path:
+                output_dir = company_details.company_storage_path
+            else:
+                # Fallback to Final_Doc/{company_code} if not in database
+                script_dir = os.path.dirname(__file__)
+                output_dir = os.path.join(script_dir, "Final_Doc", company_code)
+        except Exception as e:
+            print(f"⚠ Error fetching company storage path from database: {e}")
+            # Fallback to Final_Doc/{company_code}
             script_dir = os.path.dirname(__file__)
             output_dir = os.path.join(script_dir, "Final_Doc", company_code)
         

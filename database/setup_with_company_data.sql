@@ -23,6 +23,7 @@ CREATE TABLE company_details (
     seal_path VARCHAR(500),
     template_path VARCHAR(500),
     company_domain VARCHAR(100),
+    company_storage_path VARCHAR(500),
     created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_updated_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -295,10 +296,10 @@ ORDER BY q.created_time DESC;
 -- ============================================================================
 
 -- Insert Company Details (from company_details.json)
-INSERT INTO company_details (company_name, full_name, code, seal_path, template_path, company_domain) VALUES
-('grp', 'GRP TANKS TRADING L.L.C', 'GRPT', 'grp_seal', 'grp_template', 'grptanks.com'),
-('grp pipeco', 'GRP PIPECO TANKS TRADING L.L.C', 'GRPPT', 'pipeco_seal', 'pipeco_template', 'grppipeco.com'),
-('colex', 'COLEX TANKS TRADING L.L.C', 'CLX', 'colex_seal', 'colex_template', 'colextanks.com');
+INSERT INTO company_details (company_name, full_name, code, seal_path, template_path, company_domain, company_storage_path) VALUES
+('grp', 'GRP TANKS TRADING L.L.C', 'GRPT', 'grp_seal', 'grp_template', 'grptanks.com', 'C:\Users\Joyal Antony\Documents\GitHub\grp_quotation_generator\server\Final_Doc\GRPT'),
+('grp pipeco', 'GRP PIPECO TANKS TRADING L.L.C', 'GRPPT', 'pipeco_seal', 'pipeco_template', 'grppipeco.com', 'C:\Users\Joyal Antony\Documents\GitHub\grp_quotation_generator\server\Final_Doc\GRPPT'),
+('colex', 'COLEX TANKS TRADING L.L.C', 'CLX', 'colex_seal', 'colex_template', 'colextanks.com', 'C:\Users\Joyal Antony\Documents\GitHub\grp_quotation_generator\server\Final_Doc\CLX');
 
 -- Insert Sales Details (from sales_details.json)
 INSERT INTO sales_details (sales_person_name, code, sign_path, designation, phone_number, email_name) VALUES

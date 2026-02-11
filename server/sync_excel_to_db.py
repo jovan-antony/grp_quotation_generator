@@ -103,6 +103,7 @@ def sync_company_details():
             seal_path = str(row.get('SEAL_PATH', '')).strip()
             template_path = str(row.get('TEMPLATE_PATH', '')).strip()
             company_domain = str(row.get('COMPANY_DOMAIN', '')).strip()
+            company_storage_path = str(row.get('COMPANY_STORAGE_PATH', '')).strip()
             
             if existing:
                 # Update existing company
@@ -111,6 +112,7 @@ def sync_company_details():
                 existing.seal_path = seal_path
                 existing.template_path = template_path
                 existing.company_domain = company_domain
+                existing.company_storage_path = company_storage_path
                 existing.last_updated_time = datetime.utcnow()
                 session.flush()
                 print(f"  ✓ Updated: {full_name} ({code})")
@@ -124,6 +126,7 @@ def sync_company_details():
                     seal_path=seal_path,
                     template_path=template_path,
                     company_domain=company_domain,
+                    company_storage_path=company_storage_path,
                     created_time=datetime.utcnow(),
                     last_updated_time=datetime.utcnow()
                 )

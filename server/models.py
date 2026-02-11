@@ -100,6 +100,7 @@ class CompanyDetails(SQLModel, table=True):
     seal_path: Optional[str] = None
     template_path: Optional[str] = None
     company_domain: Optional[str] = None
+    company_storage_path: Optional[str] = None
     created_time: datetime = Field(default_factory=datetime.utcnow)
     last_updated_time: datetime = Field(default_factory=datetime.utcnow)
 

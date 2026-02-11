@@ -1859,16 +1859,10 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
                   { value: 'SUPPLY OF PANELS AND ACCESSORIES ONLY', label: 'SUPPLY OF PANELS AND ACCESSORIES ONLY' }
                 ]}
                 value={subject}
-<<<<<<< HEAD
                 onValueChange={(value) => setSubject(value)}
                 placeholder="Type to search subjects..."
                 showOnFocus={false}
                 minLength={1}
-=======
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder="Supply and Installation of GRP Panel Water Tank"
-                autoComplete="off"
->>>>>>> 57efcee79315ce234f471ff8946df58131dd99a8
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
                     const next = document.querySelector('#projectLocation');

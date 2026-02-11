@@ -170,16 +170,16 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
         else:
             # Fallback to old mapping
             template_map = {
-                "GRP TANKS TRADING L.L.C": "template_grp.docx",
-                "GRP PIPECO TANKS TRADING L.L.C": "template_pipeco.docx",
-                "COLEX TANKS TRADING L.L.C": "template_colex.docx",
+                "GRP TANKS TRADING L.L.C": "grp_template.docx",
+                "GRP PIPECO TANKS TRADING L.L.C": "pipeco_template.docx",
+                "COLEX TANKS TRADING L.L.C": "colex_template.docx",
             }
-            template_filename = template_map.get(request.fromCompany, "template_grp.docx")
+            template_filename = template_map.get(request.fromCompany, "grp_template.docx")
         
         # Get DATA_PATH from .env and construct template path
         from sync_excel_to_db import get_data_path
         data_path = get_data_path()
-        template_path = os.path.join(data_path, template_filename)
+        template_path = os.path.join(data_path, "template", template_filename)
         
         # Verify template file exists
         if not os.path.exists(template_path):

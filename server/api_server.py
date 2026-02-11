@@ -84,6 +84,8 @@ class TankOption(BaseModel):
     needFreeBoard: Optional[bool] = False
     freeBoardSize: Optional[str] = ""
     supportSystem: Optional[str] = "Internal"  # "Internal" or "External"
+    hasDiscount: Optional[bool] = False
+    discountedTotalPrice: Optional[str] = ""
 
 
 class TankData(BaseModel):
@@ -337,6 +339,13 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
                 else:
                     skid = ""
                 
+                # Calculate total price - use discounted price if discount is enabled
+                has_discount = option.hasDiscount if hasattr(option, 'hasDiscount') and option.hasDiscount else False
+                if has_discount and option.discountedTotalPrice:
+                    total_price = float(option.discountedTotalPrice)
+                else:
+                    total_price = float(option.quantity) * (float(option.unitPrice) if option.unitPrice else 0.0)
+                
                 tank = {
                     "sl_no": sl_no,
                     "name": option.tankName,
@@ -357,11 +366,12 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
                     "unit": option.unit,
                     "qty": float(option.quantity),
                     "unit_price": float(option.unitPrice) if option.unitPrice else 0.0,
-                    "total_price": float(option.quantity) * (float(option.unitPrice) if option.unitPrice else 0.0),
+                    "total_price": total_price,
                     "option_number": option_idx + 1,
                     "option_total": num_options,
                     "option_roman": to_roman(option_idx + 1),
-                    "support_system": option.supportSystem if hasattr(option, 'supportSystem') and option.supportSystem else "Internal"
+                    "support_system": option.supportSystem if hasattr(option, 'supportSystem') and option.supportSystem else "Internal",
+                    "has_discount": has_discount
                 }
                 generator.tanks.append(tank)
             
@@ -375,6 +385,9 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
         
         # Check if ladder is needed
         generator.needs_ladder = any(float(tank.get('height', 0)) > 2.0 for tank in generator.tanks)
+        
+        # Check if any tank has discount enabled
+        generator.has_discount = any(tank.get('has_discount', False) for tank in generator.tanks)
         
         # Set flags for showing totals
         generator.show_sub_total = request.showSubTotal
@@ -486,19 +499,24 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
             right_email = ""
             signature_image = ""
             
-            # Helper function to construct email based on template
-            def construct_email(email_name, template_filename):
-                if not email_name:
-                    return ""
-                # Determine domain based on template
-                if template_filename.lower().endswith("template_grp.docx"):
-                    domain = "grptanks.com"
-                elif template_filename.lower().endswith("template_pipeco.docx"):
-                    domain = "grppipeco.com"
-                elif template_filename.lower().endswith("template_colex.docx"):
-                    domain = "colextanks.com"
+            # Get company domain from database
+            company_domain = ""
+            try:
+                statement = select(CompanyDetails).where(CompanyDetails.full_name == request.fromCompany)
+                company_result = session.exec(statement).first()
+                if company_result and company_result.company_domain:
+                    company_domain = company_result.company_domain
                 else:
-                    domain = "grptanks.com"
+                    # Fallback to default domain
+                    company_domain = "grptanks.com"
+            except Exception as e:
+                print(f"⚠ Error fetching company domain: {e}")
+                company_domain = "grptanks.com"
+            
+            # Helper function to construct email using company domain
+            def construct_email(email_name, domain):
+                if not email_name or not domain:
+                    return ""
                 return f"{email_name}@{domain}"
             
             try:
@@ -513,7 +531,7 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
                             left_name = selected_sales.sales_person_name
                             left_title = selected_sales.designation or "Sales Executive"
                             left_mobile = selected_sales.phone_number or ""
-                            left_email = construct_email(selected_sales.email_name, template_filename)
+                            left_email = construct_email(selected_sales.email_name, company_domain)
                             
                             # Get signature image from DATA_PATH/signs&seals
                             code = selected_sales.code
@@ -538,7 +556,7 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
                         right_name = selected_pm.manager_name
                         right_title = selected_pm.designation or "Manager - Projects"
                         right_mobile = selected_pm.phone_number or ""
-                        right_email = construct_email(selected_pm.email_name, template_filename)
+                        right_email = construct_email(selected_pm.email_name, company_domain)
                     
                 else:  # sig_type == 'o', UI "Office"
                     # Get project manager details from database
@@ -555,7 +573,7 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
                         left_name = selected_pm.manager_name
                         left_title = selected_pm.designation or "Manager - Projects"
                         left_mobile = selected_pm.phone_number or ""
-                        left_email = construct_email(selected_pm.email_name, template_filename)
+                        left_email = construct_email(selected_pm.email_name, company_domain)
                         
                         # Get signature image from DATA_PATH/signs&seals
                         code = selected_pm.code

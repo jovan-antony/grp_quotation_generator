@@ -1846,7 +1846,15 @@ class TankInvoiceGenerator:
     def _create_header(self):
         """Create and format header row"""
         header_cells = self.table.rows[0].cells
-        headers = ['SL.\nNO.', 'ITEM DESCRIPTION', 'UNIT', 'QTY', 'UNIT PRICE\n(AED)', 'TOTAL PRICE\n(AED)']
+        
+        # Determine if discount is applied
+        has_discount = getattr(self, 'has_discount', False)
+        
+        # Change header text based on discount status
+        if has_discount:
+            headers = ['SL.\nNO.', 'ITEM DESCRIPTION', 'UNIT', 'QTY', 'UNIT PRICE\n(AED)', 'DISCOUNTED TOTAL PRICE\n(AED)']
+        else:
+            headers = ['SL.\nNO.', 'ITEM DESCRIPTION', 'UNIT', 'QTY', 'UNIT PRICE\n(AED)', 'TOTAL PRICE\n(AED)']
         
         # Determine header color based on template
         if self.template_path.lower().endswith("template_colex.docx"):
@@ -2118,7 +2126,12 @@ class TankInvoiceGenerator:
             
             # Net Volume (use pre-calculated value from tank data)
             net_volume_m3 = tank.get('net_volume_m3', tank['volume_m3'])
-            run = size_para.add_run(f"Net Volume\t:\t{net_volume_m3:.2f} M³")
+            # Calculate net volume gallons based on gallon type
+            if self.gallon_type == "USG":
+                net_volume_gallons = net_volume_m3 * 264.172
+            else:
+                net_volume_gallons = net_volume_m3 * 219.969
+            run = size_para.add_run(f"Net Volume\t:\t{net_volume_m3:.2f} M³ ({net_volume_gallons:.0f} {self.gallon_type})")
             run.font.bold = True
             run.font.name = 'Calibri'
             run.font.size = Pt(10)
@@ -2259,13 +2272,20 @@ class TankInvoiceGenerator:
         show_vat = getattr(self, 'show_vat', True)
         show_grand = getattr(self, 'show_grand_total', True)
         
+        # Check if discount is applied
+        has_discount = getattr(self, 'has_discount', False)
+        
         current_row = start_row
         
         # Row 1: SUB TOTAL (if enabled)
         if show_sub:
             self._merge_cells(current_row, 2, current_row, 3)
             cell = self.table.rows[current_row].cells[2]
-            cell.text = 'SUB TOTAL:'
+            # Change label based on discount status
+            if has_discount:
+                cell.text = 'DISCOUNTED SUB TOTAL:'
+            else:
+                cell.text = 'SUB TOTAL:'
             cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.LEFT
             cell.paragraphs[0].paragraph_format.space_after = Pt(0)
             

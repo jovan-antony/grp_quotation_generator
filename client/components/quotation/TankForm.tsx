@@ -25,6 +25,8 @@ interface TankFormProps {
       needFreeBoard?: boolean;
       freeBoardSize?: string;
       supportSystem?: string;
+      hasDiscount?: boolean;
+      discountedTotalPrice?: string;
     }>;
   };
   onChange: (data: any) => void;
@@ -67,6 +69,8 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
                     unit: '',
                     unitPrice: '',
                     supportSystem: 'Internal',
+                    hasDiscount: false,
+                    discountedTotalPrice: '',
                   }
                 );
                 onChange({ ...data, optionNumbers: newCount, options: newOptions });
@@ -366,12 +370,55 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
                 className="border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white text-black"
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
-                    // End of tank option inputs, optionally focus next logical field or blur
-                    (e.target as HTMLElement).blur();
+                    // Focus discount checkbox or blur if not enabled
+                    const next = document.querySelector(`#discount-${tankNumber}-${idx}`);
+                    if (next) (next as HTMLElement).focus();
+                    else (e.target as HTMLElement).blur();
                   }
                 }}
               />
             </div>
+          </div>
+          <div className="mt-4">
+            <div className="flex items-center space-x-3 mb-3">
+              <Checkbox
+                id={`discount-${tankNumber}-${idx}`}
+                checked={option.hasDiscount || false}
+                onCheckedChange={(checked) => {
+                  const newOptions = [...data.options];
+                  newOptions[idx] = { ...option, hasDiscount: checked as boolean };
+                  if (!checked) newOptions[idx].discountedTotalPrice = '';
+                  onChange({ ...data, options: newOptions });
+                }}
+                className="accent-blue-500"
+              />
+              <Label htmlFor={`discount-${tankNumber}-${idx}`} className="cursor-pointer font-medium text-black">
+                Discount
+              </Label>
+            </div>
+            {option.hasDiscount && (
+              <div>
+                <Label htmlFor={`discountedTotalPrice-${tankNumber}-${idx}`} className="font-medium text-black">Discounted Total Price (AED)</Label>
+                <Input
+                  id={`discountedTotalPrice-${tankNumber}-${idx}`}
+                  type="number"
+                  step="0.01"
+                  value={option.discountedTotalPrice || ''}
+                  onChange={(e) => {
+                    const newOptions = [...data.options];
+                    newOptions[idx] = { ...option, discountedTotalPrice: e.target.value };
+                    onChange({ ...data, options: newOptions });
+                  }}
+                  placeholder="Enter discounted total price"
+                  className="border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white text-black"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      (e.target as HTMLElement).blur();
+                    }
+                  }}
+                />
+              </div>
+            )}
           </div>
         </div>
       ))}

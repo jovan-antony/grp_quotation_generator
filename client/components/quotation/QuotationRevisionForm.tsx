@@ -644,10 +644,11 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
       
       // Convert API terms to form format
       Object.keys(apiTerms).forEach(key => {
+        const termData = apiTerms[key];
         formattedTerms[key] = {
-          action: true,
-          details: Array.isArray(apiTerms[key]) ? apiTerms[key] : [apiTerms[key]],
-          custom: []
+          action: termData?.action === 'yes' || termData?.action === true,
+          details: Array.isArray(termData?.details) ? termData.details : (Array.isArray(termData) ? termData : []),
+          custom: Array.isArray(termData?.custom) ? termData.custom : []
         };
       });
       
@@ -755,6 +756,24 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
       // Load additional details
       if (data.additionalData?.additionalDetails) {
         setAdditionalDetails(data.additionalData.additionalDetails);
+      }
+
+      // Load terms - API returns terms directly
+      if (data.terms) {
+        const apiTerms = data.terms;
+        const formattedTerms: Record<string, any> = {};
+        
+        // Convert API terms to form format
+        Object.keys(apiTerms).forEach(key => {
+          const termData = apiTerms[key];
+          formattedTerms[key] = {
+            action: termData?.action === 'yes' || termData?.action === true,
+            details: Array.isArray(termData?.details) ? termData.details : (Array.isArray(termData) ? termData : []),
+            custom: Array.isArray(termData?.custom) ? termData.custom : []
+          };
+        });
+        
+        setTerms(prev => ({ ...prev, ...formattedTerms }));
       }
 
       toast.success(`Quotation loaded: ${data.fullQuoteNumber}`);
@@ -1091,7 +1110,8 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
         'THE MAXIMUM ALLOWABLE WATER HEIGHT IN EACH COMPARTMENT IS UPTO 1 MTR HEIGHT',
         'THE ABOVE TANK ONLY SUITABLE FOR STORING PORTABLE/ DRINKING WATER EXCEPT CHEMICAL /SOLID/TSE WATER.',
         'THE OFFER IS VALID FOR 30 DAYS FROM THE QUOTATION DATE.',
-        'THE WARRANTY WILL BE APPLICABLE ONLY UPON RECEIVING FULL PAYMENT.'
+        'THE WARRANTY WILL BE APPLICABLE ONLY UPON RECEIVING FULL PAYMENT.',
+        'AS PER THE FEDERAL TAX AUTHORITY, 5% VAT IS APPLICABLE FOR THE TOTAL AMOUNT.'
       ]
     },
     {
@@ -1777,11 +1797,63 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
 
             <div className="md:col-span-2">
               <Label htmlFor="subject">Subject</Label>
-              <Input
+              <AutocompleteInput
                 id="subject"
+                options={[
+                  { value: 'Supply and Installation of GRP Panel Water Tank', label: 'Supply and Installation of GRP Panel Water Tank' },
+                  { value: 'Supply & Installation of Anti Vortex Plate', label: 'Supply & Installation of Anti Vortex Plate' },
+                  { value: 'Supply of GRP Cylindrical - Horizontal Water Tank', label: 'Supply of GRP Cylindrical - Horizontal Water Tank' },
+                  { value: 'Supply Of GRP Cylindrical - Vertical Water Tank', label: 'Supply Of GRP Cylindrical - Vertical Water Tank' },
+                  { value: 'Supply of GRP Cylindrical - Horizontal Tank /Supply Of Grp Cylindrical - Vertical Tank', label: 'Supply of GRP Cylindrical - Horizontal Tank /Supply Of Grp Cylindrical - Vertical Tank' },
+                  { value: 'Dismantling & Disposal of Existing Tank/Supply and Installation of GRP Panel Water Tank with Material Offloading and shifting for the new tank', label: 'Dismantling & Disposal of Existing Tank/Supply and Installation of GRP Panel Water Tank with Material Offloading and shifting for the new tank' },
+                  { value: 'Dismantling & Disposal of Existing Tank/Supply and Installation of GRP Panel Water Tank with Related works', label: 'Dismantling & Disposal of Existing Tank/Supply and Installation of GRP Panel Water Tank with Related works' },
+                  { value: 'Dismantling &Reinstallation of Tank Using Existing Panels & New Accessories', label: 'Dismantling &Reinstallation of Tank Using Existing Panels & New Accessories' },
+                  { value: 'Dismantling and shifting of Existing Tank', label: 'Dismantling and shifting of Existing Tank' },
+                  { value: 'Dismantling of Existing Tank/ Supply & Installation and material offloading & shifting of New GRP Panel Water  Tank with Existing Foundation Levelling, Plastering & Painting', label: 'Dismantling of Existing Tank/ Supply & Installation and material offloading & shifting of New GRP Panel Water  Tank with Existing Foundation Levelling, Plastering & Painting' },
+                  { value: 'Supply and Installation of GRP Panel Water Tank /Foundation /Civil Work', label: 'Supply and Installation of GRP Panel Water Tank /Foundation /Civil Work' },
+                  { value: 'Foundation / Civil Work & Supply and Installation of GRP Panel Water Tank with Related Works', label: 'Foundation / Civil Work & Supply and Installation of GRP Panel Water Tank with Related Works' },
+                  { value: 'Installation Charge for Temporary Tank Plumbing Work with Related Work / Supply and Installation of  GRP Panel Water Tank.', label: 'Installation Charge for Temporary Tank Plumbing Work with Related Work / Supply and Installation of  GRP Panel Water Tank.' },
+                  { value: 'Installation of Water Tank with Necessary Accessories.', label: 'Installation of Water Tank with Necessary Accessories.' },
+                  { value: 'Maintenance Work for the Existing Tank.', label: 'Maintenance Work for the Existing Tank.' },
+                  { value: 'Maintenance Work for The Existing Tank./ Dismantling & Disposal of Existing Tank/Supply and Installation of GRP Panel Water Tank', label: 'Maintenance Work for The Existing Tank./ Dismantling & Disposal of Existing Tank/Supply and Installation of GRP Panel Water Tank' },
+                  { value: 'Supply of PVC Cylindrical - Horizontal Water Tank / Supply of GRP Cylindrical – Horizontal Water Tank', label: 'Supply of PVC Cylindrical - Horizontal Water Tank / Supply of GRP Cylindrical – Horizontal Water Tank' },
+                  { value: 'Supply of PVC - Vertical Water Tank', label: 'Supply of PVC - Vertical Water Tank' },
+                  { value: 'Reinstallation Of Existing Tank with Only Gaskets.', label: 'Reinstallation Of Existing Tank with Only Gaskets.' },
+                  { value: 'Supply and Installation of GRP Panel Water Tank/Supply of PVC - Vertical Water Tank.', label: 'Supply and Installation of GRP Panel Water Tank/Supply of PVC - Vertical Water Tank.' },
+                  { value: 'Supply and Installation of GRP Panel Water Tank with Material Offloading and shifting', label: 'Supply and Installation of GRP Panel Water Tank with Material Offloading and shifting' },
+                  { value: 'Supply of Accessories Only', label: 'Supply of Accessories Only' },
+                  { value: 'Supply Of FRP Rectangular Water Tank', label: 'Supply Of FRP Rectangular Water Tank' },
+                  { value: 'Supply of Panels & Accessories Only.', label: 'Supply of Panels & Accessories Only.' },
+                  { value: 'ANTI VORTEX PLATE', label: 'ANTI VORTEX PLATE' },
+                  { value: 'Dismantling &Reinstallation of Tank Using Existing Panels & Accessories', label: 'Dismantling &Reinstallation of Tank Using Existing Panels & Accessories' },
+                  { value: 'Dismantling of Existing Tank and  Reinstallation of tank using existing panels with necessary accessories', label: 'Dismantling of Existing Tank and  Reinstallation of tank using existing panels with necessary accessories' },
+                  { value: 'Dismantling of Existing Tank', label: 'Dismantling of Existing Tank' },
+                  { value: 'Existing Tank Removal and Reinstallation of tank using existing panels with new accessories', label: 'Existing Tank Removal and Reinstallation of tank using existing panels with new accessories' },
+                  { value: 'EXTERNAL BODY ANGLE + FOUNTATION CIVIL WORK', label: 'EXTERNAL BODY ANGLE + FOUNTATION CIVIL WORK' },
+                  { value: 'EXTERNAL BODY ANGLE SUPPORT', label: 'EXTERNAL BODY ANGLE SUPPORT' },
+                  { value: 'EXTERNAL BODY SYSTEM', label: 'EXTERNAL BODY SYSTEM' },
+                  { value: 'EXTERNAL REINFORCEMENT SYSTEM', label: 'EXTERNAL REINFORCEMENT SYSTEM' },
+                  { value: 'GRP HORIZONTAL ABOVE GROUND', label: 'GRP HORIZONTAL ABOVE GROUND' },
+                  { value: 'GRP HORIZONTAL WATER TANK UNDERGROUND', label: 'GRP HORIZONTAL WATER TANK UNDERGROUND' },
+                  { value: 'INTERNAL & EXTERNAL REINFORCEMENT', label: 'INTERNAL & EXTERNAL REINFORCEMENT' },
+                  { value: 'MAINTENANCE WORK FOR EXISTING TANK', label: 'MAINTENANCE WORK FOR EXISTING TANK' },
+                  { value: 'Maintenance Work of Existing tank', label: 'Maintenance Work of Existing tank' },
+                  { value: 'PVC VERTICAL 3 LAYER', label: 'PVC VERTICAL 3 LAYER' },
+                  { value: 'PVC VERTICAL 4 LAYER', label: 'PVC VERTICAL 4 LAYER' },
+                  { value: 'PVC VERTICAL', label: 'PVC VERTICAL' },
+                  { value: 'STEEL STAND HEADING', label: 'STEEL STAND HEADING' },
+                  { value: 'Supply and Installation of GRP Panel Water Tank Foundation Civil Work', label: 'Supply and Installation of GRP Panel Water Tank Foundation Civil Work' },
+                  { value: 'Supply and Installation of GRP Panel Water Tank with Material Offloading', label: 'Supply and Installation of GRP Panel Water Tank with Material Offloading' },
+                  { value: 'Supply of GRP Cylindrical Horizontal Water Tank EX WARE HOUSE', label: 'Supply of GRP Cylindrical Horizontal Water Tank EX WARE HOUSE' },
+                  { value: 'SUPPLY OF PANEL & ACCESSORIES ONLY', label: 'SUPPLY OF PANEL & ACCESSORIES ONLY' },
+                  { value: 'SUPPLY OF PANELS & ACCESSORIES ONLY', label: 'SUPPLY OF PANELS & ACCESSORIES ONLY' },
+                  { value: 'SUPPLY OF PANELS AND ACCESSORIES ONLY', label: 'SUPPLY OF PANELS AND ACCESSORIES ONLY' }
+                ]}
                 value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder="Supply and Installation of GRP Panel Water Tank"
+                onValueChange={(value) => setSubject(value)}
+                placeholder="Type to search subjects..."
+                showOnFocus={false}
+                minLength={1}
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
                     const next = document.querySelector('#projectLocation');

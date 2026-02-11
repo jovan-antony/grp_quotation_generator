@@ -396,11 +396,11 @@ class TankInvoiceGenerator:
                 selected_row = sales_df.iloc[choice]
                 
                 # Determine email column based on template
-                if self.template_path.lower().endswith("template_grp.docx"):
+                if self.template_path.lower().endswith("grp_template.docx"):
                     email_col = 'EMAIL-GRPTANKS'
-                elif self.template_path.lower().endswith("template_pipeco.docx"):
+                elif self.template_path.lower().endswith("pipeco_template.docx"):
                     email_col = 'EMAIL-PIPECO'
-                elif self.template_path.lower().endswith("template_colex.docx"):
+                elif self.template_path.lower().endswith("colex_template.docx"):
                     email_col = 'EMAIL-COLEX'
                 else:
                     email_col = 'EMAIL-GRPTANKS'  # Default
@@ -437,11 +437,11 @@ class TankInvoiceGenerator:
                     selected_pm = pm_df.iloc[pm_choice]
                 
                 # Determine email column for project manager
-                if self.template_path.lower().endswith("template_grp.docx"):
+                if self.template_path.lower().endswith("grp_template.docx"):
                     pm_email_col = 'EMAIL-GRPTANKS'
-                elif self.template_path.lower().endswith("template_pipeco.docx"):
+                elif self.template_path.lower().endswith("pipeco_template.docx"):
                     pm_email_col = 'EMAIL-PIPECO'
-                elif self.template_path.lower().endswith("template_colex.docx"):
+                elif self.template_path.lower().endswith("colex_template.docx"):
                     pm_email_col = 'EMAIL-COLEX'
                 else:
                     pm_email_col = 'EMAIL-GRPTANKS'  # Default
@@ -478,11 +478,11 @@ class TankInvoiceGenerator:
                     selected_pm = pm_df.iloc[pm_choice]
                 
                 # Determine email column
-                if self.template_path.lower().endswith("template_grp.docx"):
+                if self.template_path.lower().endswith("grp_template.docx"):
                     pm_email_col = 'EMAIL-GRPTANKS'
-                elif self.template_path.lower().endswith("template_pipeco.docx"):
+                elif self.template_path.lower().endswith("pipeco_template.docx"):
                     pm_email_col = 'EMAIL-PIPECO'
-                elif self.template_path.lower().endswith("template_colex.docx"):
+                elif self.template_path.lower().endswith("colex_template.docx"):
                     pm_email_col = 'EMAIL-COLEX'
                 else:
                     pm_email_col = 'EMAIL-GRPTANKS'  # Default
@@ -772,11 +772,11 @@ class TankInvoiceGenerator:
             return self.company_full_name
         
         # Fallback to template-based detection for backward compatibility
-        if self.template_path.lower().endswith("template_pipeco.docx"):
+        if self.template_path.lower().endswith("pipeco_template.docx"):
             return "GRP PIPECO TANKS TRADING L.L.C"
-        elif self.template_path.lower().endswith("template_colex.docx"):
+        elif self.template_path.lower().endswith("colex_template.docx"):
             return "COLEX TANKS TRADING L.L.C"
-        elif self.template_path.lower().endswith("template_grp.docx"):
+        elif self.template_path.lower().endswith("grp_template.docx"):
             return "GRP TANKS TRADING L.L.C"
         else:
             return "GRP PIPECO TANKS TRADING L.L.C"  # Default
@@ -876,20 +876,24 @@ class TankInvoiceGenerator:
         """Add the quote box table to a specific header"""
         # Add spacer for some templates
         if len(header.paragraphs) > 0 or len(header.tables) > 0:
-            if self.template_path.lower().endswith("template_colex.docx"):
-                spacer = header.add_paragraph()
-                spacer.paragraph_format.space_before = Pt(50)
-                spacer.paragraph_format.space_after = Pt(0)
-                spacer.paragraph_format.left_indent = Pt(0)
-                spacer.paragraph_format.right_indent = Pt(0)
-                spacer.paragraph_format.first_line_indent = Pt(0)
+            if self.template_path.lower().endswith("colex_template.docx"):
+                # Add multiple line breaks to push table below header content
+                for _ in range(3):
+                    spacer = header.add_paragraph()
+                    spacer.paragraph_format.space_before = Pt(8)
+                    spacer.paragraph_format.space_after = Pt(0)
+                    spacer.paragraph_format.line_spacing = 1.0
+                    spacer.paragraph_format.left_indent = Pt(0)
+                    spacer.paragraph_format.right_indent = Pt(0)
+                    spacer.paragraph_format.first_line_indent = Pt(0)
+        
         
         # Box width based on template
-        if self.template_path.lower().endswith("template_colex.docx"):
+        if self.template_path.lower().endswith("colex_template.docx"):
             box_width = Inches(8)
-        elif self.template_path.lower().endswith("template_grp.docx"):
+        elif self.template_path.lower().endswith("grp_template.docx"):
             box_width = Inches(8)
-        elif self.template_path.lower().endswith("template_pipeco.docx"):
+        elif self.template_path.lower().endswith("pipeco_template.docx"):
             box_width = Inches(8.5)
         else:
             box_width = Inches(8)
@@ -899,7 +903,7 @@ class TankInvoiceGenerator:
         quote_table.autofit = False
         
         # Position table based on template
-        if self.template_path.lower().endswith("template_colex.docx"):
+        if self.template_path.lower().endswith("colex_template.docx"):
             tbl = quote_table._element
             tblPr = tbl.tblPr
             if tblPr is None:
@@ -920,7 +924,7 @@ class TankInvoiceGenerator:
             jc = OxmlElement('w:jc')
             jc.set(qn('w:val'), 'left')
             tblPr.append(jc)
-        elif self.template_path.lower().endswith("template_grp.docx") or self.template_path.lower().endswith("template_pipeco.docx"):
+        elif self.template_path.lower().endswith("grp_template.docx") or self.template_path.lower().endswith("pipeco_template.docx"):
             tbl = quote_table._element
             tblPr = tbl.tblPr
             if tblPr is None:
@@ -1883,7 +1887,7 @@ class TankInvoiceGenerator:
             headers = ['SL.\nNO.', 'ITEM DESCRIPTION', 'UNIT', 'QTY', 'UNIT PRICE\n(AED)', 'TOTAL PRICE\n(AED)']
         
         # Determine header color based on template
-        if self.template_path.lower().endswith("template_colex.docx"):
+        if self.template_path.lower().endswith("colex_template.docx"):
             header_color = 'A3B463'  # Colex color
         else:
             header_color = '5F9EA0'  # Default color
@@ -1918,7 +1922,7 @@ class TankInvoiceGenerator:
         # Get company brand name from frontend or fallback to template-based detection
         if self.company_short_name:
             brand_name = self.company_short_name
-        elif self.template_path.lower().endswith("template_colex.docx"):
+        elif self.template_path.lower().endswith("colex_template.docx"):
             brand_name = "Colex Korea"
         else:
             brand_name = "PIPECO TANKS® MALAYSIA"
@@ -3182,11 +3186,11 @@ def main():
         
         template_choice = input("Select template (1/2/3): ").strip()
         template_map = {
-            "1": "template_grp.docx",
-            "2": "template_pipeco.docx",
-            "3": "template_colex.docx"
+            "1": "grp_template.docx",
+            "2": "pipeco_template.docx",
+            "3": "colex_template.docx"
         }
-        template_path = template_map.get(template_choice, "template_grp.docx")
+        template_path = template_map.get(template_choice, "grp_template.docx")
         
         generator = TankInvoiceGenerator(template_path=template_path)
         generator.get_user_inputs()

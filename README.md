@@ -226,10 +226,10 @@ npm run dev
 
 ## 📝 Template Customization
 
-Templates are located in `server/` directory:
-- `Template_GRP.docx`
-- `Template_PIPECO.docx`
-- `Template_COLEX.docx`
+Templates are located in `server/DATA/template/` directory:
+- `grp_template.docx`
+- `pipeco_template.docx`
+- `colex_template.docx`
 
 Edit with Microsoft Word to customize headers, footers, and branding.
 

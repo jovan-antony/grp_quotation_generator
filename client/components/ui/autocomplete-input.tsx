@@ -155,6 +155,7 @@ export function AutocompleteInput({
         placeholder={placeholder}
         className={className}
         disabled={disabled}
+        autoComplete="off"
       />
       {showSuggestions && filteredOptions.length > 0 && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-80 overflow-auto">

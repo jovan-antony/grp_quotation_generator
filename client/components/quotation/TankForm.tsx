@@ -73,6 +73,7 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
               }}
               className="w-20 border-blue-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 rounded"
               placeholder="No."
+              autoComplete="off"
             />
           )}
         </div>
@@ -116,6 +117,7 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
                   placeholder="e.g., 5.5"
                   className="border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white text-black w-28"
                   inputMode="decimal"
+                  autoComplete="off"
                   onKeyDown={e => {
                     if (e.key === 'Enter') {
                       const next = document.querySelector(`#quantity-${tankNumber}-${idx}`);
@@ -145,6 +147,7 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
                 pattern="^[1-9][0-9]*$"
                 inputMode="numeric"
                 className="border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white text-black"
+                autoComplete="off"
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
                     const next = document.querySelector(`#tankName-${tankNumber}-${idx}`);
@@ -165,6 +168,7 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
                 }}
                 placeholder="Enter tank name"
                 className="border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white text-black"
+                autoComplete="off"
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
                     const next = document.querySelector(`#tankType-${tankNumber}-${idx}`);
@@ -275,6 +279,7 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
                   }}
                   placeholder={option.hasPartition ? "e.g., 2(1+1)" : "e.g., 2.5"}
                   className="border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white text-black"
+                  autoComplete="off"
                   onKeyDown={e => {
                     if (e.key === 'Enter') {
                       const next = document.querySelector(`#width-${tankNumber}-${idx}`);
@@ -295,6 +300,7 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
                   }}
                   placeholder={option.hasPartition ? "e.g., 2(1+1)" : "e.g., 2.5"}
                   className="border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white text-black"
+                  autoComplete="off"
                   onKeyDown={e => {
                     if (e.key === 'Enter') {
                       const next = document.querySelector(`#height-${tankNumber}-${idx}`);
@@ -315,6 +321,7 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
                   }}
                   placeholder="e.g., 1.5"
                   className="border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white text-black"
+                  autoComplete="off"
                   onKeyDown={e => {
                     if (e.key === 'Enter') {
                       const next = document.querySelector(`#unit-${tankNumber}-${idx}`);
@@ -365,6 +372,7 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
                 }}
                 placeholder="Enter price"
                 className="border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white text-black"
+                autoComplete="off"
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
                     // End of tank option inputs, optionally focus next logical field or blur

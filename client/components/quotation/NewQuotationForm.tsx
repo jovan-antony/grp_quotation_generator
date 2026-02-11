@@ -1109,6 +1109,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                 value={revisionNumber}
                 onChange={(e) => setRevisionNumber(e.target.value)}
                 className="w-20 h-8 text-center"
+                autoComplete="off"
               />
             </div>
           </div>
@@ -1189,6 +1190,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
                 placeholder="Enter role (optional)"
+                autoComplete="off"
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
                     const next = document.querySelector('#companyName');
@@ -1225,6 +1227,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 placeholder="Ajman, UAE"
+                autoComplete="off"
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
                     const next = document.querySelector('#phoneNumber');
@@ -1241,6 +1244,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
                 placeholder="+ 971 50 312 8233"
+                autoComplete="off"
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
                     const next = document.querySelector('#email');
@@ -1258,6 +1262,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="email@example.com"
+                autoComplete="off"
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
                     const next = document.querySelector('#quotationDate');
@@ -1275,6 +1280,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                 value={quotationDate}
                 onChange={(e) => setQuotationDate(e.target.value)}
                 className="[&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert-[40%] [&::-webkit-calendar-picker-indicator]:sepia-[100%] [&::-webkit-calendar-picker-indicator]:saturate-[3000%] [&::-webkit-calendar-picker-indicator]:hue-rotate-[180deg] [&::-webkit-calendar-picker-indicator]:brightness-[95%]"
+                autoComplete="off"
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
                     const next = document.querySelector('#quotationFrom');
@@ -1386,6 +1392,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                 onChange={(e) => setQuotationNumber(e.target.value)}
                 placeholder=""
                 maxLength={12}
+                autoComplete="off"
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
                     const next = document.querySelector('#subject');
@@ -1421,6 +1428,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 placeholder="Supply and Installation of GRP Panel Water Tank"
+                autoComplete="off"
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
                     const next = document.querySelector('#projectLocation');
@@ -1437,6 +1445,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                 value={projectLocation}
                 onChange={(e) => setProjectLocation(e.target.value)}
                 placeholder="Ajman."
+                autoComplete="off"
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
                     const next = document.querySelector('#numberOfTanks');
@@ -1461,6 +1470,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                           newDetails[idx].key = e.target.value;
                           setAdditionalDetails(newDetails);
                         }}
+                        autoComplete="off"
                       />
                     </div>
                     <div className="col-span-7">
@@ -1472,6 +1482,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                           newDetails[idx].value = e.target.value;
                           setAdditionalDetails(newDetails);
                         }}
+                        autoComplete="off"
                       />
                     </div>
                     <div className="col-span-1">
@@ -1522,6 +1533,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                 value={numberOfTanks}
                 onChange={(e) => handleNumberOfTanksChange(e.target.value)}
                 placeholder="Enter number of tanks"
+                autoComplete="off"
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
                     const next = document.querySelector('#gallonType');
@@ -1606,6 +1618,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                           value={detail}
                           onChange={e => handleEditDetail(term.key, idx, e.target.value)}
                           className="flex-1"
+                          autoComplete="off"
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               // Try to focus next detail input or custom input
@@ -1631,6 +1644,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                           value={custom}
                           onChange={e => handleEditCustom(term.key, idx, e.target.value)}
                           className="flex-1"
+                          autoComplete="off"
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               // Try to focus next custom input or new point input
@@ -1662,6 +1676,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                           }
                         }))}
                         className="flex-1"
+                        autoComplete="off"
                         onKeyDown={e => {
                           if (e.key === 'Enter') {
                             // Optionally blur or focus next section

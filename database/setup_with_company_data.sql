@@ -115,7 +115,7 @@ CREATE TABLE contractual_terms_specifications (
 -- ============================================================================
 CREATE TABLE quotation_webpage_input_details_save (
     id SERIAL PRIMARY KEY,
-    quotation_number VARCHAR(4) NOT NULL,
+    quotation_number VARCHAR(12) NOT NULL,
     full_main_quote_number VARCHAR(100) UNIQUE NOT NULL,
     final_doc_file_path VARCHAR(500),
     company_id INTEGER NOT NULL REFERENCES company_details(id) ON DELETE RESTRICT,
@@ -187,7 +187,7 @@ CREATE TRIGGER update_quotation_webpage_input_details_save_timestamp
 CREATE OR REPLACE FUNCTION generate_full_quote_number(
     p_company_id INTEGER,
     p_sales_person_id INTEGER,
-    p_quotation_number VARCHAR(4),
+    p_quotation_number VARCHAR(12),
     p_quotation_date DATE
 )
 RETURNS VARCHAR(100) AS $$

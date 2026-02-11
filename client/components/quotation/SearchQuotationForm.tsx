@@ -222,6 +222,7 @@ export default function SearchQuotationForm({
                     })
                   }
                   placeholder="Enter recipient name"
+                  autoComplete="off"
                 />
               </div>
             )}
@@ -239,6 +240,7 @@ export default function SearchQuotationForm({
                     })
                   }
                   placeholder="Enter company name"
+                  autoComplete="off"
                 />
               </div>
             )}
@@ -296,6 +298,7 @@ export default function SearchQuotationForm({
                         const selectedDate = e.target.value;
                         setSearchValues({ ...searchValues, dateFrom: selectedDate, dateTo: selectedDate });
                       }}
+                      autoComplete="off"
                     />
                   </div>
                 )}
@@ -311,6 +314,7 @@ export default function SearchQuotationForm({
                         onChange={(e) =>
                           setSearchValues({ ...searchValues, dateFrom: e.target.value })
                         }
+                        autoComplete="off"
                       />
                     </div>
                     <div>
@@ -322,6 +326,7 @@ export default function SearchQuotationForm({
                         onChange={(e) =>
                           setSearchValues({ ...searchValues, dateTo: e.target.value })
                         }
+                        autoComplete="off"
                       />
                     </div>
                   </div>
@@ -338,6 +343,7 @@ export default function SearchQuotationForm({
                         onChange={(e) =>
                           setSearchValues({ ...searchValues, dateFrom: e.target.value })
                         }
+                        autoComplete="off"
                       />
                     </div>
                     <div>
@@ -349,6 +355,7 @@ export default function SearchQuotationForm({
                         onChange={(e) =>
                           setSearchValues({ ...searchValues, dateTo: e.target.value })
                         }
+                        autoComplete="off"
                       />
                     </div>
                   </div>
@@ -373,6 +380,7 @@ export default function SearchQuotationForm({
                           fromCompany: e.target.value,
                         })
                       }
+                      autoComplete="off"
                     />
                   </div>
                   <div>
@@ -387,6 +395,7 @@ export default function SearchQuotationForm({
                           yearMonth: e.target.value,
                         })
                       }
+                      autoComplete="off"
                     />
                   </div>
                   <div>
@@ -398,6 +407,7 @@ export default function SearchQuotationForm({
                       onChange={(e) =>
                         setSearchValues({ ...searchValues, series: e.target.value })
                       }
+                      autoComplete="off"
                     />
                   </div>
                   <div>
@@ -412,6 +422,7 @@ export default function SearchQuotationForm({
                           quotationNumber: e.target.value,
                         })
                       }
+                      autoComplete="off"
                     />
                   </div>
                 </div>

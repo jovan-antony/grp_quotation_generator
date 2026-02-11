@@ -1674,24 +1674,14 @@ class TankInvoiceGenerator:
             para.paragraph_format.space_before = Pt(0)
             para.paragraph_format.space_after = Pt(0)
             
-            # Check if phone has "Phone:" prefix and format accordingly
+            # Check if phone has colon and format accordingly
             phone_text = self.recipient_phone.strip()
             if ':' in phone_text:
-                # Split at colon and format with new line
-                parts = phone_text.split(':', 1)
-                prefix = parts[0].strip()
-                value = parts[1].strip() if len(parts) > 1 else ''
-                alignment_spaces = ' ' * (len(prefix) + 2)  # prefix + ": "
-                
-                run = para.add_run(f'{prefix}:')
+                # Add with colon on same line
+                run = para.add_run(phone_text)
                 run.font.name = 'Calibri'
                 run.font.size = Pt(10)
                 run.font.bold = True
-                run.add_break()
-                run2 = para.add_run(f'{alignment_spaces}{value}')
-                run2.font.name = 'Calibri'
-                run2.font.size = Pt(10)
-                run2.font.bold = True
             else:
                 # No colon, add as-is
                 run = para.add_run(phone_text)
@@ -1708,21 +1698,11 @@ class TankInvoiceGenerator:
             # Check if email has "Email:" prefix and format accordingly
             email_text = self.recipient_email.strip()
             if ':' in email_text:
-                # Split at colon and format with new line
-                parts = email_text.split(':', 1)
-                prefix = parts[0].strip()
-                value = parts[1].strip() if len(parts) > 1 else ''
-                alignment_spaces = ' ' * (len(prefix) + 2)  # prefix + ": "
-                
-                run = para.add_run(f'{prefix}:')
+                # Add with colon on same line
+                run = para.add_run(email_text)
                 run.font.name = 'Calibri'
                 run.font.size = Pt(10)
                 run.font.bold = True
-                run.add_break()
-                run2 = para.add_run(f'{alignment_spaces}{value}')
-                run2.font.name = 'Calibri'
-                run2.font.size = Pt(10)
-                run2.font.bold = True
             else:
                 # No colon, add as-is
                 run = para.add_run(email_text)
@@ -1770,16 +1750,11 @@ class TankInvoiceGenerator:
             if len(y) == 2:
                 y = '20' + y
             date_str = f"{d}/{m}/{y}"
-        # Add Date with value on new line
-        run = para.add_run('Date          :')
+        # Add Date with value on same line
+        run = para.add_run('Date          : {}'.format(date_str))
         run.font.name = 'Calibri'
         run.font.size = Pt(10)
         run.font.bold = True
-        run.add_break()
-        run2 = para.add_run('               {}'.format(date_str))
-        run2.font.name = 'Calibri'
-        run2.font.size = Pt(10)
-        run2.font.bold = True
         
         # Page - Keep blank (no page number displayed)
         para = right_cell.add_paragraph()
@@ -1789,21 +1764,14 @@ class TankInvoiceGenerator:
         tab_stops = para.paragraph_format.tab_stops
         tab_stops.add_tab_stop(Inches(1.2))  # Position for colon
         
-        # Add Page with value on new line
-        run = para.add_run('Page          :')
+        # Add Page with value on same line
+        run = para.add_run('Page          : ')
         run.font.name = 'Calibri'
         run.font.size = Pt(10)
         run.font.bold = True
-        run.add_break()
-        
-        # Add page number on new line with alignment
-        run2 = para.add_run('               ')
-        run2.font.name = 'Calibri'
-        run2.font.size = Pt(10)
-        run2.font.bold = True
         
         # Add the page number field to the same run
-        self._add_page_number_field(run2, use_blue_color=False)
+        self._add_page_number_field(run, use_blue_color=False)
         
         # Quote No
         para = right_cell.add_paragraph()
@@ -1812,16 +1780,11 @@ class TankInvoiceGenerator:
         # Add tab stops for colon alignment
         tab_stops = para.paragraph_format.tab_stops
         tab_stops.add_tab_stop(Inches(1.2))  # Position for colon
-        # Add Quote No with value on new line
-        run = para.add_run('Quote No :')
+        # Add Quote No with value on same line
+        run = para.add_run('Quote No : {}'.format(self.quote_number))
         run.font.name = 'Calibri'
         run.font.size = Pt(10)
         run.font.bold = True
-        run.add_break()
-        run2 = para.add_run('          {}'.format(self.quote_number))
-        run2.font.name = 'Calibri'
-        run2.font.size = Pt(10)
-        run2.font.bold = True
         
         # Spacing after table
         spacer = self.doc.add_paragraph()
@@ -1833,13 +1796,12 @@ class TankInvoiceGenerator:
         subject_para = self.doc.add_paragraph()
         subject_para.paragraph_format.space_before = Pt(0)  # No space above subject
         subject_para.paragraph_format.space_after = Pt(0)
-        # Add Subject with value on new line
-        run = subject_para.add_run('Subject           :')
+        # Add Subject with value on same line
+        run = subject_para.add_run('Subject           : ')
         run.font.name = 'Calibri'
         run.font.size = Pt(10)
         run.font.bold = True
-        run.add_break()
-        run2 = subject_para.add_run('                   {}'.format(self.subject))
+        run2 = subject_para.add_run(self.subject)
         run2.font.name = 'Calibri'
         run2.font.size = Pt(10)
         run2.font.bold = True
@@ -1849,13 +1811,12 @@ class TankInvoiceGenerator:
         project_para = self.doc.add_paragraph()
         project_para.paragraph_format.space_before = Pt(0)
         project_para.paragraph_format.space_after = Pt(0)  # Remove gap
-        # Add Project with value on new line
-        run = project_para.add_run('Project            :')
+        # Add Project with value on same line
+        run = project_para.add_run('Project            : ')
         run.font.name = 'Calibri'
         run.font.size = Pt(10)
         run.font.bold = True
-        run.add_break()
-        run2 = project_para.add_run('                    {}'.format(self.project))
+        run2 = project_para.add_run(self.project)
         run2.font.name = 'Calibri'
         run2.font.size = Pt(10)
         run2.font.bold = True
@@ -1869,21 +1830,16 @@ class TankInvoiceGenerator:
                     detail_para.paragraph_format.space_before = Pt(0)
                     detail_para.paragraph_format.space_after = Pt(0)
                     # Pad the key to match alignment with "Project" line (19 chars before colon)
-                    padded_key = f"{detail_key:<19}:"
-                    alignment_spaces = ' ' * 20  # 19 chars + 1 for colon
+                    padded_key = f"{detail_key:<19}: "
                     run = detail_para.add_run(padded_key)
                     run.font.name = 'Calibri'
                     run.font.size = Pt(10)
-                    run.add_break()
-                    run2 = detail_para.add_run(f'{alignment_spaces}{detail_value}')
+                    run.font.bold = True
+                    run2 = detail_para.add_run(detail_value)
                     run2.font.name = 'Calibri'
                     run2.font.size = Pt(10)
-                    run.font.bold = True
-                    run = detail_para.add_run(detail_value)
-                    run.font.name = 'Calibri'
-                    run.font.size = Pt(10)
-                    run.font.bold = True
-                    run.underline = True
+                    run2.font.bold = True
+                    run2.underline = True
         
         # Add spacing
         spacer = self.doc.add_paragraph()
@@ -2860,15 +2816,10 @@ class TankInvoiceGenerator:
             para = cell.add_paragraph()
             para.paragraph_format.space_before = Pt(0)
             para.paragraph_format.space_after = Pt(0)
-            run = para.add_run('Mob:')
+            run = para.add_run(f'Mob: {mobile}')
             run.font.name = 'Calibri'
             run.font.size = Pt(10)
             run.font.bold = True
-            run.add_break()
-            run2 = para.add_run(f'     {mobile}')
-            run2.font.name = 'Calibri'
-            run2.font.size = Pt(10)
-            run2.font.bold = True
             content_added = True
         
         # Email - only if not empty
@@ -2876,12 +2827,11 @@ class TankInvoiceGenerator:
             para = cell.add_paragraph()
             para.paragraph_format.space_before = Pt(0)
             para.paragraph_format.space_after = Pt(0)
-            run = para.add_run('Email:')
+            run = para.add_run('Email: ')
             run.font.name = 'Calibri'
             run.font.size = Pt(10)
             run.font.bold = True
-            run.add_break()
-            run2 = para.add_run(f'       {email}')
+            run2 = para.add_run(email)
             run2.font.name = 'Calibri'
             run2.font.size = Pt(10)
             run2.font.color.rgb = RGBColor(0, 0, 255)
@@ -2991,19 +2941,10 @@ class TankInvoiceGenerator:
             # Get spacing for this key, default to 2 spaces if not in map
             spacing = spacing_map.get(key, '  ')
             
-            # Calculate alignment: "➢  " (3 chars) + key + spacing + ":" (1 char)
-            alignment_spaces = ' ' * (3 + len(key) + len(spacing) + 1)
-            
-            # Add key with colon on first line
-            run = para.add_run(f'➢  {key}{spacing}:')
+            # Add key with colon and value on same line
+            run = para.add_run(f'➢  {key}{spacing}: {value}')
             run.font.name = 'Calibri'
             run.font.size = Pt(10)
-            run.add_break()  # Line break within same paragraph
-            
-            # Add value on new line aligned below colon
-            run2 = para.add_run(f'{alignment_spaces}{value}')
-            run2.font.name = 'Calibri'
-            run2.font.size = Pt(10)
             terms_added += 1
         
         # Add plain custom terms (without key: value format)

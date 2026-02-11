@@ -1,0 +1,45 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: grp_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: RdDpp2M47i
+      POSTGRES_DB: grp_quotation_fresh
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/setup_with_company_data.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+
+  backend:
+    build: ./server
+    container_name: grp_backend
+    restart: always
+    depends_on:
+      - postgres
+    env_file:
+    - ./server/.env
+    environment:
+      DATABASE_URL: postgresql://postgres:RdDpp2M47i@postgres:5432/grp_quotation_fresh
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build: ./client
+    container_name: grp_frontend
+    restart: always
+    depends_on:
+      - backend
+    environment:
+      NEXT_PUBLIC_API_URL: http://192.168.0.10:8000
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres_data:

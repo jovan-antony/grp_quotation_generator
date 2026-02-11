@@ -34,7 +34,7 @@
       - `length` (text) - Supports partition notation
       - `width` (text)
       - `height` (text)
-      - `unit` (text) - Nos/L
+      - `unit` (text) - Nos/L/ROLL
       - `unit_price` (numeric)
       - `created_at` (timestamptz)
 

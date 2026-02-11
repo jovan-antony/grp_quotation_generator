@@ -1385,6 +1385,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
                 value={quotationNumber}
                 onChange={(e) => setQuotationNumber(e.target.value)}
                 placeholder=""
+                maxLength={12}
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
                     const next = document.querySelector('#subject');

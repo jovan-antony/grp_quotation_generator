@@ -333,6 +333,7 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
                 options={[
                   { value: 'Nos', label: 'Nos' },
                   { value: 'L', label: 'L' },
+                  { value: 'ROLL', label: 'ROLL' },
                 ]}
                 value={option.unit}
                 onValueChange={(value) => {

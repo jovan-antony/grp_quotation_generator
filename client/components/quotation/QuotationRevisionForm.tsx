@@ -1746,6 +1746,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
                 value={quotationNumber}
                 onChange={(e) => setQuotationNumber(e.target.value)}
                 placeholder=""
+                maxLength={12}
                 disabled={isQuotationLoaded}
                 onKeyDown={e => {
                   if (e.key === 'Enter') {

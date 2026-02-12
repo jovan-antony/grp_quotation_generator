@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, Trash2, FileDown } from 'lucide-react';
 import TankForm from './TankForm';
 import { toast } from 'sonner';
+import { getApiUrl } from '@/lib/api-config';
 
 interface NewQuotationFormProps {
   onPreviewUpdate: (html: string) => void;
@@ -307,7 +308,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
     
     try {
       console.log(`🔍 Fetching recipient details for: "${recipientFullName}"`);
-      const url = `http://localhost:8000/api/recipient-details?name=${encodeURIComponent(recipientFullName)}`;
+      const url = getApiUrl(`api/recipient-details?name=${encodeURIComponent(recipientFullName)}`);
       console.log(`📡 API URL: ${url}`);
       
       const response = await fetch(url);
@@ -346,7 +347,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
     
     try {
       console.log(`Fetching company details for: ${companyFullName}`);
-      const response = await fetch(`http://localhost:8000/api/company-details?name=${encodeURIComponent(companyFullName)}`);
+      const response = await fetch(getApiUrl(`api/company-details?name=${encodeURIComponent(companyFullName)}`));
       if (response.ok) {
         const data = await response.json();
         console.log(`Received company details:`, data);
@@ -376,7 +377,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
     
     try {
       console.log(`Fetching CODE for: ${personName} (${personType})`);
-      const response = await fetch(`http://localhost:8000/api/person-code?name=${encodeURIComponent(personName)}&type=${personType}`);
+      const response = await fetch(getApiUrl(`api/person-code?name=${encodeURIComponent(personName)}&type=${personType}`));
       if (response.ok) {
         const data = await response.json();
         console.log(`Received CODE: ${data.code}`);
@@ -394,7 +395,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
   // Fetch office person names (shared function)
   const fetchOfficePersons = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/person-names/office');
+      const response = await fetch(getApiUrl('api/person-names/office'));
       if (response.ok) {
         const data = await response.json();
         setOfficePersonOptions(
@@ -409,7 +410,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
   // Fetch recipient list
   const fetchRecipients = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/recipients');
+      const response = await fetch(getApiUrl('api/recipients'));
       if (response.ok) {
         const data = await response.json();
         setRecipientOptions(
@@ -433,7 +434,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
 
   const fetchCompanyNames = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/company-names');
+      const response = await fetch(getApiUrl('api/company-names'));
       if (response.ok) {
         const data = await response.json();
         setCompanyNameOptions(
@@ -449,7 +450,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
   useEffect(() => {
     const fetchCompanies = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/companies');
+        const response = await fetch(getApiUrl('api/companies'));
         if (response.ok) {
           const data = await response.json();
           setCompanyOptions(
@@ -463,7 +464,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
 
     const fetchRecipientsInitial = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/recipients');
+        const response = await fetch(getApiUrl('api/recipients'));
         if (response.ok) {
           const data = await response.json();
           setRecipientOptions(
@@ -487,7 +488,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
 
     const fetchCompanyNamesInitial = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/company-names');
+        const response = await fetch(getApiUrl('api/company-names'));
         if (response.ok) {
           const data = await response.json();
           setCompanyNameOptions(
@@ -520,7 +521,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
   useEffect(() => {
     const fetchSalesPersons = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/person-names/sales');
+        const response = await fetch(getApiUrl('api/person-names/sales'));
         if (response.ok) {
           const data = await response.json();
           setSalesPersonOptions(
@@ -626,7 +627,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
 
       // Save to database
       console.log(`💾 Saving quotation - Number: ${quotationNumber}, Revision: ${revisionNumber}`);
-      const saveResponse = await fetch('http://localhost:8000/api/save-quotation', {
+      const saveResponse = await fetch(getApiUrl('api/save-quotation'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -807,7 +808,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
           const finalDocPath = filepath;
           
           console.log(`💾 Saving quotation - Number: ${quotationNumber}, Revision: ${revisionNumber}`);
-          const saveResponse = await fetch('http://localhost:8000/api/save-quotation', {
+          const saveResponse = await fetch(getApiUrl('api/save-quotation'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

@@ -25,10 +25,11 @@ app = FastAPI()
 
 # Database setup disabled
 
-# Enable CORS
+# Enable CORS - Allow all origins for Docker deployment
+# In production, you should restrict this to your specific domain
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],
+    allow_origins=["*"],  # Allow all origins for Docker network and company server
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

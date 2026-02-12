@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Search, Filter } from 'lucide-react';
 import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
+import { getApiUrl } from '@/lib/api-config';
 
 interface SearchQuotationFormProps {
   onPreviewUpdate: (html: string) => void;
@@ -78,7 +79,7 @@ export default function SearchQuotationForm({
         }
       }
       
-      const response = await fetch(`http://localhost:8000/api/quotations?${params.toString()}`);
+      const response = await fetch(getApiUrl(`api/quotations?${params.toString()}`));
       
       if (!response.ok) {
         throw new Error('Failed to fetch quotations');
@@ -95,7 +96,7 @@ export default function SearchQuotationForm({
 
   const handleSelectQuotation = async (quotation: any) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/quotations/${quotation.id}`);
+      const response = await fetch(getApiUrl(`api/quotations/${quotation.id}`));
       
       if (!response.ok) {
         throw new Error('Failed to fetch quotation details');
@@ -481,7 +482,7 @@ export default function SearchQuotationForm({
                           e.stopPropagation();
                           try {
                             // Fetch full quotation details before loading
-                            const response = await fetch(`http://localhost:8000/api/quotations/${quotation.id}`);
+                            const response = await fetch(getApiUrl(`api/quotations/${quotation.id}`));
                             if (!response.ok) {
                               throw new Error('Failed to fetch quotation details');
                             }

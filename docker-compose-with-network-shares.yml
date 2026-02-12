@@ -1,0 +1,92 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: grp_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: RdDpp2M47i
+      POSTGRES_DB: grp_quotation_fresh
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/setup_with_company_data.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+
+  backend:
+    build: ./server
+    container_name: grp_backend
+    restart: always
+    depends_on:
+      - postgres
+    env_file:
+    - ./server/.env
+    environment:
+      DATABASE_URL: postgresql://postgres:RdDpp2M47i@postgres:5432/grp_quotation_fresh
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      # Network share credentials (update these with actual credentials)
+      SMB_USERNAME: ${SMB_USERNAME:-your_username}
+      SMB_PASSWORD: ${SMB_PASSWORD:-your_password}
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount network shares - you need cifs-utils installed on host
+      # Update credentials in .env file or directly here
+      - type: volume
+        source: grp_quotations
+        target: /mnt/grp_quotations
+        volume:
+          nocopy: true
+      - type: volume
+        source: grp_pipeco_quotations
+        target: /mnt/grp_pipeco_quotations
+        volume:
+          nocopy: true
+      - type: volume
+        source: colex_quotations
+        target: /mnt/colex_quotations
+        volume:
+          nocopy: true
+    # Add capabilities to mount CIFS shares
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - /dev/fuse
+
+  frontend:
+    build: ./client
+    container_name: grp_frontend
+    restart: always
+    depends_on:
+      - backend
+    environment:
+      NEXT_PUBLIC_API_URL: http://192.168.0.10:8000
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres_data:
+  # Define network share volumes
+  grp_quotations:
+    driver: local
+    driver_opts:
+      type: cifs
+      o: "username=${SMB_USERNAME:-Administrator},password=${SMB_PASSWORD:-your_password},vers=3.0,uid=1000,gid=1000"
+      device: "//192.168.0.10/GRP-Quotations/GRPT-QUOTATIONS-GENERATOR"
+  
+  grp_pipeco_quotations:
+    driver: local
+    driver_opts:
+      type: cifs
+      o: "username=${SMB_USERNAME:-Administrator},password=${SMB_PASSWORD:-your_password},vers=3.0,uid=1000,gid=1000"
+      device: "//192.168.0.10/GRP-PIPECO-Quotations/GRPPT-QUOTATIONS-GENERATOR"
+  
+  colex_quotations:
+    driver: local
+    driver_opts:
+      type: cifs
+      o: "username=${SMB_USERNAME:-Administrator},password=${SMB_PASSWORD:-your_password},vers=3.0,uid=1000,gid=1000"
+      device: "//192.168.0.10/Colex-Quotations/CLX-QUOTATIONS-GENERATOR"

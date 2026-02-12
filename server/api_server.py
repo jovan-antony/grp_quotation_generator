@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import os
+import tempfile
 
 import os
 import sys
@@ -20,6 +21,14 @@ from models import (
 )
 from database import get_session
 from sqlmodel import Session, select
+
+# Import network storage helper for SMB/CIFS shares
+try:
+    from network_storage import NetworkStorage
+    NETWORK_STORAGE_AVAILABLE = True
+except ImportError:
+    NETWORK_STORAGE_AVAILABLE = False
+    print("⚠️ Network storage module not available. Install pysmb: pip install pysmb")
 
 app = FastAPI()
 
@@ -655,11 +664,36 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
             script_dir = os.path.dirname(__file__)
             output_dir = os.path.join(script_dir, "Final_Doc", company_code)
         
-        os.makedirs(output_dir, exist_ok=True)
+        # Check if this is a network path
+        is_network_path = output_dir.startswith('//') or output_dir.startswith('\\\\')
+        
+        if not is_network_path:
+            # Only create local directories
+            os.makedirs(output_dir, exist_ok=True)
+        
         output_path = os.path.join(output_dir, output_filename)
         
         # Delete existing file if it exists
-        if os.path.exists(output_path):
+        if is_network_path:
+            # Check and delete from network share
+            if NETWORK_STORAGE_AVAILABLE:
+                try:
+                    smb_username = os.getenv('SMB_USERNAME')
+                    smb_password = os.getenv('SMB_PASSWORD')
+                    
+                    if smb_username and smb_password:
+                        storage = NetworkStorage(smb_username, smb_password)
+                        network_full_path = f"{output_dir}/{output_filename}".replace('\\', '/')
+                        
+                        if storage.file_exists(network_full_path):
+                            print(f"⚠ File '{output_filename}' already exists on network share - replacing...")
+                            if storage.delete_file(network_full_path):
+                                print(f"✓ Successfully deleted existing file from network share")
+                            else:
+                                print(f"⚠ Could not delete existing file from network share")
+                except Exception as e:
+                    print(f"⚠ Error checking/deleting network file: {e}")
+        elif os.path.exists(output_path):
             try:
                 print(f"⚠ File '{output_filename}' already exists - replacing with new version...")
                 os.remove(output_path)
@@ -681,23 +715,87 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
         print(f"   Output filename: {output_filename}")
         print(f"   Full path: {output_path}")
         
-        saved_path = generator.save(output_path)
+        # Check if this is a network path (starts with // or \\)
+        is_network_path = output_dir.startswith('//') or output_dir.startswith('\\\\')
         
-        print(f"✓ Generator.save() returned: {saved_path}")
-        print(f"   Checking if file exists at: {saved_path}")
-        
-        # Check both the returned path and the requested path
-        if os.path.exists(saved_path):
-            actual_path = saved_path
-        elif os.path.exists(output_path):
-            actual_path = output_path
+        if is_network_path:
+            # Save to network share using SMB
+            print(f"🌐 Detected network path, using SMB/CIFS protocol")
+            
+            if not NETWORK_STORAGE_AVAILABLE:
+                raise HTTPException(
+                    status_code=500, 
+                    detail="Network storage not available. Please install pysmb: pip install pysmb"
+                )
+            
+            # Get SMB credentials from environment
+            smb_username = os.getenv('SMB_USERNAME')
+            smb_password = os.getenv('SMB_PASSWORD')
+            
+            if not smb_username or not smb_password:
+                raise HTTPException(
+                    status_code=500,
+                    detail="SMB credentials not configured. Set SMB_USERNAME and SMB_PASSWORD environment variables."
+                )
+            
+            # Save to temporary local file first
+            temp_dir = tempfile.gettempdir()
+            temp_file_path = os.path.join(temp_dir, output_filename)
+            
+            print(f"   Saving to temporary file: {temp_file_path}")
+            saved_path = generator.save(temp_file_path)
+            
+            if not os.path.exists(saved_path):
+                raise HTTPException(status_code=500, detail="Failed to generate document locally")
+            
+            # Upload to network share
+            try:
+                storage = NetworkStorage(smb_username, smb_password)
+                network_full_path = f"{output_dir}/{output_filename}".replace('\\', '/')
+                
+                print(f"   Uploading to network share: {network_full_path}")
+                success = storage.save_file(saved_path, network_full_path, create_dirs=True)
+                
+                if not success:
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Failed to upload file to network share: {network_full_path}"
+                    )
+                
+                # Clean up temp file
+                os.remove(saved_path)
+                print(f"   Cleaned up temporary file")
+                
+                actual_path = network_full_path
+                print(f"✓ Document successfully saved to network share: {actual_path}")
+                
+            except Exception as e:
+                # Clean up temp file on error
+                if os.path.exists(saved_path):
+                    os.remove(saved_path)
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Error uploading to network share: {str(e)}"
+                )
         else:
-            print(f"❌ File not found at either location!")
-            print(f"   Expected: {output_path}")
-            print(f"   Returned: {saved_path}")
-            raise HTTPException(status_code=500, detail="Failed to generate document - file not found after save")
-        
-        print(f"✓ Document successfully saved at: {actual_path}")
+            # Save to local filesystem
+            saved_path = generator.save(output_path)
+            
+            print(f"✓ Generator.save() returned: {saved_path}")
+            print(f"   Checking if file exists at: {saved_path}")
+            
+            # Check both the returned path and the requested path
+            if os.path.exists(saved_path):
+                actual_path = saved_path
+            elif os.path.exists(output_path):
+                actual_path = output_path
+            else:
+                print(f"❌ File not found at either location!")
+                print(f"   Expected: {output_path}")
+                print(f"   Returned: {saved_path}")
+                raise HTTPException(status_code=500, detail="Failed to generate document - file not found after save")
+            
+            print(f"✓ Document successfully saved at: {actual_path}")
         
         # Return JSON with file details instead of the file itself
         return {

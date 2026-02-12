@@ -241,8 +241,8 @@ class NetworkStorage:
 if __name__ == "__main__":
     # Test the network storage class
     storage = NetworkStorage(
-        username=os.getenv("SMB_USERNAME", "Administrator"),
-        password=os.getenv("SMB_PASSWORD", "")
+        username=os.getenv("SMB_USERNAME", "smbgrp"),
+        password=os.getenv("SMB_PASSWORD", "smbgrp")
     )
     
     # Test file operations

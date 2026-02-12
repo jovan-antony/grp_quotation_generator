@@ -27,9 +27,9 @@ services:
       DATABASE_URL: postgresql://postgres:RdDpp2M47i@postgres:5432/grp_quotation_fresh
       API_HOST: 0.0.0.0
       API_PORT: 8000
-      # Network share credentials (update these with actual credentials)
-      SMB_USERNAME: ${SMB_USERNAME:-your_username}
-      SMB_PASSWORD: ${SMB_PASSWORD:-your_password}
+      # Network share credentials from .env file
+      SMB_USERNAME: ${SMB_USERNAME:-smbgrp}
+      SMB_PASSWORD: ${SMB_PASSWORD:-smbgrp}
     ports:
       - "8000:8000"
     volumes:
@@ -74,19 +74,19 @@ volumes:
     driver: local
     driver_opts:
       type: cifs
-      o: "username=${SMB_USERNAME:-Administrator},password=${SMB_PASSWORD:-your_password},vers=3.0,uid=1000,gid=1000"
+      o: "username=${SMB_USERNAME:-smbgrp},password=${SMB_PASSWORD:-smbgrp},vers=3.0,uid=1000,gid=1000"
       device: "//192.168.0.10/GRP-Quotations/GRPT-QUOTATIONS-GENERATOR"
   
   grp_pipeco_quotations:
     driver: local
     driver_opts:
       type: cifs
-      o: "username=${SMB_USERNAME:-Administrator},password=${SMB_PASSWORD:-your_password},vers=3.0,uid=1000,gid=1000"
+      o: "username=${SMB_USERNAME:-smbgrp},password=${SMB_PASSWORD:-smbgrp},vers=3.0,uid=1000,gid=1000"
       device: "//192.168.0.10/GRP-PIPECO-Quotations/GRPPT-QUOTATIONS-GENERATOR"
   
   colex_quotations:
     driver: local
     driver_opts:
       type: cifs
-      o: "username=${SMB_USERNAME:-Administrator},password=${SMB_PASSWORD:-your_password},vers=3.0,uid=1000,gid=1000"
+      o: "username=${SMB_USERNAME:-smbgrp},password=${SMB_PASSWORD:-smbgrp},vers=3.0,uid=1000,gid=1000"
       device: "//192.168.0.10/Colex-Quotations/CLX-QUOTATIONS-GENERATOR"

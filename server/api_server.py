@@ -27,13 +27,19 @@ app = FastAPI()
 # Database setup disabled
 
 # Enable CORS - Allow all origins for Docker deployment
-# In production, you should restrict this to your specific domain
+# Explicit configuration for company server deployment
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for Docker network and company server
+    allow_origins=[
+        "*",  # Allow all origins
+        "http://localhost:3000",
+        "http://192.168.0.10:3000",
+        "https://192.168.0.10:3000",
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 
@@ -44,6 +50,12 @@ app.add_middleware(
 # async def startup_event():
 #     """Automatically sync Excel files to database when server starts"""
 #     pass
+
+
+@app.get("/")
+async def root():
+    """Root endpoint to verify server is running"""
+    return {"status": "running", "message": "GRP Quotation Generator API"}
 
 
 class TankOption(BaseModel):

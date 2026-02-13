@@ -1,14 +1,24 @@
-FROM node:20
+FROM node:20-bookworm-slim
 
 WORKDIR /app
 
 # Accept build argument for API URL
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV NEXT_TELEMETRY_DISABLED=1 \
+	CI=true \
+	UV_THREADPOOL_SIZE=1 \
+	npm_config_jobs=1 \
+	npm_config_audit=false \
+	npm_config_fund=false \
+	npm_config_update_notifier=false \
+	npm_config_progress=false
 
 COPY package*.json ./
 
-RUN npm install
+RUN npm install -g npm@8.19.4
+
+RUN npm install --foreground-scripts --no-audit --no-fund --prefer-offline
 
 COPY . .
 

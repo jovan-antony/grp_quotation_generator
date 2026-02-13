@@ -202,6 +202,26 @@ Create `client/.env.local`:
 FASTAPI_URL=http://localhost:8000
 ```
 
+### Docker on Red Hat Linux (Recommended)
+
+Copy `.env.example` to `.env` (same folder as `docker-compose.yml`) and adjust values:
+
+```env
+# Public backend URL used by browser requests from frontend pages
+NEXT_PUBLIC_API_URL=http://<YOUR_SERVER_IP>:8000
+
+# Allowed frontend origins for FastAPI CORS
+CORS_ORIGINS=http://<YOUR_SERVER_IP>:3000,http://localhost:3000,http://127.0.0.1:3000
+```
+
+Then start:
+
+```bash
+docker compose down
+docker compose build --no-cache
+docker compose up -d
+```
+
 ---
 
 ## 🛠️ Development

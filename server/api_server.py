@@ -22,20 +22,34 @@ from models import (
 from database import get_session
 from sqlmodel import Session, select
 
+try:
+    from network_storage import NetworkStorage
+    NETWORK_STORAGE_AVAILABLE = True
+except Exception as network_import_error:
+    NetworkStorage = None
+    NETWORK_STORAGE_AVAILABLE = False
+    print(f"⚠ Network storage support disabled: {network_import_error}")
+
 app = FastAPI()
 
 # Database setup disabled
 
 # Enable CORS - Allow all origins for Docker deployment
 # Explicit configuration for company server deployment
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "*",  # Allow all origins
+cors_origins_env = os.getenv("CORS_ORIGINS", "")
+if cors_origins_env.strip():
+    configured_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+else:
+    configured_origins = [
         "http://localhost:3000",
+        "http://127.0.0.1:3000",
         "http://192.168.0.10:3000",
         "https://192.168.0.10:3000",
-    ],
+    ]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=configured_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],

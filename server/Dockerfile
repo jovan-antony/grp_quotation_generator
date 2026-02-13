@@ -24,7 +24,8 @@ RUN python -m pip install --no-compile --progress-bar=off fastapi==0.104.1 ; \
     python -m pip install --no-compile --progress-bar=off sqlmodel==0.0.14 ; \
     python -m pip install --no-compile --progress-bar=off psycopg2-binary==2.9.9 ; \
     python -m pip install --no-compile --progress-bar=off sqlalchemy==2.0.23 ; \
-    python -m pip install --no-compile --progress-bar=off python-dotenv==1.0.0
+    python -m pip install --no-compile --progress-bar=off python-dotenv==1.0.0 ; \
+    python -m pip install --no-compile --progress-bar=off pysmb==1.2.10
 
 COPY . .
 

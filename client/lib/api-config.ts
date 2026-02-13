@@ -3,8 +3,17 @@
  * Centralized API URL management for the application
  */
 
-// Get the API URL from environment variable, fallback to localhost for development
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+function getDefaultApiUrl(): string {
+  if (typeof window !== 'undefined') {
+    const protocol = window.location.protocol;
+    const hostname = window.location.hostname;
+    return `${protocol}//${hostname}:8000`;
+  }
+  return 'http://localhost:8000';
+}
+
+// Use env override when provided, otherwise derive from current host in browser
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || getDefaultApiUrl();
 
 // Log the API URL being used (helps with debugging)
 if (typeof window !== 'undefined') {

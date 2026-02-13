@@ -4,7 +4,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const fastApiUrl = process.env.FASTAPI_URL || 'http://localhost:8000';
+    const fastApiUrl = process.env.FASTAPI_URL || (process.env.NODE_ENV === 'production' ? 'http://backend:8000' : 'http://localhost:8000');
 
     const response = await fetch(`${fastApiUrl}/preview-quotation`, {
       method: 'POST',

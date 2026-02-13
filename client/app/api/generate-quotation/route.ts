@@ -5,7 +5,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     // Forward all data to Python FastAPI backend
-    const fastApiUrl = process.env.FASTAPI_URL || 'http://localhost:8000';
+    const fastApiUrl = process.env.FASTAPI_URL || (process.env.NODE_ENV === 'production' ? 'http://backend:8000' : 'http://localhost:8000');
 
     const response = await fetch(`${fastApiUrl}/generate-quotation`, {
       method: 'POST',

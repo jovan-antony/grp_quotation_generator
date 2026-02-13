@@ -21,21 +21,25 @@ if not DATABASE_URL:
     DB_NAME = os.getenv("DB_NAME", "grp_quotation_fresh")
     DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
-# Create engine with connection pooling and timeout settings
+# Create engine with minimal threading to avoid Docker thread limits
 engine = create_engine(
     DATABASE_URL, 
-    echo=True,
+    echo=False,  # Disable logging to reduce overhead
     pool_pre_ping=True,  # Verify connections before using them
-    pool_size=5,  # Number of connections to maintain
-    max_overflow=10,  # Maximum number of connections that can be created beyond pool_size
+    pool_size=2,  # Reduced pool size to minimize threads
+    max_overflow=3,  # Reduced overflow
+    pool_timeout=30,
+    pool_recycle=3600,
     connect_args={
-        "connect_timeout": 10,  # Connection timeout in seconds
-        "options": "-c statement_timeout=30000"  # Query timeout in milliseconds (30 seconds)
+        "connect_timeout": 10,
     }
 )
 
 
 def get_session() -> Generator[Session, None, None]:
-    """Get database session"""
-    with Session(engine) as session:
+    """Get database session - simplified to avoid threading issues"""
+    session = Session(engine, expire_on_commit=False)
+    try:
         yield session
+    finally:
+        session.close()

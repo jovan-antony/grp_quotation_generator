@@ -1,8 +1,8 @@
-version: "3.9"
+version: "3.3"
 
 services:
   postgres:
-    image: postgres:15
+    image: postgres:16-alpine
     container_name: grp_postgres
     restart: always
     environment:
@@ -12,8 +12,14 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/setup_with_company_data.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./database/update_storage_paths_for_docker.sql:/docker-entrypoint-initdb.d/update_storage_paths_for_docker.sql
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d grp_quotation_fresh"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   backend:
     build: ./server
@@ -27,17 +33,39 @@ services:
       DATABASE_URL: postgresql://postgres:RdDpp2M47i@postgres:5432/grp_quotation_fresh
       API_HOST: 0.0.0.0
       API_PORT: 8000
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      # Prevent NumPy/Pandas threading issues in Docker - CRITICAL
+      OPENBLAS_NUM_THREADS: "1"
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      NUMEXPR_NUM_THREADS: "1"
+      VECLIB_MAXIMUM_THREADS: "1"
+      NUMEXPR_MAX_THREADS: "1"
+      # Python threading limits
+      PYTHONHASHSEED: "0"
     ports:
       - "8000:8000"
+    volumes:
+      # Mount local server directories for quotation storage
+      # Host paths (left side) -> Container paths (right side)
+      - /mnt/SSD1/samba/Share/GRP-Quotations:/mnt/grp_quotations
+      - /mnt/SSD1/samba/Share/GRP-PIPECO-Quotations:/mnt/grp_pipeco_quotations
+      - /mnt/SSD1/samba/Share/colex-quotations:/mnt/colex_quotations
 
   frontend:
-    build: ./client
+    build: 
+      context: ./client
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     container_name: grp_frontend
     restart: always
     depends_on:
       - backend
     environment:
-      NEXT_PUBLIC_API_URL: http://192.168.0.10:8000
+      # Public URL for browsers hitting the backend (set to host IP you expose)
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      # Internal URL that the Next.js API routes use to call FastAPI
+      FASTAPI_URL: http://backend:8000
     ports:
       - "3000:3000"
 

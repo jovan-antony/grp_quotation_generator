@@ -12,8 +12,29 @@ function getDefaultApiUrl(): string {
   return 'http://localhost:8000';
 }
 
-// Use env override when provided, otherwise derive from current host in browser
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || getDefaultApiUrl();
+function resolveApiUrl(): string {
+  const envApiUrl = process.env.NEXT_PUBLIC_API_URL;
+
+  if (typeof window !== 'undefined') {
+    const browserHost = window.location.hostname;
+    const browserProtocol = window.location.protocol;
+
+    if (envApiUrl) {
+      const pointsToLocalhost = envApiUrl.includes('localhost') || envApiUrl.includes('127.0.0.1');
+      const appIsRemote = browserHost !== 'localhost' && browserHost !== '127.0.0.1';
+
+      if (pointsToLocalhost && appIsRemote) {
+        return `${browserProtocol}//${browserHost}:8000`;
+      }
+
+      return envApiUrl;
+    }
+  }
+
+  return envApiUrl || getDefaultApiUrl();
+}
+
+export const API_URL = resolveApiUrl();
 
 // Log the API URL being used (helps with debugging)
 if (typeof window !== 'undefined') {

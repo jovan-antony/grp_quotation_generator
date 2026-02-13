@@ -37,85 +37,13 @@ app.add_middleware(
 )
 
 
-# Auto-sync Excel files to database on startup
-@app.on_event("startup")
-async def startup_event():
-    """Automatically sync Excel files to database when server starts"""
-    import asyncio
-    import time
-    from sqlalchemy import text
-    
-    print("\n" + "="*70)
-    print(" STARTING SERVER - INITIALIZING DATABASE CONNECTION")
-    print("="*70)
-    
-    # Wait for database to be ready with retry logic
-    max_retries = 30
-    retry_delay = 2
-    
-    for attempt in range(max_retries):
-        try:
-            session_gen = get_session()
-            session = next(session_gen)
-            # Try a simple query to verify database is ready
-            session.exec(text("SELECT 1"))
-            print(f"✅ Database connection established (attempt {attempt + 1})")
-            break
-        except Exception as e:
-            if attempt < max_retries - 1:
-                print(f"⏳ Waiting for database... (attempt {attempt + 1}/{max_retries})")
-                await asyncio.sleep(retry_delay)
-            else:
-                print(f"❌ Could not connect to database after {max_retries} attempts")
-                print(f"   Error: {e}")
-                print("   Server will start but database operations may fail.")
-                return
-    
-    # Now try to sync Excel files (non-blocking)
-    print("\n" + "="*70)
-    print(" AUTO-SYNCING EXCEL FILES TO DATABASE")
-    print("="*70)
-    
-    try:
-        from sync_excel_to_db import (
-            sync_company_details,
-            sync_sales_details,
-            sync_project_manager_details,
-            get_data_path
-        )
-        
-        # Run all sync functions with timeout protection
-        results = {}
-        try:
-            results['company_details'] = sync_company_details()
-        except Exception as e:
-            print(f"⚠️  Error syncing company details: {e}")
-            results['company_details'] = False
-        
-        try:
-            results['sales_details'] = sync_sales_details()
-        except Exception as e:
-            print(f"⚠️  Error syncing sales details: {e}")
-            results['sales_details'] = False
-        
-        try:
-            results['project_manager_details'] = sync_project_manager_details()
-        except Exception as e:
-            print(f"⚠️  Error syncing project manager details: {e}")
-            results['project_manager_details'] = False
-        
-        if all(results.values()):
-            print("\n✅ AUTO-SYNC COMPLETED SUCCESSFULLY")
-        else:
-            print("\n⚠️  AUTO-SYNC COMPLETED WITH SOME WARNINGS")
-            print("   Server will continue running with existing database data.")
-        
-        print("="*70 + "\n")
-        
-    except Exception as e:
-        print(f"\n⚠️  AUTO-SYNC ERROR: {e}")
-        print("   Server will continue running, but data may not be up-to-date.")
-        print("="*70 + "\n")
+# STARTUP EVENT DISABLED - Was causing container startup issues
+# Excel sync can be triggered manually via POST /api/sync-excel endpoint
+# 
+# @app.on_event("startup")
+# async def startup_event():
+#     """Automatically sync Excel files to database when server starts"""
+#     pass
 
 
 class TankOption(BaseModel):

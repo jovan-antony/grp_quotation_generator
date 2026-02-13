@@ -6,6 +6,11 @@
 // Get the API URL from environment variable, fallback to localhost for development
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+// Log the API URL being used (helps with debugging)
+if (typeof window !== 'undefined') {
+  console.log('🔗 API URL configured:', API_URL);
+}
+
 /**
  * Get the full API endpoint URL
  * @param endpoint - The API endpoint path (e.g., '/api/companies')

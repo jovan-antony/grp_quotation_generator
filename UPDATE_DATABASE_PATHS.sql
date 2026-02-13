@@ -1,21 +1,18 @@
-# Update the database with network share paths
-# From Docker container, run:
-# docker exec -it grp_postgres psql -U postgres -d grp_quotation_fresh -f /path/to/this/file.sql
+-- Update the database with LOCAL Docker container mount paths
+-- From Docker container, run:
+-- docker exec -it grp_postgres psql -U postgres -d grp_quotation_fresh -f /docker-entrypoint-initdb.d/update_storage_paths_for_docker.sql
 
-# Or from Windows, run:
-# psql -U postgres -d grp_quotation_fresh -f bin\migrations\20260212_update_network_share_paths.sql
-
--- Option 1: Use network share paths directly (requires SMB credentials)
+-- Update storage paths to LOCAL DOCKER MOUNT POINTS (not network shares)
 UPDATE company_details 
-SET company_storage_path = '//192.168.0.10/GRP-Quotations/GRPT-QUOTATIONS-GENERATOR' 
+SET company_storage_path = '/mnt/grp_quotations' 
 WHERE code = 'GRPT';
 
 UPDATE company_details 
-SET company_storage_path = '//192.168.0.10/GRP-PIPECO-Quotations/GRPPT-QUOTATIONS-GENERATOR' 
+SET company_storage_path = '/mnt/grp_pipeco_quotations' 
 WHERE code = 'GRPPT';
 
 UPDATE company_details 
-SET company_storage_path = '//192.168.0.10/Colex-Quotations/CLX-QUOTATIONS-GENERATOR' 
+SET company_storage_path = '/mnt/colex_quotations' 
 WHERE code = 'CLX';
 
 -- Verify the update

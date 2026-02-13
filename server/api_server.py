@@ -22,14 +22,6 @@ from models import (
 from database import get_session
 from sqlmodel import Session, select
 
-# Import network storage helper for SMB/CIFS shares
-try:
-    from network_storage import NetworkStorage
-    NETWORK_STORAGE_AVAILABLE = True
-except ImportError:
-    NETWORK_STORAGE_AVAILABLE = False
-    print("⚠️ Network storage module not available. Install pysmb: pip install pysmb")
-
 app = FastAPI()
 
 # Database setup disabled

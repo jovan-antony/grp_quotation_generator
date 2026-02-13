@@ -15,18 +15,20 @@ echo "Updated thread limit: $(ulimit -u)"
 
 export DOCKER_BUILDKIT=0
 
-echo "\nBuilding frontend image with BuildKit disabled..."
-if command -v docker-compose >/dev/null 2>&1; then
-  docker-compose build --no-cache frontend
-else
-  docker compose build --no-cache frontend
-fi
+echo "\nBuilding frontend image with explicit low-resource limits..."
+docker build \
+  --no-cache \
+  --memory=2g \
+  --memory-swap=4g \
+  --ulimit nproc=8192:16384 \
+  -t grp_frontend:latest \
+  ./client
 
 echo "\nStarting frontend container..."
 if command -v docker-compose >/dev/null 2>&1; then
-  docker-compose up -d frontend
+  docker-compose up -d --no-build frontend
 else
-  docker compose up -d frontend
+  docker compose up -d --no-build frontend
 fi
 
 echo "\nFrontend build/start complete."

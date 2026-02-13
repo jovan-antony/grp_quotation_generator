@@ -1,4 +1,4 @@
-FROM node:20-bookworm-slim
+FROM node:18-alpine
 
 WORKDIR /app
 
@@ -15,8 +15,6 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
 	npm_config_progress=false
 
 COPY package*.json ./
-
-RUN npm install -g npm@8.19.4
 
 RUN npm install --foreground-scripts --no-audit --no-fund --prefer-offline
 

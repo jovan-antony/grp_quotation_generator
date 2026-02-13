@@ -262,7 +262,7 @@ Edit with Microsoft Word to customize headers, footers, and branding.
 | Port already in use | Kill process or change port |
 | Module not found | Run `pip install -r requirements.txt` |
 | Frontend won't load | Run `npm install` in client folder |
-| Frontend Docker build fails with `uv_thread_create` / code 134 | Run `bash build_frontend_safe.sh` on the Linux host |
+| Frontend Docker build fails with `uv_thread_create` / code 134 | Run `bash build_frontend_safe.sh` on the Linux host (uses explicit `--ulimit` and memory limits) |
 | Document generation fails | Check template files exist |
 
 See [HOW_TO_RUN_LOCALLY.md](HOW_TO_RUN_LOCALLY.md) for detailed troubleshooting.

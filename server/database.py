@@ -21,8 +21,18 @@ if not DATABASE_URL:
     DB_NAME = os.getenv("DB_NAME", "grp_quotation_fresh")
     DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
-# Create engine
-engine = create_engine(DATABASE_URL, echo=True)
+# Create engine with connection pooling and timeout settings
+engine = create_engine(
+    DATABASE_URL, 
+    echo=True,
+    pool_pre_ping=True,  # Verify connections before using them
+    pool_size=5,  # Number of connections to maintain
+    max_overflow=10,  # Maximum number of connections that can be created beyond pool_size
+    connect_args={
+        "connect_timeout": 10,  # Connection timeout in seconds
+        "options": "-c statement_timeout=30000"  # Query timeout in milliseconds (30 seconds)
+    }
+)
 
 
 def get_session() -> Generator[Session, None, None]:

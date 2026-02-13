@@ -1,6 +1,6 @@
 """Database configuration and connection management"""
 from sqlmodel import SQLModel, create_engine, Session
-from typing import Generator
+from typing import AsyncGenerator
 import os
 from dotenv import load_dotenv
 
@@ -36,8 +36,8 @@ engine = create_engine(
 )
 
 
-def get_session() -> Generator[Session, None, None]:
-    """Get database session - simplified to avoid threading issues"""
+async def get_session() -> AsyncGenerator[Session, None]:
+    """Get database session without FastAPI threadpool dependency wrapping."""
     session = Session(engine, expire_on_commit=False)
     try:
         yield session

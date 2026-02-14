@@ -32,6 +32,42 @@ except Exception as network_import_error:
 
 app = FastAPI()
 
+
+def resolve_docker_mount_path(network_path: str, company_code: str) -> Optional[str]:
+    """Map UNC/network storage path to local Docker mount path when available."""
+    configured_mounts = {
+        "GRPT": os.getenv("GRPT_STORAGE_MOUNT", "/mnt/grp_quotations"),
+        "GRPPT": os.getenv("GRPPT_STORAGE_MOUNT", "/mnt/grp_pipeco_quotations"),
+        "CLX": os.getenv("CLX_STORAGE_MOUNT", "/mnt/colex_quotations"),
+    }
+
+    share_to_mount = {
+        "grp-quotations": configured_mounts["GRPT"],
+        "grp-pipeco-quotations": configured_mounts["GRPPT"],
+        "colex-quotations": configured_mounts["CLX"],
+    }
+
+    path = str(network_path or "").replace('\\', '/').strip()
+    if not path.startswith('//'):
+        return None
+
+    unc_parts = [part for part in path.lstrip('/').split('/') if part]
+    if len(unc_parts) < 2:
+        return None
+
+    share_name = unc_parts[1].lower()
+    trailing_parts = unc_parts[2:]
+
+    mount_base = share_to_mount.get(share_name)
+    if not mount_base:
+        mount_base = configured_mounts.get(company_code)
+
+    if not mount_base:
+        return None
+
+    mount_path = os.path.join(mount_base, *trailing_parts) if trailing_parts else mount_base
+    return mount_path
+
 # Database setup disabled
 
 # Enable CORS - Allow all origins for Docker deployment
@@ -671,6 +707,11 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
         if normalized_output_dir:
             output_dir = normalized_output_dir
 
+        mount_output_dir = resolve_docker_mount_path(output_dir, company_code)
+        if mount_output_dir and os.path.isdir(os.path.dirname(mount_output_dir) if os.path.dirname(mount_output_dir) else mount_output_dir):
+            print(f"📦 Using Docker-mounted path instead of SMB UNC: {mount_output_dir}")
+            output_dir = mount_output_dir
+
         print(f"📂 Storage path resolved: raw='{raw_output_dir}' -> normalized='{output_dir}'")
         
         # Check if this is a network path
@@ -782,9 +823,33 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
                 # Clean up temp file on error
                 if os.path.exists(saved_path):
                     os.remove(saved_path)
+
+                mount_fallback = resolve_docker_mount_path(output_dir, company_code)
+                if mount_fallback:
+                    try:
+                        fallback_dir = os.path.dirname(mount_fallback) if os.path.splitext(mount_fallback)[1] else mount_fallback
+                        os.makedirs(fallback_dir, exist_ok=True)
+                        fallback_full_path = os.path.join(fallback_dir, output_filename)
+                        local_saved = generator.save(fallback_full_path)
+                        actual_path = local_saved if os.path.exists(local_saved) else fallback_full_path
+                        print(f"✓ SMB failed, saved via Docker mount fallback: {actual_path}")
+                        return {
+                            "success": True,
+                            "filename": output_filename,
+                            "filepath": f"{company_code}/{output_filename}",
+                            "absolute_filepath": actual_path,
+                            "message": "Quotation generated successfully (saved via mount fallback)"
+                        }
+                    except Exception as fallback_error:
+                        print(f"⚠ Mount fallback also failed: {fallback_error}")
+
                 raise HTTPException(
                     status_code=500,
-                    detail=f"Error uploading to network share: {str(e)}"
+                    detail=(
+                        f"Error uploading to network share: {str(e)}. "
+                        f"SMB access denied likely due to share permissions/credentials. "
+                        f"Update company_storage_path to Docker mount paths (/mnt/...) or fix SMB user permissions."
+                    )
                 )
         else:
             # Save to local filesystem

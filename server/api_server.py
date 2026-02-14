@@ -655,6 +655,23 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
             # Fallback to Final_Doc/{company_code}
             script_dir = os.path.dirname(__file__)
             output_dir = os.path.join(script_dir, "Final_Doc", company_code)
+
+        # Normalize storage path from DB (handles malformed network paths like 192.168.0.10\\share\\folder)
+        raw_output_dir = str(output_dir).strip()
+        normalized_output_dir = raw_output_dir.replace('\\', '/')
+        normalized_parts = [part.strip() for part in normalized_output_dir.split('/') if part.strip()]
+        normalized_output_dir = '/'.join(normalized_parts)
+
+        if normalized_output_dir and not normalized_output_dir.startswith('/'):
+            first_segment = normalized_output_dir.split('/')[0]
+            looks_like_network_host = '.' in first_segment or first_segment.lower() == 'localhost'
+            if looks_like_network_host:
+                normalized_output_dir = f"//{normalized_output_dir}"
+
+        if normalized_output_dir:
+            output_dir = normalized_output_dir
+
+        print(f"📂 Storage path resolved: raw='{raw_output_dir}' -> normalized='{output_dir}'")
         
         # Check if this is a network path
         is_network_path = output_dir.startswith('//') or output_dir.startswith('\\\\')

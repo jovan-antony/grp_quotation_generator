@@ -80,7 +80,12 @@ export default function QuotationPage() {
                 <CardHeader className="bg-white text-blue-600 border-b border-blue-200 rounded-t-xl px-6 py-4">
                   <CardTitle className="text-base font-semibold">Live Preview</CardTitle>
                 </CardHeader>
-                <CardContent className="pt-6 px-6">
+                <CardContent className="pt-6 px-6 max-h-[calc(100vh-12rem)] overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                  <style jsx>{`
+                    .scrollbar-hide::-webkit-scrollbar {
+                      display: none;
+                    }
+                  `}</style>
                   <div>
                     {previewHtml ? (
                       <div dangerouslySetInnerHTML={{ __html: previewHtml }} />

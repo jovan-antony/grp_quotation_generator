@@ -1936,7 +1936,7 @@ class TankInvoiceGenerator:
         if self.company_short_name:
             brand_name = self.company_short_name
         elif self.template_path.lower().endswith("colex_template.docx"):
-            brand_name = "Colex Korea"
+            brand_name = "COLEX KOREA"
         else:
             brand_name = "PIPECO TANKS® MALAYSIA"
         

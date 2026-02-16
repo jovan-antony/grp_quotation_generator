@@ -26,6 +26,18 @@ class TankInvoiceGenerator:
         if os.path.exists(template_path):
             self.doc = Document(template_path)
             print(f"✓ Loaded template: {template_path}")
+            
+            # Remove any read-only protection inherited from template
+            try:
+                settings_element = self.doc.settings.element
+                write_protection = settings_element.find(qn('w:writeProtection'))
+                if write_protection is not None:
+                    settings_element.remove(write_protection)
+                doc_protection = settings_element.find(qn('w:documentProtection'))
+                if doc_protection is not None:
+                    settings_element.remove(doc_protection)
+            except:
+                pass  # Silently continue if protection removal fails during init
         else:
             print(f"⚠ Template not found at {template_path}, creating new document")
             self.doc = Document()
@@ -3141,6 +3153,28 @@ class TankInvoiceGenerator:
             placeholder.paragraph_format.space_after = Pt(0)
             placeholder.add_run(f"[Page {page_num}]")  # Visible marker for debugging
     
+    def remove_document_protection(self):
+        """Remove all document protection and read-only settings to make document fully editable"""
+        try:
+            # Access the document settings part
+            settings_element = self.doc.settings.element
+            
+            # Remove write protection (read-only recommendation)
+            write_protection = settings_element.find(qn('w:writeProtection'))
+            if write_protection is not None:
+                settings_element.remove(write_protection)
+                print("✓ Removed write protection from document")
+            
+            # Remove document protection
+            doc_protection = settings_element.find(qn('w:documentProtection'))
+            if doc_protection is not None:
+                settings_element.remove(doc_protection)
+                print("✓ Removed document protection")
+                
+        except Exception as e:
+            print(f"⚠ Warning: Could not remove document protection: {e}")
+            # Continue anyway - document will still be saved
+    
     def save(self, filename=None):
         """Save the document - will replace existing file with same name"""
         if filename is None:
@@ -3167,6 +3201,9 @@ class TankInvoiceGenerator:
         # Check if file exists and notify user about replacement
         if os.path.exists(full_path):
             print(f"\n⚠ File '{os.path.basename(full_path)}' already exists - replacing with new version...")
+        
+        # Remove any document-level protection and read-only settings before saving
+        self.remove_document_protection()
         
         # Save document (will overwrite existing file)
         self.doc.save(full_path)

@@ -284,8 +284,9 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
         company_name_with_prefix = f"M/s. {request.companyName}"
         generator.recipient_company = company_name_with_prefix
         generator.recipient_location = request.location or ""
-        generator.recipient_phone = request.phoneNumber
-        generator.recipient_email = request.email
+        # Add PHONE: and EMAIL: prefixes with uppercase
+        generator.recipient_phone = f"PHONE: {request.phoneNumber}" if request.phoneNumber and request.phoneNumber.strip() else ""
+        generator.recipient_email = f"EMAIL: {request.email}" if request.email and request.email.strip() else ""
         generator.quote_date = request.quotationDate
         generator.quote_number = constructed_quote_number
         generator.subject = request.subject
@@ -338,12 +339,7 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
                         detail=f"Tank {tank_data.tankNumber}, Option {option_idx + 1}: {str(e)}"
                     )
                 
-                # Validate tank name
-                if not option.tankName or not option.tankName.strip():
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Tank {tank_data.tankNumber}, Option {option_idx + 1}: Tank name is required."
-                    )
+                # Tank name is optional - no validation needed
                 
                 # Calculate volume
                 volume_m3 = length * width * height

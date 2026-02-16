@@ -59,6 +59,11 @@ class TankInvoiceGenerator:
         self.additional_details = []  # List of tuples: [(key, value), ...]
         self.note_section_gap = 6  # Default gap before NOTE section in points (adjustable)
         self.closing_paragraph_gap = 6  # Default gap before closing paragraph in points (adjustable)
+        # Initialize total display flags (can be overridden by API)
+        self.show_sub_total = True
+        self.show_vat = True
+        self.show_grand_total = True
+        self.has_discount = False
         
     def get_user_inputs(self):
         """Collect all user inputs for tanks"""
@@ -1766,7 +1771,7 @@ class TankInvoiceGenerator:
                 y = '20' + y
             date_str = f"{d}/{m}/{y}"
         # Add Date with value on same line
-        run = para.add_run('Date          : {}'.format(date_str))
+        run = para.add_run('DATE          : {}'.format(date_str))
         run.font.name = 'Calibri'
         run.font.size = Pt(10)
         run.font.bold = True
@@ -1780,7 +1785,7 @@ class TankInvoiceGenerator:
         tab_stops.add_tab_stop(Inches(1.2))  # Position for colon
         
         # Add Page with value on same line
-        run = para.add_run('Page          : ')
+        run = para.add_run('PAGE          : ')
         run.font.name = 'Calibri'
         run.font.size = Pt(10)
         run.font.bold = True
@@ -1796,7 +1801,7 @@ class TankInvoiceGenerator:
         tab_stops = para.paragraph_format.tab_stops
         tab_stops.add_tab_stop(Inches(1.2))  # Position for colon
         # Add Quote No with value on same line
-        run = para.add_run('Quote No : {}'.format(self.quote_number))
+        run = para.add_run('QUOTE NO.     : {}'.format(self.quote_number))
         run.font.name = 'Calibri'
         run.font.size = Pt(10)
         run.font.bold = True
@@ -1812,7 +1817,7 @@ class TankInvoiceGenerator:
         subject_para.paragraph_format.space_before = Pt(0)  # No space above subject
         subject_para.paragraph_format.space_after = Pt(0)
         # Add Subject with value on same line
-        run = subject_para.add_run('Subject           : ')
+        run = subject_para.add_run('SUBJECT           : ')
         run.font.name = 'Calibri'
         run.font.size = Pt(10)
         run.font.bold = True
@@ -1827,7 +1832,7 @@ class TankInvoiceGenerator:
         project_para.paragraph_format.space_before = Pt(0)
         project_para.paragraph_format.space_after = Pt(0)  # Remove gap
         # Add Project with value on same line
-        run = project_para.add_run('Project            : ')
+        run = project_para.add_run('PROJECT            : ')
         run.font.name = 'Calibri'
         run.font.size = Pt(10)
         run.font.bold = True
@@ -2051,7 +2056,7 @@ class TankInvoiceGenerator:
             skid_is_common = "skid" in common_types
             
             # Add partition status to tank name
-            partition_status = " (With Partition)" if tank['partition'] else " (Without Partition)"
+            partition_status = " (WITH PARTITION)" if tank['PARTITION'] else " (WITH PARTITION)"
             
             if tank['skid'] and not skid_is_common:
                 # Add tank name with partition status and underline
@@ -2831,7 +2836,7 @@ class TankInvoiceGenerator:
             para = cell.add_paragraph()
             para.paragraph_format.space_before = Pt(0)
             para.paragraph_format.space_after = Pt(0)
-            run = para.add_run(f'Mob: {mobile}')
+            run = para.add_run(f'MOB: {mobile}')
             run.font.name = 'Calibri'
             run.font.size = Pt(10)
             run.font.bold = True
@@ -2842,7 +2847,7 @@ class TankInvoiceGenerator:
             para = cell.add_paragraph()
             para.paragraph_format.space_before = Pt(0)
             para.paragraph_format.space_after = Pt(0)
-            run = para.add_run('Email: ')
+            run = para.add_run('EMAIL: ')
             run.font.name = 'Calibri'
             run.font.size = Pt(10)
             run.font.bold = True

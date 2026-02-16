@@ -161,7 +161,7 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
               />
             </div>
             <div>
-              <Label htmlFor={`tankName-${tankNumber}-${idx}`} className="font-medium text-black">Tank Name</Label>
+              <Label htmlFor={`tankName-${tankNumber}-${idx}`} className="font-medium text-black">Tank Name (Optional)</Label>
               <Input
                 id={`tankName-${tankNumber}-${idx}`}
                 value={option.tankName}
@@ -170,7 +170,7 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
                   newOptions[idx] = { ...option, tankName: e.target.value };
                   onChange({ ...data, options: newOptions });
                 }}
-                placeholder="Enter tank name"
+                placeholder="Enter tank name (optional)"
                 className="border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white text-black"
                 autoComplete="off"
                 onKeyDown={e => {

@@ -70,7 +70,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
   const [role, setRole] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [location, setLocation] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('+971');
+  const [phoneNumber, setPhoneNumber] = useState('+971 ');
   const [email, setEmail] = useState('');
   const [quotationDate, setQuotationDate] = useState(
     new Date().toISOString().split('T')[0]
@@ -242,7 +242,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
               ${role ? `<p style="margin: 6px 0; font-size: 13px;"><strong style="color: #111827;">Role:</strong> ${role}</p>` : ''}
               <p style="margin: 6px 0; font-size: 13px;"><strong style="color: #111827;">Company:</strong> ${companyName || '-'}</p>
               ${location ? `<p style="margin: 6px 0; font-size: 13px;"><strong style="color: #111827;">Location:</strong> ${location}</p>` : ''}
-              ${phoneNumber && phoneNumber !== '+971' ? `<p style="margin: 6px 0; font-size: 13px; color: #6b7280;">${phoneNumber}</p>` : ''}
+              ${phoneNumber && phoneNumber !== '+971 ' ? `<p style="margin: 6px 0; font-size: 13px; color: #6b7280;">${phoneNumber}</p>` : ''}
               ${email ? `<p style="margin: 6px 0; font-size: 13px; color: #6b7280;">${email}</p>` : ''}
             </div>
             <div style="text-align: right; color: #374151;">
@@ -332,7 +332,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
         setRole(data.role || '');
         setCompanyName(data.companyName || '');
         setLocation(data.location || '');
-        setPhoneNumber(data.phoneNumber || '+971');
+        setPhoneNumber(data.phoneNumber || '+971 ');
         setEmail(data.email || '');
         console.log('✅ All fields auto-filled successfully!');
       } else {
@@ -588,7 +588,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
     setRole(quotationData.role || '');
     setCompanyName(quotationData.recipient_company || quotationData.companyName || '');
     setLocation(quotationData.location || '');
-    setPhoneNumber(quotationData.phone_number || quotationData.phoneNumber || '+971');
+    setPhoneNumber(quotationData.phone_number || quotationData.phoneNumber || '+971 ');
     setEmail(quotationData.email || '');
     
     // Format date - API returns DD/MM/YY format, convert to YYYY-MM-DD
@@ -718,7 +718,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
       setRole(data.role || '');
       setCompanyName(data.companyName || '');
       setLocation(data.location || '');
-      setPhoneNumber(data.phoneNumber || '+971');
+      setPhoneNumber(data.phoneNumber || '+971 ');
       setEmail(data.email || '');
       
       // Convert date from DD/MM/YY to YYYY-MM-DD

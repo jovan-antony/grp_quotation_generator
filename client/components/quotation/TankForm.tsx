@@ -239,7 +239,6 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
               options={[
                 { value: 'HOT PRESSED – NON INSULATED', label: 'HOT PRESSED – NON INSULATED' },
                 { value: 'HOT PRESSED – 5 SIDE INSULATED (BOTTOM & MANHOLE NON – INSULATED)', label: 'HOT PRESSED – 5 SIDE INSULATED (BOTTOM & MANHOLE NON – INSULATED)' },
-                { value: 'HOT PRESSED – 5 SIDE INSULATED (BOTTOM NON – INSULATED & MANHOLE INSULATED)', label: 'HOT PRESSED – 5 SIDE INSULATED (BOTTOM NON – INSULATED & MANHOLE INSULATED)' },
                 { value: 'HOT PRESSED – 6 SIDE INSULATED (MANHOLE NON – INSULATED)', label: 'HOT PRESSED – 6 SIDE INSULATED (MANHOLE NON – INSULATED)' },
                 { value: 'HOT PRESSED – 6 SIDE INSULATED (BOTTOM & MANHOLE INSULATED)', label: 'HOT PRESSED – 6 SIDE INSULATED (BOTTOM & MANHOLE INSULATED)' },
               ]}

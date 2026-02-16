@@ -128,18 +128,16 @@ class TankInvoiceGenerator:
             print(f"\nType of tank {n}:")
             print("1. HOT PRESSED – NON - INSULATED")
             print("2. HOT PRESSED – INSULATED (BOTTOM & MANHOLE NON – INSULATED) – 5 side")
-            print("3. HOT PRESSED – INSULATED (BOTTOM NON – INSULATED & MANHOLE) – 5 side")
-            print("4. HOT PRESSED – 6 SIDE INSULATED (BOTTOM & MANHOLE NON – INSULATED)")
-            print("5. HOT PRESSED – 6 SIDE INSULATED (BOTTOM NON – INSULATED & MANHOLE)")
-            print("6. Other (enter custom type)")
+            print("3. HOT PRESSED – 6 SIDE INSULATED (BOTTOM & MANHOLE NON – INSULATED)")
+            print("4. HOT PRESSED – 6 SIDE INSULATED (BOTTOM NON – INSULATED & MANHOLE)")
+            print("5. Other (enter custom type)")
             
-            type_choice = input("Enter choice (1-6): ").strip()
+            type_choice = input("Enter choice (1-4): ").strip()
             types = {
                 "1": "HOT PRESSED – NON - INSULATED",
                 "2": "HOT PRESSED – INSULATED (BOTTOM & MANHOLE NON – INSULATED) – 5 side",
-                "3": "HOT PRESSED – INSULATED (BOTTOM NON – INSULATED & MANHOLE) – 5 side",
-                "4": "HOT PRESSED – 6 SIDE INSULATED (BOTTOM & MANHOLE NON – INSULATED)",
-                "5": "HOT PRESSED – 6 SIDE INSULATED (BOTTOM NON – INSULATED & MANHOLE)"
+                "3": "HOT PRESSED – 6 SIDE INSULATED (BOTTOM & MANHOLE NON – INSULATED)",
+                "4": "HOT PRESSED – 6 SIDE INSULATED (BOTTOM NON – INSULATED & MANHOLE)"
             }
             
             if type_choice in types:

@@ -5,6 +5,7 @@ from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 import datetime
 import os
+import stat
 import pandas as pd
 
 class TankInvoiceGenerator:
@@ -3169,6 +3170,17 @@ class TankInvoiceGenerator:
         
         # Save document (will overwrite existing file)
         self.doc.save(full_path)
+        
+        # Remove read-only attribute to ensure file is editable on server
+        try:
+            # Set file permissions to be readable and writable (remove read-only)
+            current_permissions = os.stat(full_path).st_mode
+            os.chmod(full_path, current_permissions | stat.S_IWRITE | stat.S_IREAD)
+            print(f"✓ File permissions set to editable mode")
+        except Exception as perm_error:
+            print(f"⚠ Warning: Could not set file permissions: {perm_error}")
+            # Continue anyway - file is saved, just might have permission issues
+        
         print(f"✓ Document saved as: {full_path}")
         print(f"✓ Template content preserved with table added")
         return full_path

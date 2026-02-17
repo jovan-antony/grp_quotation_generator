@@ -147,7 +147,6 @@ class QuotationWebpageInputDetailsSave(SQLModel, table=True):
     status: str = Field(default="draft")
     revision_number: int = Field(default=0)
     revision: Optional[str] = None
-    generated_by: Optional[str] = None
     created_time: datetime = Field(default_factory=datetime.utcnow)
     last_updated_time: datetime = Field(default_factory=datetime.utcnow)
 

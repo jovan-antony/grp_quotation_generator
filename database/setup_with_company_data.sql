@@ -138,7 +138,6 @@ CREATE TABLE quotation_webpage_input_details_save (
     status VARCHAR(50) DEFAULT 'draft' CHECK (status IN ('draft', 'sent', 'approved', 'rejected', 'revised')),
     revision_number INTEGER DEFAULT 0,
     revision TEXT,
-    generated_by VARCHAR(255),
     created_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_updated_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT unique_quote_per_company UNIQUE (company_id, quotation_number, revision_number)

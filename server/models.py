@@ -135,6 +135,7 @@ class QuotationWebpageInputDetailsSave(SQLModel, table=True):
     quotation_date: date
     subject: Optional[str] = None
     project_location: Optional[str] = None
+    generated_by: Optional[str] = None
     tanks_data: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     form_options: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
     additional_data: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))

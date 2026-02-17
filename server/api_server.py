@@ -324,36 +324,37 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
         for tank_data in request.tanks:
             num_options = len(tank_data.options)
             for option_idx, option in enumerate(tank_data.options):
-                # Parse dimensions with validation
+                # Parse dimensions - Allow null/empty values
                 def parse_dimension(dim_str, field_name="dimension"):
+                    """Parse dimension string, return None if empty/null"""
+                    if not dim_str or str(dim_str).strip() == '' or str(dim_str).strip() == 'None':
+                        return None
                     dim_str = str(dim_str).strip().replace(" ", "")
-                    if not dim_str or dim_str == 'None' or dim_str == '':
-                        raise ValueError(f"Missing {field_name}. Please fill in all tank dimensions (length, width, height).")
                     if "(" in dim_str:
                         return float(dim_str.split("(")[0])
-                    return float(dim_str)
+                    try:
+                        return float(dim_str)
+                    except ValueError:
+                        return None
                 
-                # Validate and parse dimensions
-                try:
-                    length = parse_dimension(option.length, "length")
-                    width = parse_dimension(option.width, "width")
-                    height = parse_dimension(option.height, "height")
-                except ValueError as e:
-                    raise HTTPException(
-                        status_code=400, 
-                        detail=f"Tank {tank_data.tankNumber}, Option {option_idx + 1}: {str(e)}"
-                    )
+                # Parse dimensions (can be None)
+                length = parse_dimension(option.length, "length")
+                width = parse_dimension(option.width, "width")
+                height = parse_dimension(option.height, "height")
                 
                 # Tank name is optional - no validation needed
                 
-                # Calculate volume
-                volume_m3 = length * width * height
-                
-                # Calculate gallons
-                if request.gallonType == "USG":
-                    gallons = volume_m3 * 264.172
-                else:
-                    gallons = volume_m3 * 219.969
+                # Calculate volume (only if all dimensions are provided)
+                volume_m3 = 0.0
+                gallons = 0.0
+                if length and width and height:
+                    volume_m3 = length * width * height
+                    
+                    # Calculate gallons
+                    if request.gallonType == "USG":
+                        gallons = volume_m3 * 264.172
+                    else:
+                        gallons = volume_m3 * 219.969
                 
                 # Handle free board - user inputs in cm, convert to meters
                 free_board_m = 0.3  # Default 30cm
@@ -365,46 +366,51 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
                     except ValueError:
                         free_board_m = 0.3  # Default if conversion fails
                 
-                # Calculate net volume based on free board
-                net_volume_m3 = length * width * (height - free_board_m)
+                # Calculate net volume based on free board (only if dimensions exist)
+                net_volume_m3 = 0.0
+                if length and width and height:
+                    net_volume_m3 = length * width * (height - free_board_m)
                 
-                # Determine skid based on height
-                if 2.0 <= height <= 3.0:
-                    skid = "SKID BASE - HDG HOLLOW SECTION 50 X 50 X 3 MM (SQUARE TUBE)"
-                elif 1.0 <= height < 1.5:
-                    skid = "WITHOUT SKID"
-                elif height > 3.0:
-                    skid = "SKID BASE - I BEAM SKID"
-                else:
-                    skid = ""
+                # Determine skid based on height (only if height exists)
+                skid = ""
+                if height:
+                    if 2.0 <= height <= 3.0:
+                        skid = "SKID BASE - HDG HOLLOW SECTION 50 X 50 X 3 MM (SQUARE TUBE)"
+                    elif 1.0 <= height < 1.5:
+                        skid = "WITHOUT SKID"
+                    elif height > 3.0:
+                        skid = "SKID BASE - I BEAM SKID"
                 
                 # Calculate total price - use discounted price if discount is enabled
                 has_discount = option.hasDiscount if hasattr(option, 'hasDiscount') and option.hasDiscount else False
+                unit_price = float(option.unitPrice) if option.unitPrice else 0.0
+                quantity = float(option.quantity) if option.quantity else 0.0
+                
                 if has_discount and option.discountedTotalPrice:
                     total_price = float(option.discountedTotalPrice)
                 else:
-                    total_price = float(option.quantity) * (float(option.unitPrice) if option.unitPrice else 0.0)
+                    total_price = quantity * unit_price
                 
                 tank = {
                     "sl_no": sl_no,
-                    "name": option.tankName,
+                    "name": option.tankName or "",
                     "partition": option.hasPartition,
-                    "type": option.tankType,
-                    "length": length,
-                    "length_display": option.length,
-                    "width": width,
-                    "width_display": option.width,
-                    "height": height,
+                    "type": option.tankType or "",
+                    "length": length if length else 0.0,
+                    "length_display": option.length or "",
+                    "width": width if width else 0.0,
+                    "width_display": option.width or "",
+                    "height": height if height else 0.0,
                     "volume_m3": volume_m3,
                     "gallons": gallons,
                     "free_board": free_board_m,
                     "need_free_board": need_free_board,
                     "net_volume_m3": net_volume_m3,
-                    "net_height": height - free_board_m,
+                    "net_height": (height - free_board_m) if height else 0.0,
                     "skid": skid,
-                    "unit": option.unit,
-                    "qty": float(option.quantity),
-                    "unit_price": float(option.unitPrice) if option.unitPrice else 0.0,
+                    "unit": option.unit or "",
+                    "qty": quantity,
+                    "unit_price": unit_price,
                     "total_price": total_price,
                     "option_number": option_idx + 1,
                     "option_total": num_options,

@@ -2084,16 +2084,19 @@ class TankInvoiceGenerator:
                 run.font.size = Pt(10)
         
         # Tank name with underline and optionally skid in brackets
-        if tank['name']:
+        tank_name = tank.get('name', '') or ''
+        tank_skid = tank.get('skid', '') or ''
+        
+        if tank_name:
             # Check if skid is common
             skid_is_common = "skid" in common_types
             
             # Add partition status to tank name
             partition_status = " (WITH PARTITION)" if tank.get('partition', False) else ""
             
-            if tank['skid'] and not skid_is_common:
+            if tank_skid and not skid_is_common:
                 # Add tank name with partition status and underline
-                run = paragraph.add_run(tank['name'] + partition_status)
+                run = paragraph.add_run(tank_name + partition_status)
                 run.underline = True
                 run.font.bold = True
                 run.font.name = 'Calibri'
@@ -2107,7 +2110,7 @@ class TankInvoiceGenerator:
                 run.font.size = Pt(10)
                 
                 # Add skid details with underline
-                run = paragraph.add_run(tank['skid'])
+                run = paragraph.add_run(tank_skid)
                 run.underline = True
                 run.font.bold = True
                 run.font.name = 'Calibri'
@@ -2120,20 +2123,21 @@ class TankInvoiceGenerator:
                 run.font.name = 'Calibri'
                 run.font.size = Pt(10)
             else:
-                run = paragraph.add_run(tank['name'] + partition_status)
+                run = paragraph.add_run(tank_name + partition_status)
                 run.underline = True
                 run.font.bold = True
                 run.font.name = 'Calibri'
                 run.font.size = Pt(10)
-        elif tank['skid'] and "skid" not in common_types:
+        elif tank_skid and "skid" not in common_types:
             # No name, just print skid without brackets
-            run = paragraph.add_run(tank['skid'])
+            run = paragraph.add_run(tank_skid)
             run.font.bold = True
             run.font.name = 'Calibri'
             run.font.size = Pt(10)
         
         # Type (only if not common) - with hanging indent for wrapped lines
-        if "type" not in common_types:
+        tank_type = tank.get('type', '') or ''
+        if "type" not in common_types and tank_type:
             # Create separate paragraph for Type with hanging indent
             type_para = cell.add_paragraph()
             
@@ -2152,7 +2156,7 @@ class TankInvoiceGenerator:
             type_para.paragraph_format.left_indent = Inches(1.25)
             type_para.paragraph_format.first_line_indent = Inches(-1.25)
             
-            run = type_para.add_run(f"Type\t:\t{tank['type']}")
+            run = type_para.add_run(f"Type\t:\t{tank_type}")
             run.font.bold = True
             run.font.name = 'Calibri'
             run.font.size = Pt(10)
@@ -2172,52 +2176,63 @@ class TankInvoiceGenerator:
         size_tab_stops.add_tab_stop(Inches(1.25))  # Position for values after colon
         
         # Size (aligned format with tabs for colon alignment)
-        width_display = tank.get('width_display', str(tank['width']))
-        size_text = f"Size\t:\t{tank['length_display']} M (L) X {width_display} M (W) X {tank['height']} M (H)\n"
-        run = size_para.add_run(size_text)
-        run.font.bold = True
-        run.font.name = 'Calibri'
-        run.font.size = Pt(10)
+        # Handle potentially empty dimension values
+        length_display = tank.get('length_display', '') or str(tank.get('length', '') or '')
+        width_display = tank.get('width_display', '') or str(tank.get('width', '') or '')
+        height_display = str(tank.get('height', '') or '')
+        
+        # Only show Size if at least one dimension exists
+        if length_display or width_display or height_display:
+            size_text = f"Size\t:\t{length_display} M (L) X {width_display} M (W) X {height_display} M (H)\n"
+            run = size_para.add_run(size_text)
+            run.font.bold = True
+            run.font.name = 'Calibri'
+            run.font.size = Pt(10)
         
         # Total Capacity (aligned format with tabs for colon alignment)
-        capacity_text = f"Total Capacity\t:\t{tank['volume_m3']:.2f} M³ ({tank['gallons']:.0f} {self.gallon_type})"
+        # Only show if volume exists (dimensions were provided)
+        volume_m3 = tank.get('volume_m3', 0.0) or 0.0
+        gallons = tank.get('gallons', 0.0) or 0.0
         
-        # Only show Free Board and Net Volume if needFreeBoard is enabled
-        need_free_board = tank.get('need_free_board', False)
-        if need_free_board:
-            capacity_text += "\n"
-        
-        run = size_para.add_run(capacity_text)
-        run.font.bold = True
-        run.font.name = 'Calibri'
-        run.font.size = Pt(10)
-        
-        # Show Free Board and Net Volume only if needFreeBoard is enabled
-        if need_free_board:
-            free_board_m = tank.get('free_board', 0.3)
-            free_board_cm = free_board_m * 100  # Convert meters to cm
+        if volume_m3 > 0:
+            capacity_text = f"Total Capacity\t:\t{volume_m3:.2f} M³ ({gallons:.0f} {self.gallon_type})"
             
-            # Free Board (aligned format with tabs for colon alignment)
-            run = size_para.add_run(f"Free Board\t:\t{free_board_cm:.0f} cm ({free_board_m:.2f} M)\n")
+            # Only show Free Board and Net Volume if needFreeBoard is enabled
+            need_free_board = tank.get('need_free_board', False)
+            if need_free_board:
+                capacity_text += "\n"
+            
+            run = size_para.add_run(capacity_text)
             run.font.bold = True
             run.font.name = 'Calibri'
             run.font.size = Pt(10)
             
-            # Net Volume (use pre-calculated value from tank data)
-            net_volume_m3 = tank.get('net_volume_m3', tank['volume_m3'])
-            # Calculate net volume gallons based on gallon type
-            if self.gallon_type == "USG":
-                net_volume_gallons = net_volume_m3 * 264.172
-            else:
-                net_volume_gallons = net_volume_m3 * 219.969
-            run = size_para.add_run(f"Net Volume\t:\t{net_volume_m3:.2f} M³ ({net_volume_gallons:.0f} {self.gallon_type})")
-            run.font.bold = True
-            run.font.name = 'Calibri'
-            run.font.size = Pt(10)
+            # Show Free Board and Net Volume only if needFreeBoard is enabled
+            if need_free_board:
+                free_board_m = tank.get('free_board', 0.3)
+                free_board_cm = free_board_m * 100  # Convert meters to cm
+                
+                # Free Board (aligned format with tabs for colon alignment)
+                run = size_para.add_run(f"Free Board\t:\t{free_board_cm:.0f} cm ({free_board_m:.2f} M)\n")
+                run.font.bold = True
+                run.font.name = 'Calibri'
+                run.font.size = Pt(10)
+                
+                # Net Volume (use pre-calculated value from tank data)
+                net_volume_m3 = tank.get('net_volume_m3', volume_m3)
+                # Calculate net volume gallons based on gallon type
+                if self.gallon_type == "USG":
+                    net_volume_gallons = net_volume_m3 * 264.172
+                else:
+                    net_volume_gallons = net_volume_m3 * 219.969
+                run = size_para.add_run(f"Net Volume\t:\t{net_volume_m3:.2f} M³ ({net_volume_gallons:.0f} {self.gallon_type})")
+                run.font.bold = True
+                run.font.name = 'Calibri'
+                run.font.size = Pt(10)
         
         # Unit (center alignment both horizontal and vertical)
         cell = row.cells[2]
-        cell.text = tank["unit"]
+        cell.text = tank.get("unit", "") or ""
         for paragraph in cell.paragraphs:
             paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
         # Set vertical alignment to center
@@ -2229,7 +2244,11 @@ class TankInvoiceGenerator:
         
         # QTY (center alignment both horizontal and vertical)
         cell = row.cells[3]
-        cell.text = str(int(tank["qty"]) if tank["qty"].is_integer() else tank["qty"])
+        qty = tank.get("qty", 0) or 0
+        if qty:
+            cell.text = str(int(qty) if isinstance(qty, float) and qty.is_integer() else qty)
+        else:
+            cell.text = ""
         for paragraph in cell.paragraphs:
             paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
         # Set vertical alignment to center
@@ -2241,7 +2260,11 @@ class TankInvoiceGenerator:
         
         # Unit Price (right alignment horizontal, center vertical)
         cell = row.cells[4]
-        cell.text = f"{tank['unit_price']:.2f}"
+        unit_price = tank.get('unit_price', 0.0) or 0.0
+        if unit_price:
+            cell.text = f"{unit_price:.2f}"
+        else:
+            cell.text = ""
         for paragraph in cell.paragraphs:
             paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
         # Set vertical alignment to center
@@ -2256,7 +2279,11 @@ class TankInvoiceGenerator:
         cell.text = ""
         paragraph = cell.paragraphs[0]
         paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-        run = paragraph.add_run(f"{tank['total_price']:.2f}")
+        total_price = tank.get('total_price', 0.0) or 0.0
+        if total_price:
+            run = paragraph.add_run(f"{total_price:.2f}")
+        else:
+            run = paragraph.add_run("")
         run.font.bold = True
         run.font.name = 'Calibri'
         run.font.size = Pt(10)

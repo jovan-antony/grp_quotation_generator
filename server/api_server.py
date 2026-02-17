@@ -171,6 +171,7 @@ class QuotationRequest(BaseModel):
     showGrandTotal: bool
     tanks: List[TankData]
     terms: Dict[str, TermSection]
+    generatedBy: Optional[str] = ""
 
 
 @app.post("/generate-quotation")
@@ -1077,6 +1078,7 @@ class SaveQuotationRequest(BaseModel):
     additionalData: Optional[Dict[str, Any]] = None
     terms: Optional[Dict[str, Any]] = None
     revisionNumber: int = 0
+    generatedBy: Optional[str] = ""
     status: str = "draft"
 
 
@@ -1201,6 +1203,7 @@ async def save_quotation(request: SaveQuotationRequest, session: Session = Depen
             existing_quotation.additional_data = request.additionalData or {}
             existing_quotation.revision_number = request.revisionNumber
             existing_quotation.status = request.status
+            existing_quotation.generated_by = request.generatedBy if request.generatedBy else None
             existing_quotation.last_updated_time = datetime.utcnow()
             
             print(f"✓ Updated existing quotation: {request.fullQuoteNumber} (revision: {request.revisionNumber})")
@@ -1222,7 +1225,8 @@ async def save_quotation(request: SaveQuotationRequest, session: Session = Depen
                 form_options=request.formOptions or {},
                 additional_data=request.additionalData or {},
                 revision_number=request.revisionNumber,
-                status=request.status
+                status=request.status,
+                generated_by=request.generatedBy if request.generatedBy else None
             )
             session.add(quotation)
             print(f"✓ Created new quotation: {request.fullQuoteNumber} (quotation_number: {quotation.quotation_number}, revision_number: {quotation.revision_number})")
@@ -1409,6 +1413,7 @@ async def search_quotations(
     quote_yearmonth: Optional[str] = None,
     quote_series: Optional[str] = None,
     quote_number: Optional[str] = None,
+    generated_by: Optional[str] = None,
     session: Session = Depends(get_session)
 ):
     """
@@ -1422,6 +1427,7 @@ async def search_quotations(
     - quote_yearmonth: Filter by year/month in quote number (e.g., 2512)
     - quote_series: Filter by series in quote number (e.g., MM, JB)
     - quote_number: Filter by quotation number (e.g., 0324)
+    - generated_by: Filter by person who generated the quotation (partial match)
     """
     try:
         print(f"\n{'='*60}")
@@ -1430,6 +1436,7 @@ async def search_quotations(
         print(f"Filters: recipient_name={recipient_name}, company_name={company_name}")
         print(f"  date_from={date_from}, date_to={date_to}")
         print(f"  quote_company={quote_company}, quote_yearmonth={quote_yearmonth}, quote_series={quote_series}, quote_number={quote_number}")
+        print(f"  generated_by={generated_by}")
         
         # Build query
         statement = select(QuotationWebpageInputDetailsSave)
@@ -1455,6 +1462,11 @@ async def search_quotations(
                     continue
             elif company_name:
                 continue
+            
+            # Filter by generated_by (partial match)
+            if generated_by:
+                if not quotation.generated_by or generated_by.lower() not in quotation.generated_by.lower():
+                    continue
             
             # Date range filtering
             if date_from or date_to:
@@ -1523,7 +1535,8 @@ async def search_quotations(
                 "quotation_date": quotation.quotation_date.isoformat(),
                 "subject": quotation.subject,
                 "from_company": company.full_name if company else "",
-                "status": quotation.status
+                "status": quotation.status,
+                "generated_by": quotation.generated_by if quotation.generated_by else ""
             })
         
         print(f"✓ Found {len(result)} quotation(s)")

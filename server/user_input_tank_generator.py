@@ -1842,24 +1842,57 @@ class TankInvoiceGenerator:
         run2.font.bold = True
         run2.underline = True
         
-        # Additional details (if any)
+        # Additional details - Create a table format for better structure
         if hasattr(self, 'additional_details') and self.additional_details:
-            for detail_key, detail_value in self.additional_details:
-                if detail_key and detail_value:  # Only add if both key and value exist
-                    detail_para = self.doc.add_paragraph()
-                    detail_para.paragraph_format.space_before = Pt(0)
-                    detail_para.paragraph_format.space_after = Pt(0)
-                    # Pad the key to match alignment with "Project" line (19 chars before colon)
-                    padded_key = f"{detail_key:<19}: "
-                    run = detail_para.add_run(padded_key)
-                    run.font.name = 'Calibri'
-                    run.font.size = Pt(10)
-                    run.font.bold = True
-                    run2 = detail_para.add_run(detail_value)
-                    run2.font.name = 'Calibri'
-                    run2.font.size = Pt(10)
-                    run2.font.bold = True
-                    run2.underline = True
+            # Filter out completely empty entries (where both key and value are empty)
+            valid_details = [
+                (key or "", value or "") 
+                for key, value in self.additional_details 
+                if key or value  # Include if at least key or value exists
+            ]
+            
+            if valid_details:
+                # Add small spacing before additional details table
+                spacer = self.doc.add_paragraph()
+                spacer.paragraph_format.space_before = Pt(0)
+                spacer.paragraph_format.space_after = Pt(2)
+                
+                # Create table: 2 columns (Key and Value)
+                num_rows = len(valid_details)
+                details_table = self.doc.add_table(rows=num_rows, cols=2)
+                
+                # Set table style and borders
+                try:
+                    details_table.style = 'Table Grid'
+                except KeyError:
+                    pass  # Style not available
+                
+                # Set column widths - Key column narrower, Value column wider
+                for row in details_table.rows:
+                    row.cells[0].width = Inches(2.0)  # Key column
+                    row.cells[1].width = Inches(4.0)  # Value column
+                
+                # Populate table with additional details
+                for idx, (key, value) in enumerate(valid_details):
+                    row_cells = details_table.rows[idx].cells
+                    
+                    # Key cell
+                    key_para = row_cells[0].paragraphs[0]
+                    key_para.paragraph_format.space_before = Pt(2)
+                    key_para.paragraph_format.space_after = Pt(2)
+                    key_run = key_para.add_run(key)
+                    key_run.font.name = 'Calibri'
+                    key_run.font.size = Pt(10)
+                    key_run.font.bold = True
+                    
+                    # Value cell (can be empty string)
+                    value_para = row_cells[1].paragraphs[0]
+                    value_para.paragraph_format.space_before = Pt(2)
+                    value_para.paragraph_format.space_after = Pt(2)
+                    value_run = value_para.add_run(value)
+                    value_run.font.name = 'Calibri'
+                    value_run.font.size = Pt(10)
+                    value_run.font.bold = False
         
         # Add spacing
         spacer = self.doc.add_paragraph()

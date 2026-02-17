@@ -292,7 +292,11 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
         generator.quote_number = constructed_quote_number
         generator.subject = request.subject
         generator.project = request.projectLocation
-        generator.additional_details = [(detail.key, detail.value) for detail in request.additionalDetails] if request.additionalDetails else []
+        # Include additional details even with empty/null values (use empty strings for null)
+        generator.additional_details = [
+            (detail.key or "", detail.value or "") 
+            for detail in request.additionalDetails
+        ] if request.additionalDetails else []
         generator.gallon_type = request.gallonType
         
         # Set company full name from frontend (for "Yours truly" and NOTE sections)

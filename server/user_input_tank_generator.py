@@ -2056,7 +2056,7 @@ class TankInvoiceGenerator:
             skid_is_common = "skid" in common_types
             
             # Add partition status to tank name
-            partition_status = " (WITH PARTITION)" if tank['PARTITION'] else " (WITH PARTITION)"
+            partition_status = " (WITH PARTITION)" if tank.get('partition', False) else ""
             
             if tank['skid'] and not skid_is_common:
                 # Add tank name with partition status and underline

@@ -286,8 +286,8 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
         generator.recipient_company = company_name_with_prefix
         generator.recipient_location = request.location or ""
         # Add PHONE: and EMAIL: prefixes with uppercase
-        generator.recipient_phone = f"PHONE: {request.phoneNumber}" if request.phoneNumber and request.phoneNumber.strip() else ""
-        generator.recipient_email = f"EMAIL: {request.email}" if request.email and request.email.strip() else ""
+        generator.recipient_phone = f"{request.phoneNumber}" if request.phoneNumber and request.phoneNumber.strip() else ""
+        generator.recipient_email = f"{request.email}" if request.email and request.email.strip() else ""
         generator.quote_date = request.quotationDate
         generator.quote_number = constructed_quote_number
         generator.subject = request.subject

@@ -1771,7 +1771,7 @@ class TankInvoiceGenerator:
                 y = '20' + y
             date_str = f"{d}/{m}/{y}"
         # Add Date with value on same line
-        run = para.add_run('DATE          : {}'.format(date_str))
+        run = para.add_run('Date          : {}'.format(date_str))
         run.font.name = 'Calibri'
         run.font.size = Pt(10)
         run.font.bold = True
@@ -1785,7 +1785,7 @@ class TankInvoiceGenerator:
         tab_stops.add_tab_stop(Inches(1.2))  # Position for colon
         
         # Add Page with value on same line
-        run = para.add_run('PAGE          : ')
+        run = para.add_run('Page          : ')
         run.font.name = 'Calibri'
         run.font.size = Pt(10)
         run.font.bold = True
@@ -1801,7 +1801,7 @@ class TankInvoiceGenerator:
         tab_stops = para.paragraph_format.tab_stops
         tab_stops.add_tab_stop(Inches(1.2))  # Position for colon
         # Add Quote No with value on same line
-        run = para.add_run('QUOTE NO.     : {}'.format(self.quote_number))
+        run = para.add_run('Quote No.     : {}'.format(self.quote_number))
         run.font.name = 'Calibri'
         run.font.size = Pt(10)
         run.font.bold = True
@@ -1817,7 +1817,7 @@ class TankInvoiceGenerator:
         subject_para.paragraph_format.space_before = Pt(0)  # No space above subject
         subject_para.paragraph_format.space_after = Pt(0)
         # Add Subject with value on same line
-        run = subject_para.add_run('SUBJECT           : ')
+        run = subject_para.add_run('Subject          : ')
         run.font.name = 'Calibri'
         run.font.size = Pt(10)
         run.font.bold = True
@@ -1832,7 +1832,7 @@ class TankInvoiceGenerator:
         project_para.paragraph_format.space_before = Pt(0)
         project_para.paragraph_format.space_after = Pt(0)  # Remove gap
         # Add Project with value on same line
-        run = project_para.add_run('PROJECT            : ')
+        run = project_para.add_run('Project           : ')
         run.font.name = 'Calibri'
         run.font.size = Pt(10)
         run.font.bold = True

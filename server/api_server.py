@@ -714,27 +714,22 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
         if normalized_output_dir:
             output_dir = normalized_output_dir
 
-        # Special handling for CLX to ensure it works like GRPT/GRPPT
-        if company_code == "CLX":
-            # For CLX, force use of the database network path instead of trying Docker mounts
-            # This ensures it follows the same successful pattern as GRPT and GRPPT
-            print(f"📦 CLX: Using network path from database: {output_dir}")
-        else:
-            # For GRPT and GRPPT, keep existing mount resolution logic
-            mount_output_dir = resolve_docker_mount_path(output_dir, company_code)
-            if mount_output_dir:
-                # Check if the mount base directory exists (not the full subdirectory path)
-                # For example, check /mnt/grp_quotations exists, not /mnt/grp_quotations/GRPT-QUOTATIONS-GENERATOR
-                configured_mounts = {
-                    "GRPT": os.getenv("GRPT_STORAGE_MOUNT", "/mnt/grp_quotations"),
-                    "GRPPT": os.getenv("GRPPT_STORAGE_MOUNT", "/mnt/grp_pipeco_quotations"),
-                }
-                mount_base = configured_mounts.get(company_code)
-                if mount_base and os.path.isdir(mount_base):
-                    print(f"📦 Using Docker-mounted path instead of SMB UNC: {mount_output_dir}")
-                    output_dir = mount_output_dir
-                else:
-                    print(f"⚠ Mount base '{mount_base}' not found, will attempt SMB or fallback")
+        # Use Docker mount path resolution for all companies (GRPT, GRPPT, CLX)
+        mount_output_dir = resolve_docker_mount_path(output_dir, company_code)
+        if mount_output_dir:
+            # Check if the mount base directory exists (not the full subdirectory path)
+            # For example, check /mnt/grp_quotations, /mnt/grp_pipeco_quotations, or /mnt/colex_quotations
+            configured_mounts = {
+                "GRPT": os.getenv("GRPT_STORAGE_MOUNT", "/mnt/grp_quotations"),
+                "GRPPT": os.getenv("GRPPT_STORAGE_MOUNT", "/mnt/grp_pipeco_quotations"),
+                "CLX": os.getenv("CLX_STORAGE_MOUNT", "/mnt/colex_quotations"),
+            }
+            mount_base = configured_mounts.get(company_code)
+            if mount_base and os.path.isdir(mount_base):
+                print(f"📦 Using Docker-mounted path instead of SMB UNC: {mount_output_dir}")
+                output_dir = mount_output_dir
+            else:
+                print(f"⚠ Mount base '{mount_base}' not found, will attempt SMB or fallback")
 
         print(f"📂 Storage path resolved: raw='{raw_output_dir}' -> normalized='{output_dir}'")
         
@@ -849,51 +844,10 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
                     os.remove(saved_path)
 
                 print(f"🔄 SMB failed with error: {str(e)}")
-                
-                # Special handling for CLX - try to use Docker mount if available
-                if company_code == "CLX":
-                    clx_mount = os.getenv("CLX_STORAGE_MOUNT", "/mnt/colex_quotations")
-                    print(f"   CLX: Attempting fallback to mount path: {clx_mount}")
-                    
-                    if os.path.isdir(clx_mount):
-                        try:
-                            # Extract subdirectory from original path (e.g., CLX-QUOTATIONS-GENERATOR)
-                            # From: //192.168.0.10/Colex-Quotations/CLX-QUOTATIONS-GENERATOR
-                            path_parts = output_dir.replace('\\', '/').split('/')
-                            # Find the subdirectory after the share name
-                            subdirs = [p for p in path_parts if p and p not in ['', '192.168.0.10', 'Colex-Quotations']]
-                            
-                            if subdirs:
-                                fallback_dir = os.path.join(clx_mount, *subdirs)
-                            else:
-                                fallback_dir = clx_mount
-                                
-                            print(f"   Creating CLX directory: {fallback_dir}")
-                            os.makedirs(fallback_dir, exist_ok=True)
-                            
-                            fallback_full_path = os.path.join(fallback_dir, output_filename)
-                            print(f"   Saving to: {fallback_full_path}")
-                            local_saved = generator.save(fallback_full_path)
-                            
-                            if os.path.exists(local_saved):
-                                actual_path = local_saved
-                                file_size = os.path.getsize(local_saved)
-                                print(f"✓ CLX: SMB failed, saved via Docker mount: {actual_path} ({file_size} bytes)")
-                                return {
-                                    "success": True,
-                                    "filename": output_filename,
-                                    "filepath": f"{company_code}/{output_filename}",
-                                    "absolute_filepath": actual_path,
-                                    "message": "Quotation generated successfully (CLX mount fallback)"
-                                }
-                        except Exception as clx_error:
-                            print(f"⚠ CLX mount fallback failed: {clx_error}")
-                    else:
-                        print(f"⚠ CLX mount '{clx_mount}' not found")
-                
-                # For other companies (GRPT/GRPPT), use standard fallback
-                mount_fallback = resolve_docker_mount_path(output_dir, company_code)
                 print(f"   Attempting Docker mount fallback...")
+                
+                # Standard fallback logic for all companies (GRPT, GRPPT, CLX)
+                mount_fallback = resolve_docker_mount_path(output_dir, company_code)
                 print(f"   Mount fallback path: {mount_fallback}")
                 
                 if mount_fallback:

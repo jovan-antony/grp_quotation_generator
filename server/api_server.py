@@ -701,9 +701,17 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
 
         # Normalize storage path from DB (handles malformed network paths like 192.168.0.10\\share\\folder)
         raw_output_dir = str(output_dir).strip()
+        
+        # Check if this is already an absolute Linux path (starts with /)
+        is_absolute_linux_path = raw_output_dir.startswith('/')
+        
         normalized_output_dir = raw_output_dir.replace('\\', '/')
         normalized_parts = [part.strip() for part in normalized_output_dir.split('/') if part.strip()]
         normalized_output_dir = '/'.join(normalized_parts)
+        
+        # Restore leading / for absolute Linux paths (like /mnt/grp_quotations)
+        if is_absolute_linux_path and normalized_output_dir and not normalized_output_dir.startswith('/'):
+            normalized_output_dir = '/' + normalized_output_dir
 
         if normalized_output_dir and not normalized_output_dir.startswith('/'):
             first_segment = normalized_output_dir.split('/')[0]

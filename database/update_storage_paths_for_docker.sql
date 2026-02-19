@@ -8,7 +8,7 @@
 
 UPDATE company_details 
 SET company_storage_path = '/mnt/grp_quotations'
-WHERE code = 'GRPT';
+WHERE code = 'GRP';
 
 UPDATE company_details 
 SET company_storage_path = '/mnt/grp_pipeco_quotations'
@@ -41,7 +41,7 @@ BEGIN
     RAISE NOTICE '=======================================================';
     RAISE NOTICE 'Docker Volume Mapping:';
     RAISE NOTICE '  Host: /mnt/SSD1/samba/Share/GRP-Quotations';
-    RAISE NOTICE '  Container: /mnt/grp_quotations (GRPT)';
+    RAISE NOTICE '  Container: /mnt/grp_quotations (GRP)';
     RAISE NOTICE '';
     RAISE NOTICE '  Host: /mnt/SSD1/samba/Share/GRP-PIPECO-Quotations';
     RAISE NOTICE '  Container: /mnt/grp_pipeco_quotations (GRPPT)';

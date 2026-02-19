@@ -19,7 +19,7 @@ echo   - Recipients table (empty - add as needed)
 echo   - Contractual terms tables (empty)
 echo   - Quotation table (empty)
 echo.
-echo Company Codes: GRPT, GRPPT, CLX
+echo Company Codes: GRP, GRPPT, CLX
 echo Sales Codes: VV, MM, SJ, AS, VK, LP
 echo Manager Codes: AM, MM
 echo.
@@ -92,7 +92,7 @@ echo.
 echo COMPANY DATA INSERTED:
 echo.
 echo Companies (3):
-echo   1. GRP TANKS TRADING L.L.C          - Code: GRPT
+echo   1. GRP TANKS TRADING L.L.C          - Code: GRP
 echo   2. GRP PIPECO TANKS TRADING L.L.C   - Code: GRPPT
 echo   3. COLEX TANKS TRADING L.L.C        - Code: CLX
 echo.
@@ -109,7 +109,7 @@ echo   1. Anoop Mohan       (AM)  - Project Manager
 echo   2. Midhun Murali     (MM)  - Project/Sales Manager
 echo.
 echo Quote Number Format:
-echo   GRPT/2602/VV/0001   (GRP Tanks, Feb 2026, Viwin, Seq 1)
+echo   GRP/2602/VV/0001   (GRP Tanks, Feb 2026, Viwin, Seq 1)
 echo   GRPPT/2602/MM/0002  (GRP Pipeco, Feb 2026, Midhun, Seq 2)
 echo   CLX/2602/SJ/0003    (Colex, Feb 2026, Somiya, Seq 3)
 echo.

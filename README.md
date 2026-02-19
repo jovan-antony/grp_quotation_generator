@@ -276,7 +276,7 @@ Generated documents are saved on the server in company-specific folders:
 - **Configurable**: Set `FINAL_DOC_PATH` in `.env` to save anywhere on your system
 - Example paths:
   - `server/Final_Doc/GRPPT/GRPPT_2502_VV_2582.docx` (default)
-  - `C:/CompanyDocs/GRPT/GRPT_2502_SJ_1001.docx` (custom Windows path)
+  - `C:/CompanyDocs/GRP/GRP_2502_SJ_1001.docx` (custom Windows path)
   - `/mnt/shared/quotations/CLX/CLX_2502_AS_3001.docx` (custom Linux path)
 
 Filename format: 
@@ -289,7 +289,7 @@ Filename format:
 ```
 {FINAL_DOC_PATH}/
   ├── GRPPT/    # GRP PIPECO quotations
-  ├── GRPT/     # GRP TANKS quotations
+  ├── GRP/     # GRP TANKS quotations
   └── CLX/      # COLEX quotations
 ```
 

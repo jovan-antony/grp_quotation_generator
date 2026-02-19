@@ -40,7 +40,7 @@ database/
 3. **Enter your PostgreSQL password** when prompted
 
 Result: Database `grp_quotation_fresh` with:
-- ✅ 3 Companies (GRPT, GRPPT, CLX) from JSON
+- ✅ 3 Companies (GRP, GRPPT, CLX) from JSON
 - ✅ 6 Sales Persons (VV, MM, SJ, AS, VK, LP) from JSON
 - ✅ 2 Project Managers (AM, MM) from JSON
 - ✅ Empty recipient, contractual terms, and quotation tables

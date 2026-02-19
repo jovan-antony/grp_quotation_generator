@@ -1721,13 +1721,17 @@ async def get_quotation_by_id(quotation_id: int, session: Session = Depends(get_
                 "subject": quotation.subject,
                 "project_location": quotation.project_location,
                 "generated_by": quotation.generated_by or "",
-                "status": quotation.status
+                "status": quotation.status,
+                "formOptions": quotation.form_options or {},
+                "additionalData": quotation.additional_data or {}
             },
             "tanks": quotation.tanks_data,
             "terms": terms_data
         }
         
         print(f"✓ Retrieved quotation successfully")
+        print(f"📝 additionalData being returned: {response['quotation'].get('additionalData')}")
+        print(f"📝 generatedBy being returned: {response['quotation'].get('generated_by')}")
         print(f"{'='*60}\n")
         
         return response

@@ -660,7 +660,10 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
     
     // Load additional details
     if (quotationData.additionalData?.additionalDetails) {
+      console.log('📝 Loading additional details from search:', quotationData.additionalData.additionalDetails);
       setAdditionalDetails(quotationData.additionalData.additionalDetails);
+    } else {
+      console.warn('⚠ No additional details found in search data:', quotationData.additionalData);
     }
     
     toast.success('Quotation loaded successfully!');
@@ -759,7 +762,10 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
 
       // Load additional details
       if (data.additionalData?.additionalDetails) {
+        console.log('📝 Loading additional details from API:', data.additionalData.additionalDetails);
         setAdditionalDetails(data.additionalData.additionalDetails);
+      } else {
+        console.warn('⚠ No additional details found in API response:', data.additionalData);
       }
 
       // Load terms - API returns terms directly

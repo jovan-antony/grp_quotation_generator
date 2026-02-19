@@ -1185,6 +1185,8 @@ async def save_quotation(request: SaveQuotationRequest, session: Session = Depen
         print(f"Revision Number: {request.revisionNumber}")
         print(f"Full Quote Number: {request.fullQuoteNumber}")
         print(f"From Company: {request.fromCompany}")
+        print(f"📝 additionalData received: {request.additionalData}")
+        print(f"📝 generatedBy received: {request.generatedBy}")
         
         # Get company from database by full_name (not hardcoded)
         statement = select(CompanyDetails).where(CompanyDetails.full_name == request.fromCompany)
@@ -1469,6 +1471,7 @@ async def get_quotation(quote_number: str, revision: str = "0", session: Session
             "officePersonName": project_manager.manager_name if project_manager else "",
             "subject": quotation.subject,
             "projectLocation": quotation.project_location,
+            "generatedBy": quotation.generated_by or "",
             "tanksData": quotation.tanks_data,
             "formOptions": quotation.form_options or {},
             "additionalData": quotation.additional_data or {},
@@ -1480,6 +1483,8 @@ async def get_quotation(quote_number: str, revision: str = "0", session: Session
         }
         
         print(f"✓ Retrieved quotation successfully")
+        print(f"📝 additionalData being returned: {response.get('additionalData')}")
+        print(f"📝 generatedBy being returned: {response.get('generatedBy')}")
         print(f"{'='*60}\n")
         
         return response

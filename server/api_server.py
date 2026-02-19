@@ -36,13 +36,13 @@ app = FastAPI()
 def resolve_docker_mount_path(network_path: str, company_code: str) -> Optional[str]:
     """Map UNC/network storage path to local Docker mount path when available."""
     configured_mounts = {
-        "GRPT": os.getenv("GRPT_STORAGE_MOUNT", "/mnt/grp_quotations"),
+        "GRP": os.getenv("GRP_STORAGE_MOUNT", "/mnt/grp_quotations"),
         "GRPPT": os.getenv("GRPPT_STORAGE_MOUNT", "/mnt/grp_pipeco_quotations"),
         "CLX": os.getenv("CLX_STORAGE_MOUNT", "/mnt/colex_quotations"),
     }
 
     share_to_mount = {
-        "grp-quotations": configured_mounts["GRPT"],
+        "grp-quotations": configured_mounts["GRP"],
         "grp-pipeco-quotations": configured_mounts["GRPPT"],
         "colex-quotations": configured_mounts["CLX"],
     }
@@ -238,11 +238,11 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
         else:
             # Fallback to old mapping
             company_code_map = {
-                "GRP TANKS TRADING L.L.C": "GRPT",
+                "GRP TANKS TRADING L.L.C": "GRP",
                 "GRP PIPECO TANKS TRADING L.L.C": "GRPPT",
                 "COLEX TANKS TRADING L.L.C": "CLX",
             }
-            company_code = company_code_map.get(request.fromCompany, "GRPT")
+            company_code = company_code_map.get(request.fromCompany, "GRP")
         
         # Extract YYMM from quotation date (format: DD/MM/YY)
         date_parts = request.quotationDate.split('/')
@@ -714,13 +714,13 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
         if normalized_output_dir:
             output_dir = normalized_output_dir
 
-        # Use Docker mount path resolution for all companies (GRPT, GRPPT, CLX)
+        # Use Docker mount path resolution for all companies (GRP, GRPPT, CLX)
         mount_output_dir = resolve_docker_mount_path(output_dir, company_code)
         if mount_output_dir:
             # Check if the mount base directory exists (not the full subdirectory path)
             # For example, check /mnt/grp_quotations, /mnt/grp_pipeco_quotations, or /mnt/colex_quotations
             configured_mounts = {
-                "GRPT": os.getenv("GRPT_STORAGE_MOUNT", "/mnt/grp_quotations"),
+                "GRP": os.getenv("GRP_STORAGE_MOUNT", "/mnt/grp_quotations"),
                 "GRPPT": os.getenv("GRPPT_STORAGE_MOUNT", "/mnt/grp_pipeco_quotations"),
                 "CLX": os.getenv("CLX_STORAGE_MOUNT", "/mnt/colex_quotations"),
             }
@@ -846,7 +846,7 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
                 print(f"🔄 SMB failed with error: {str(e)}")
                 print(f"   Attempting Docker mount fallback...")
                 
-                # Standard fallback logic for all companies (GRPT, GRPPT, CLX)
+                # Standard fallback logic for all companies (GRP, GRPPT, CLX)
                 mount_fallback = resolve_docker_mount_path(output_dir, company_code)
                 print(f"   Mount fallback path: {mount_fallback}")
                 

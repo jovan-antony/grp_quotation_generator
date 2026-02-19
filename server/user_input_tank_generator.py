@@ -1842,7 +1842,7 @@ class TankInvoiceGenerator:
         run2.font.bold = True
         run2.underline = True
         
-        # Additional details - Create a table format for better structure
+        # Additional details - Display like Subject and Project (simple paragraphs)
         if hasattr(self, 'additional_details') and self.additional_details:
             # Filter out completely empty entries (where both key and value are empty)
             valid_details = [
@@ -1851,48 +1851,28 @@ class TankInvoiceGenerator:
                 if key or value  # Include if at least key or value exists
             ]
             
-            if valid_details:
-                # Add small spacing before additional details table
-                spacer = self.doc.add_paragraph()
-                spacer.paragraph_format.space_before = Pt(0)
-                spacer.paragraph_format.space_after = Pt(2)
+            # Add each additional detail as a separate line matching Subject/Project format
+            for key, value in valid_details:
+                detail_para = self.doc.add_paragraph()
+                detail_para.paragraph_format.space_before = Pt(0)
+                detail_para.paragraph_format.space_after = Pt(0)
                 
-                # Create table: 2 columns (Key and Value)
-                num_rows = len(valid_details)
-                details_table = self.doc.add_table(rows=num_rows, cols=2)
+                # Add key with padding to align with Subject/Project (18 chars total width)
+                key_text = key.strip() if key else ""
+                padding_needed = max(0, 18 - len(key_text))
+                padded_key = key_text + ' ' * padding_needed + ': '
                 
-                # Set table style and borders
-                try:
-                    details_table.style = 'Table Grid'
-                except KeyError:
-                    pass  # Style not available
+                run = detail_para.add_run(padded_key)
+                run.font.name = 'Calibri'
+                run.font.size = Pt(10)
+                run.font.bold = True
                 
-                # Set column widths - Key column narrower, Value column wider
-                for row in details_table.rows:
-                    row.cells[0].width = Inches(2.0)  # Key column
-                    row.cells[1].width = Inches(4.0)  # Value column
-                
-                # Populate table with additional details
-                for idx, (key, value) in enumerate(valid_details):
-                    row_cells = details_table.rows[idx].cells
-                    
-                    # Key cell
-                    key_para = row_cells[0].paragraphs[0]
-                    key_para.paragraph_format.space_before = Pt(2)
-                    key_para.paragraph_format.space_after = Pt(2)
-                    key_run = key_para.add_run(key)
-                    key_run.font.name = 'Calibri'
-                    key_run.font.size = Pt(10)
-                    key_run.font.bold = True
-                    
-                    # Value cell (can be empty string)
-                    value_para = row_cells[1].paragraphs[0]
-                    value_para.paragraph_format.space_before = Pt(2)
-                    value_para.paragraph_format.space_after = Pt(2)
-                    value_run = value_para.add_run(value)
-                    value_run.font.name = 'Calibri'
-                    value_run.font.size = Pt(10)
-                    value_run.font.bold = False
+                # Add value (bold and underlined like Subject/Project)
+                run2 = detail_para.add_run(value)
+                run2.font.name = 'Calibri'
+                run2.font.size = Pt(10)
+                run2.font.bold = True
+                run2.underline = True
         
         # Add spacing
         spacer = self.doc.add_paragraph()
@@ -2264,7 +2244,7 @@ class TankInvoiceGenerator:
         cell = row.cells[4]
         unit_price = tank.get('unit_price', 0.0) or 0.0
         if unit_price:
-            cell.text = f"{unit_price:.2f}"
+            cell.text = f"{unit_price:,.2f}"
         else:
             cell.text = ""
         for paragraph in cell.paragraphs:
@@ -2283,7 +2263,7 @@ class TankInvoiceGenerator:
         paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
         total_price = tank.get('total_price', 0.0) or 0.0
         if total_price:
-            run = paragraph.add_run(f"{total_price:.2f}")
+            run = paragraph.add_run(f"{total_price:,.2f}")
         else:
             run = paragraph.add_run("")
         run.font.bold = True
@@ -2412,7 +2392,7 @@ class TankInvoiceGenerator:
             cell.text = ""
             cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
             cell.paragraphs[0].paragraph_format.space_after = Pt(0)
-            run = cell.paragraphs[0].add_run(f'{subtotal:.2f}')
+            run = cell.paragraphs[0].add_run(f'{subtotal:,.2f}')
             run.font.bold = True
             run.font.name = 'Calibri'
             run.font.size = Pt(10)
@@ -2449,7 +2429,7 @@ class TankInvoiceGenerator:
             cell.text = ""
             cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
             cell.paragraphs[0].paragraph_format.space_after = Pt(0)
-            run = cell.paragraphs[0].add_run(f'{vat:.2f}')
+            run = cell.paragraphs[0].add_run(f'{vat:,.2f}')
             run.font.bold = True
             run.font.name = 'Calibri'
             run.font.size = Pt(10)
@@ -2486,7 +2466,7 @@ class TankInvoiceGenerator:
             cell.text = ""
             cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
             cell.paragraphs[0].paragraph_format.space_after = Pt(0)
-            run = cell.paragraphs[0].add_run(f'{round(grand_total):.0f}')
+            run = cell.paragraphs[0].add_run(f'{round(grand_total):,.0f}')
             run.font.bold = True
             run.font.name = 'Calibri'
             run.font.size = Pt(10)

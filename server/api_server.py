@@ -715,9 +715,20 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
             output_dir = normalized_output_dir
 
         mount_output_dir = resolve_docker_mount_path(output_dir, company_code)
-        if mount_output_dir and os.path.isdir(os.path.dirname(mount_output_dir) if os.path.dirname(mount_output_dir) else mount_output_dir):
-            print(f"📦 Using Docker-mounted path instead of SMB UNC: {mount_output_dir}")
-            output_dir = mount_output_dir
+        if mount_output_dir:
+            # Check if the mount base directory exists (not the full subdirectory path)
+            # For example, check /mnt/colex_quotations exists, not /mnt/colex_quotations/CLX-QUOTATIONS-GENERATOR
+            configured_mounts = {
+                "GRPT": os.getenv("GRPT_STORAGE_MOUNT", "/mnt/grp_quotations"),
+                "GRPPT": os.getenv("GRPPT_STORAGE_MOUNT", "/mnt/grp_pipeco_quotations"),
+                "CLX": os.getenv("CLX_STORAGE_MOUNT", "/mnt/colex_quotations"),
+            }
+            mount_base = configured_mounts.get(company_code)
+            if mount_base and os.path.isdir(mount_base):
+                print(f"📦 Using Docker-mounted path instead of SMB UNC: {mount_output_dir}")
+                output_dir = mount_output_dir
+            else:
+                print(f"⚠ Mount base '{mount_base}' not found, will attempt SMB or fallback")
 
         print(f"📂 Storage path resolved: raw='{raw_output_dir}' -> normalized='{output_dir}'")
         
@@ -832,14 +843,36 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
                     os.remove(saved_path)
 
                 mount_fallback = resolve_docker_mount_path(output_dir, company_code)
+                print(f"🔄 SMB failed with error: {str(e)}")
+                print(f"   Attempting Docker mount fallback...")
+                print(f"   Mount fallback path: {mount_fallback}")
+                
                 if mount_fallback:
                     try:
+                        # If mount_fallback is a directory path, use it; if it's a file path, use its directory
                         fallback_dir = os.path.dirname(mount_fallback) if os.path.splitext(mount_fallback)[1] else mount_fallback
+                        print(f"   Fallback directory: {fallback_dir}")
+                        print(f"   Creating directory if needed...")
                         os.makedirs(fallback_dir, exist_ok=True)
+                        print(f"   ✓ Directory exists/created")
+                        
                         fallback_full_path = os.path.join(fallback_dir, output_filename)
+                        print(f"   Saving to: {fallback_full_path}")
                         local_saved = generator.save(fallback_full_path)
-                        actual_path = local_saved if os.path.exists(local_saved) else fallback_full_path
-                        print(f"✓ SMB failed, saved via Docker mount fallback: {actual_path}")
+                        print(f"   Generator returned: {local_saved}")
+                        
+                        # Verify file was actually created
+                        if os.path.exists(local_saved):
+                            actual_path = local_saved
+                            file_size = os.path.getsize(local_saved)
+                            print(f"✓ SMB failed, saved via Docker mount fallback: {actual_path} ({file_size} bytes)")
+                        elif os.path.exists(fallback_full_path):
+                            actual_path = fallback_full_path
+                            file_size = os.path.getsize(fallback_full_path)
+                            print(f"✓ SMB failed, saved via Docker mount fallback: {actual_path} ({file_size} bytes)")
+                        else:
+                            raise Exception(f"File not found after save at {local_saved} or {fallback_full_path}")
+                        
                         return {
                             "success": True,
                             "filename": output_filename,
@@ -848,7 +881,10 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
                             "message": "Quotation generated successfully (saved via mount fallback)"
                         }
                     except Exception as fallback_error:
-                        print(f"⚠ Mount fallback also failed: {fallback_error}")
+                        print(f"⚠ Mount fallback also failed:")
+                        print(f"   Error: {fallback_error}")
+                        import traceback
+                        traceback.print_exc()
 
                 raise HTTPException(
                     status_code=500,
@@ -859,7 +895,30 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
                     )
                 )
         else:
-            # Save to local filesystem
+            # Save to local filesystem (including Docker mounts)
+            print(f"💾 Saving to local/mounted filesystem...")
+            print(f"   Directory: {output_dir}")
+            
+            # Verify directory exists or can be created
+            try:
+                if not os.path.exists(output_dir):
+                    print(f"   Directory doesn't exist, creating: {output_dir}")
+                    os.makedirs(output_dir, exist_ok=True)
+                    print(f"   ✓ Directory created")
+                else:
+                    print(f"   ✓ Directory exists")
+                    
+                # Check if directory is writable
+                if not os.access(output_dir, os.W_OK):
+                    raise PermissionError(f"Directory is not writable: {output_dir}")
+                    
+            except Exception as dir_error:
+                print(f"❌ Error with output directory: {dir_error}")
+                raise HTTPException(
+                    status_code=500, 
+                    detail=f"Cannot create or access output directory: {output_dir}. Error: {str(dir_error)}"
+                )
+            
             saved_path = generator.save(output_path)
             
             print(f"✓ Generator.save() returned: {saved_path}")
@@ -868,15 +927,25 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
             # Check both the returned path and the requested path
             if os.path.exists(saved_path):
                 actual_path = saved_path
+                file_size = os.path.getsize(saved_path)
+                print(f"✓ Document successfully saved at: {actual_path} ({file_size} bytes)")
             elif os.path.exists(output_path):
                 actual_path = output_path
+                file_size = os.path.getsize(output_path)
+                print(f"✓ Document successfully saved at: {actual_path} ({file_size} bytes)")
             else:
                 print(f"❌ File not found at either location!")
                 print(f"   Expected: {output_path}")
                 print(f"   Returned: {saved_path}")
+                print(f"   Directory contents:")
+                try:
+                    if os.path.exists(output_dir):
+                        files = os.listdir(output_dir)
+                        for f in files[:10]:  # Show first 10 files
+                            print(f"     - {f}")
+                except Exception as list_error:
+                    print(f"   Could not list directory: {list_error}")
                 raise HTTPException(status_code=500, detail="Failed to generate document - file not found after save")
-            
-            print(f"✓ Document successfully saved at: {actual_path}")
         
         # Return JSON with file details instead of the file itself
         return {

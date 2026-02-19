@@ -1976,26 +1976,29 @@ class TankInvoiceGenerator:
         else:
             brand_name = "PIPECO TANKS® MALAYSIA"
         
-        # Build common text with brand name
+        # Build common text with brand name - reorganized into 3 lines
+        # Line 1: Company name, warranty, and support system
         common_text = f"GRP SECTIONAL WATER TANK - 10 YEAR WARRANTY - {brand_name}"
         
-        # Find common elements
-        common_elements = self._find_common_elements()
-        
-        # Add common elements to text
-        for element_type, element_value in common_elements:
-            if element_type == "type":
-                common_text += f" - {element_value}"
-            elif element_type == "skid":
-                # Don't add brackets if it's in the common row
-                common_text += f" - {element_value}"
-        
-        # Check if all tanks have the same support system
+        # Check if all tanks have the same support system and add to line 1
         common_support = self._get_common_support_system()
         if common_support:
             # All tanks have the same support system, add to common row
             support_text = self._get_support_system_text(common_support)
-            common_text += f" - {support_text} "
+            common_text += f" - {support_text}"
+        
+        # Find common elements
+        common_elements = self._find_common_elements()
+        
+        # Line 2: Tank type (insulation details)
+        # Line 3: Skid base details
+        for element_type, element_value in common_elements:
+            if element_type == "type":
+                # Add tank type on new line (line 2)
+                common_text += f"\n{element_value}"
+            elif element_type == "skid":
+                # Add skid base on new line (line 3)
+                common_text += f"\n{element_value}"
         
         # Set the text in the merged cell
         cell = self.table.rows[1].cells[0]
@@ -2183,7 +2186,7 @@ class TankInvoiceGenerator:
         
         # Only show Size if at least one dimension exists
         if length_display or width_display or height_display:
-            size_text = f"Size\t:\t{length_display} M (L) X {width_display} M (W) X {height_display} M (H)\n"
+            size_text = f"SIZE\t:\t{length_display} M (L) X {width_display} M (W) X {height_display} M (H)\n"
             run = size_para.add_run(size_text)
             run.font.bold = True
             run.font.name = 'Calibri'
@@ -2195,7 +2198,7 @@ class TankInvoiceGenerator:
         gallons = tank.get('gallons', 0.0) or 0.0
         
         if volume_m3 > 0:
-            capacity_text = f"Total Capacity\t:\t{volume_m3:.2f} M³ ({gallons:.0f} {self.gallon_type})"
+            capacity_text = f"TOTAL CAPACITY\t:\t{volume_m3:.2f} M³ ({gallons:.0f} {self.gallon_type})"
             
             # Only show Free Board and Net Volume if needFreeBoard is enabled
             need_free_board = tank.get('need_free_board', False)
@@ -2207,25 +2210,24 @@ class TankInvoiceGenerator:
             run.font.name = 'Calibri'
             run.font.size = Pt(10)
             
-            # Show Free Board and Net Volume only if needFreeBoard is enabled
+            # Show Net Volume and Free Board only if needFreeBoard is enabled
             if need_free_board:
-                free_board_m = tank.get('free_board', 0.3)
-                free_board_cm = free_board_m * 100  # Convert meters to cm
-                
-                # Free Board (aligned format with tabs for colon alignment)
-                run = size_para.add_run(f"Free Board\t:\t{free_board_cm:.0f} cm ({free_board_m:.2f} M)\n")
-                run.font.bold = True
-                run.font.name = 'Calibri'
-                run.font.size = Pt(10)
-                
-                # Net Volume (use pre-calculated value from tank data)
+                # Net Volume first (use pre-calculated value from tank data)
                 net_volume_m3 = tank.get('net_volume_m3', volume_m3)
                 # Calculate net volume gallons based on gallon type
                 if self.gallon_type == "USG":
                     net_volume_gallons = net_volume_m3 * 264.172
                 else:
                     net_volume_gallons = net_volume_m3 * 219.969
-                run = size_para.add_run(f"Net Volume\t:\t{net_volume_m3:.2f} M³ ({net_volume_gallons:.0f} {self.gallon_type})")
+                run = size_para.add_run(f"NET VOLUME\t:\t{net_volume_m3:.2f} M³ ({net_volume_gallons:.0f} {self.gallon_type})\n")
+                run.font.bold = True
+                run.font.name = 'Calibri'
+                run.font.size = Pt(10)
+                
+                # Free Board below Net Volume (aligned format with tabs for colon alignment)
+                free_board_m = tank.get('free_board', 0.3)
+                free_board_cm = free_board_m * 100  # Convert meters to cm
+                run = size_para.add_run(f"FREE BOARD\t:\t{free_board_cm:.0f} cm ({free_board_m:.2f} M)")
                 run.font.bold = True
                 run.font.name = 'Calibri'
                 run.font.size = Pt(10)
@@ -2484,7 +2486,7 @@ class TankInvoiceGenerator:
             cell.text = ""
             cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
             cell.paragraphs[0].paragraph_format.space_after = Pt(0)
-            run = cell.paragraphs[0].add_run(f'{grand_total:.2f}')
+            run = cell.paragraphs[0].add_run(f'{round(grand_total):.0f}')
             run.font.bold = True
             run.font.name = 'Calibri'
             run.font.size = Pt(10)
@@ -2672,11 +2674,11 @@ class TankInvoiceGenerator:
             spacer.paragraph_format.space_before = Pt(self.note_section_gap)
             spacer.paragraph_format.space_after = Pt(0)
 
-        # Add heading 'Note:'
+        # Add heading 'NOTE:'
         para = self.doc.add_paragraph()
         para.paragraph_format.space_before = Pt(0)
         para.paragraph_format.space_after = Pt(0)
-        run = para.add_run('Note:')
+        run = para.add_run('NOTE:')
         run.font.name = 'Calibri'
         run.font.size = Pt(10)
         run.font.bold = True

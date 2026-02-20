@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,11 +13,13 @@ import { getApiUrl } from '@/lib/api-config';
 interface SearchQuotationFormProps {
   onPreviewUpdate: (html: string) => void;
   onLoadQuotation?: (quotationData: any) => void;
+  isActive?: boolean;
 }
 
 export default function SearchQuotationForm({
   onPreviewUpdate,
   onLoadQuotation,
+  isActive = true,
 }: SearchQuotationFormProps) {
   const [filters, setFilters] = useState({
     recipientName: false,
@@ -42,6 +44,42 @@ export default function SearchQuotationForm({
   const [dateFilterType, setDateFilterType] = useState<'day' | 'week' | 'month'>('day');
   const [quotations, setQuotations] = useState<any[]>([]);
   const [selectedQuotation, setSelectedQuotation] = useState<any>(null);
+
+  // Load form data from sessionStorage on component mount
+  useEffect(() => {
+    const savedFormData = sessionStorage.getItem('searchQuotationFormData');
+    if (savedFormData) {
+      try {
+        const formData = JSON.parse(savedFormData);
+        
+        // Restore all form state
+        if (formData.filters !== undefined) setFilters(formData.filters);
+        if (formData.searchValues !== undefined) setSearchValues(formData.searchValues);
+        if (formData.dateFilterType !== undefined) setDateFilterType(formData.dateFilterType);
+        if (formData.quotations !== undefined) setQuotations(formData.quotations);
+        if (formData.selectedQuotation !== undefined) setSelectedQuotation(formData.selectedQuotation);
+        
+        console.log('✓ Search form data restored from session');
+      } catch (error) {
+        console.error('Error restoring search form data:', error);
+      }
+    }
+  }, []); // Run only on mount
+
+  // Save form data to sessionStorage whenever state changes (only when active)
+  useEffect(() => {
+    if (!isActive) return; // Only save when this tab is active
+    
+    const formData = {
+      filters,
+      searchValues,
+      dateFilterType,
+      quotations,
+      selectedQuotation,
+    };
+    
+    sessionStorage.setItem('searchQuotationFormData', JSON.stringify(formData));
+  }, [isActive, filters, searchValues, dateFilterType, quotations, selectedQuotation]);
 
   const handleSearch = async () => {
     try {

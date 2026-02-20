@@ -101,15 +101,15 @@ export default function QuotationPage() {
 
             <div className="order-1 lg:order-2">
               <TabsContent value="new" className="-mt-4">
-                <NewQuotationForm onPreviewUpdate={setPreviewHtml} />
+                <NewQuotationForm onPreviewUpdate={setPreviewHtml} isActive={activeTab === 'new'} />
               </TabsContent>
 
               <TabsContent value="search" className="-mt-4">
-                <SearchQuotationForm onPreviewUpdate={setPreviewHtml} onLoadQuotation={handleLoadQuotation} />
+                <SearchQuotationForm onPreviewUpdate={setPreviewHtml} onLoadQuotation={handleLoadQuotation} isActive={activeTab === 'search'} />
               </TabsContent>
 
               <TabsContent value="revision" className="-mt-4">
-                <QuotationRevisionForm onPreviewUpdate={setPreviewHtml} loadQuotationData={loadQuotationData} />
+                <QuotationRevisionForm onPreviewUpdate={setPreviewHtml} loadQuotationData={loadQuotationData} isActive={activeTab === 'revision'} />
               </TabsContent>
             </div>
           </div>

@@ -7,14 +7,32 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Trash2, FileDown } from 'lucide-react';
+import { Plus, Trash2, FileDown, GripVertical } from 'lucide-react';
 import TankForm from './TankForm';
 import { toast } from 'sonner';
 import { getApiUrl } from '@/lib/api-config';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface QuotationRevisionFormProps {
   onPreviewUpdate: (html: string) => void;
   loadQuotationData?: any;
+  isActive?: boolean;
 }
 
 interface TankData {
@@ -37,7 +55,7 @@ interface TankData {
   }>;
 }
 
-export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationData }: QuotationRevisionFormProps) {
+export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationData, isActive = true }: QuotationRevisionFormProps) {
   // Load functionality states
   const [loadSearchInput, setLoadSearchInput] = useState('');
   const [isQuotationLoaded, setIsQuotationLoaded] = useState(false);
@@ -657,6 +675,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
       
       // Convert API terms to form format
       Object.keys(apiTerms).forEach(key => {
+        if (key === '_order') return; // Skip legacy _order key if exists
         const termData = apiTerms[key];
         formattedTerms[key] = {
           action: termData?.action === 'yes' || termData?.action === true,
@@ -785,6 +804,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
         
         // Convert API terms to form format
         Object.keys(apiTerms).forEach(key => {
+          if (key === '_order') return; // Skip legacy _order key if exists
           const termData = apiTerms[key];
           formattedTerms[key] = {
             action: termData?.action === 'yes' || termData?.action === true,
@@ -911,6 +931,8 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
         const savedData = await saveResponse.json();
         console.log('✓ Quotation saved to database:', savedData.fullQuoteNumber);
         toast.success('Quotation saved to database successfully!');
+        // Clear sessionStorage after successful save
+        sessionStorage.removeItem('quotationRevisionFormData');
         // Refresh recipient list to include newly added recipient
         fetchRecipients();
       } else {
@@ -1094,6 +1116,8 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
             const savedData = await saveResponse.json();
             console.log('✓ Quotation saved to database:', savedData.fullQuoteNumber);
             toast.success('Quotation saved to database!');
+            // Clear sessionStorage after successful export and save
+            sessionStorage.removeItem('quotationRevisionFormData');
             // Refresh recipient list to include newly added recipient
             fetchRecipients();
           } else {
@@ -1249,6 +1273,42 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
       custom: [],
     }]))
   );
+
+  // Setup drag and drop sensors for points within sections
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Handle drag end for points within a section
+  const handlePointDragEnd = (termKey: string) => (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      setTerms((prev) => {
+        const term = prev[termKey];
+        // Combine details and custom into single array for reordering
+        const allPoints = [...term.details, ...term.custom];
+        const oldIndex = allPoints.findIndex((_, idx) => `${termKey}-${idx}` === active.id);
+        const newIndex = allPoints.findIndex((_, idx) => `${termKey}-${idx}` === over.id);
+        
+        const reordered = arrayMove(allPoints, oldIndex, newIndex);
+        
+        // Split back into details and custom
+        // Keep original details count to maintain which are "default" vs "custom"
+        return {
+          ...prev,
+          [termKey]: {
+            ...term,
+            details: reordered.slice(0, term.details.length),
+            custom: reordered.slice(term.details.length),
+          },
+        };
+      });
+    }
+  };
 
   // Update company name in extraNote when fromCompany changes
   useEffect(() => {
@@ -1438,6 +1498,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
           
           // Update each term section if it exists in loaded data
           Object.keys(data.terms).forEach(key => {
+            if (key === '_order') return; // Skip legacy _order key if exists
             if (newTerms[key]) {
               newTerms[key] = {
                 ...newTerms[key],
@@ -1458,6 +1519,187 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
       setIsLoading(false);
     }
   };
+
+  // Sortable Point Item Component (for individual points within a section)
+  function SortablePoint({ 
+    id, 
+    point, 
+    termKey, 
+    index, 
+    isFromDetails 
+  }: { 
+    id: string; 
+    point: string; 
+    termKey: string; 
+    index: number; 
+    isFromDetails: boolean;
+  }) {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id });
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : 1,
+    };
+
+    return (
+      <div ref={setNodeRef} style={style} className="flex gap-2 items-center">
+        <div
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing"
+        >
+          <GripVertical className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+        </div>
+        <Input
+          value={point}
+          onChange={e => {
+            if (isFromDetails) {
+              handleEditDetail(termKey, index, e.target.value);
+            } else {
+              handleEditCustom(termKey, index - terms[termKey].details.length, e.target.value);
+            }
+          }}
+          className="flex-1"
+          autoComplete="off"
+          onKeyDown={e => {
+            if (e.key === 'Enter') {
+              const next = (e.target as HTMLElement).parentElement?.parentElement?.nextElementSibling?.querySelector('input');
+              if (next) (next as HTMLElement).focus();
+            }
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => {
+            if (isFromDetails) {
+              handleRemoveDetail(termKey, index);
+            } else {
+              handleRemoveCustom(termKey, index - terms[termKey].details.length);
+            }
+          }}
+          className="p-2 text-blue-600 hover:text-blue-700"
+          aria-label="Delete point"
+        >
+          <Trash2 className="w-4 h-4 text-blue-600" />
+        </button>
+      </div>
+    );
+  }
+
+  // Load form data from sessionStorage on component mount
+  useEffect(() => {
+    const savedFormData = sessionStorage.getItem('quotationRevisionFormData');
+    if (savedFormData) {
+      try {
+        const formData = JSON.parse(savedFormData);
+        
+        // Restore all form state
+        if (formData.loadSearchInput !== undefined) setLoadSearchInput(formData.loadSearchInput);
+        if (formData.isQuotationLoaded !== undefined) setIsQuotationLoaded(formData.isQuotationLoaded);
+        if (formData.originalQuotationNumber !== undefined) setOriginalQuotationNumber(formData.originalQuotationNumber);
+        if (formData.originalRevisionNumber !== undefined) setOriginalRevisionNumber(formData.originalRevisionNumber);
+        if (formData.originalFullQuoteNumber !== undefined) setOriginalFullQuoteNumber(formData.originalFullQuoteNumber);
+        if (formData.fromCompany !== undefined) setFromCompany(formData.fromCompany);
+        if (formData.companyCode !== undefined) setCompanyCode(formData.companyCode);
+        if (formData.companyShortName !== undefined) setCompanyShortName(formData.companyShortName);
+        if (formData.templatePath !== undefined) setTemplatePath(formData.templatePath);
+        if (formData.showSubTotal !== undefined) setShowSubTotal(formData.showSubTotal);
+        if (formData.showVat !== undefined) setShowVat(formData.showVat);
+        if (formData.showGrandTotal !== undefined) setShowGrandTotal(formData.showGrandTotal);
+        if (formData.recipientTitle !== undefined) setRecipientTitle(formData.recipientTitle);
+        if (formData.recipientName !== undefined) setRecipientName(formData.recipientName);
+        if (formData.role !== undefined) setRole(formData.role);
+        if (formData.companyName !== undefined) setCompanyName(formData.companyName);
+        if (formData.location !== undefined) setLocation(formData.location);
+        if (formData.phoneNumber !== undefined) setPhoneNumber(formData.phoneNumber);
+        if (formData.email !== undefined) setEmail(formData.email);
+        if (formData.quotationDate !== undefined) setQuotationDate(formData.quotationDate);
+        if (formData.quotationFrom !== undefined) setQuotationFrom(formData.quotationFrom);
+        if (formData.salesPersonName !== undefined) setSalesPersonName(formData.salesPersonName);
+        if (formData.officePersonName !== undefined) setOfficePersonName(formData.officePersonName);
+        if (formData.quotationNumber !== undefined) setQuotationNumber(formData.quotationNumber);
+        if (formData.revisionEnabled !== undefined) setRevisionEnabled(formData.revisionEnabled);
+        if (formData.revisionNumber !== undefined) setRevisionNumber(formData.revisionNumber);
+        if (formData.subject !== undefined) setSubject(formData.subject);
+        if (formData.projectLocation !== undefined) setProjectLocation(formData.projectLocation);
+        if (formData.generatedBy !== undefined) setGeneratedBy(formData.generatedBy);
+        if (formData.additionalDetails !== undefined) setAdditionalDetails(formData.additionalDetails);
+        if (formData.numberOfTanks !== undefined) setNumberOfTanks(formData.numberOfTanks);
+        if (formData.gallonType !== undefined) setGallonType(formData.gallonType);
+        if (formData.personCode !== undefined) setPersonCode(formData.personCode);
+        if (formData.tanks !== undefined) setTanks(formData.tanks);
+        if (formData.terms !== undefined) setTerms(formData.terms);
+        
+        console.log('✓ Revision form data restored from session');
+      } catch (error) {
+        console.error('Error restoring revision form data:', error);
+      }
+    }
+  }, []); // Run only on mount
+
+  // Save form data to sessionStorage whenever state changes (only when active)
+  useEffect(() => {
+    if (!isActive) return; // Only save when this tab is active
+    
+    const formData = {
+      loadSearchInput,
+      isQuotationLoaded,
+      originalQuotationNumber,
+      originalRevisionNumber,
+      originalFullQuoteNumber,
+      fromCompany,
+      companyCode,
+      companyShortName,
+      templatePath,
+      showSubTotal,
+      showVat,
+      showGrandTotal,
+      recipientTitle,
+      recipientName,
+      role,
+      companyName,
+      location,
+      phoneNumber,
+      email,
+      quotationDate,
+      quotationFrom,
+      salesPersonName,
+      officePersonName,
+      quotationNumber,
+      revisionEnabled,
+      revisionNumber,
+      subject,
+      projectLocation,
+      generatedBy,
+      additionalDetails,
+      numberOfTanks,
+      gallonType,
+      personCode,
+      tanks,
+      terms,
+    };
+    
+    sessionStorage.setItem('quotationRevisionFormData', JSON.stringify(formData));
+  }, [
+    isActive,
+    loadSearchInput, isQuotationLoaded, originalQuotationNumber, originalRevisionNumber, originalFullQuoteNumber,
+    fromCompany, companyCode, companyShortName, templatePath,
+    showSubTotal, showVat, showGrandTotal,
+    recipientTitle, recipientName, role, companyName, location, phoneNumber, email,
+    quotationDate, quotationFrom, salesPersonName, officePersonName,
+    quotationNumber, revisionEnabled, revisionNumber,
+    subject, projectLocation, generatedBy,
+    additionalDetails, numberOfTanks, gallonType, personCode,
+    tanks, terms,
+  ]);
 
   return (
     <div className="space-y-10 pt-12">
@@ -2069,120 +2311,94 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
       <Card className="border border-blue-200 rounded-xl shadow-sm bg-white">
         <CardHeader className="bg-white text-blue-600 border-b border-blue-200 rounded-t-xl px-6 py-4">
           <CardTitle className="text-base font-semibold">Contractual Terms & Specifications</CardTitle>
+          <p className="text-sm text-gray-500 mt-1">Drag the grip icon to reorder points within each section</p>
         </CardHeader>
         <CardContent className="pt-6 space-y-4 px-6">
           <div className="space-y-6">
-            {termsList.map(term => (
-              <div key={term.key} className="flex flex-col gap-2 p-4 border border-blue-200 rounded-lg">
-                <div className="flex items-center gap-3 mb-2">
-                  <Checkbox
-                    id={term.key}
-                    checked={terms[term.key].action}
-                    onCheckedChange={(checked) => handleTermActionChange(term.key, checked as boolean)}
-                  />
-                  <Label htmlFor={term.key} className="font-semibold text-black cursor-pointer">{term.label}</Label>
-                </div>
-                {terms[term.key].action && (
-                  <div className="space-y-2">
-                    {/* Existing details, editable */}
-                    {terms[term.key].details.map((detail, idx) => (
-                      <div key={idx} className="flex gap-2 items-center">
-                        <Input
-                          value={detail}
-                          onChange={e => handleEditDetail(term.key, idx, e.target.value)}
-                          className="flex-1"
-                          autoComplete="off"
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') {
-                              // Try to focus next detail input or custom input
-                              const next = (e.target as HTMLElement).parentElement?.nextElementSibling?.querySelector('input');
-                              if (next) (next as HTMLElement).focus();
-                            }
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveDetail(term.key, idx)}
-                          className="p-2 text-blue-600 hover:text-blue-700"
-                          aria-label="Delete point"
-                        >
-                          <Trash2 className="w-4 h-4 text-blue-600" />
-                        </button>
-                      </div>
-                    ))}
-                    {/* Custom added points */}
-                    {terms[term.key].custom.map((custom, idx) => (
-                      <div key={idx} className="flex gap-2 items-center">
-                        <Input
-                          value={custom}
-                          onChange={e => handleEditCustom(term.key, idx, e.target.value)}
-                          className="flex-1"
-                          autoComplete="off"
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') {
-                              // Try to focus next custom input or new point input
-                              const next = (e.target as HTMLElement).parentElement?.nextElementSibling?.querySelector('input');
-                              if (next) (next as HTMLElement).focus();
-                            }
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveCustom(term.key, idx)}
-                          className="p-2 text-blue-600 hover:text-blue-700"
-                          aria-label="Delete custom point"
-                        >
-                          <Trash2 className="w-4 h-4 text-blue-600" />
-                        </button>
-                      </div>
-                    ))}
-                    {/* Add new point */}
-                    <div className="flex gap-2 items-center mt-2">
-                      <Input
-                        placeholder={`Add new point to ${term.label}`}
-                        value={terms[term.key].newPoint || ''}
-                        onChange={e => setTerms(prev => ({
-                          ...prev,
-                          [term.key]: {
-                            ...prev[term.key],
-                            newPoint: e.target.value,
-                          }
-                        }))}
-                        className="flex-1"
-                        autoComplete="off"
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') {
-                            // Optionally blur or focus next section
-                            (e.target as HTMLElement).blur();
-                          }
-                        }}
-                      />
-                      <Button
-                        size="sm"
-                        className="bg-blue-400 hover:bg-blue-500 text-white rounded-lg transition-colors duration-200 shadow-sm"
-                        onClick={() => {
-                          const newPoint = terms[term.key].newPoint;
-                          if (newPoint && newPoint.trim() !== '') {
-                            handleAddCustom(term.key, newPoint);
-                            setTerms(prev => ({
-                              ...prev,
-                              [term.key]: {
-                                ...prev[term.key],
-                                newPoint: '',
-                              }
-                            }));
-                          }
-                        }}
-                      >
-                        <span className="flex items-center gap-1">
-                          <Plus className="w-4 h-4 text-white" /> Add
-                        </span>
-                      </Button>
-                    </div>
+            {termsList.map(term => {
+              const allPoints = [...terms[term.key].details, ...terms[term.key].custom];
+              const pointIds = allPoints.map((_, idx) => `${term.key}-${idx}`);
+              
+              return (
+                <div key={term.key} className="flex flex-col gap-2 p-4 border border-blue-200 rounded-lg">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Checkbox
+                      id={term.key}
+                      checked={terms[term.key].action}
+                      onCheckedChange={(checked) => handleTermActionChange(term.key, checked as boolean)}
+                    />
+                    <Label htmlFor={term.key} className="font-semibold text-black cursor-pointer">{term.label}</Label>
                   </div>
-                )}
-              </div>
-            ))}
+                  {terms[term.key].action && (
+                    <div className="space-y-2">
+                      <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={handlePointDragEnd(term.key)}
+                      >
+                        <SortableContext
+                          items={pointIds}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          {allPoints.map((point, idx) => (
+                            <SortablePoint
+                              key={`${term.key}-${idx}`}
+                              id={`${term.key}-${idx}`}
+                              point={point}
+                              termKey={term.key}
+                              index={idx}
+                              isFromDetails={idx < terms[term.key].details.length}
+                            />
+                          ))}
+                        </SortableContext>
+                      </DndContext>
+                      {/* Add new point */}
+                      <div className="flex gap-2 items-center mt-2">
+                        <Input
+                          placeholder={`Add new point to ${term.label}`}
+                          value={terms[term.key].newPoint || ''}
+                          onChange={e => setTerms(prev => ({
+                            ...prev,
+                            [term.key]: {
+                              ...prev[term.key],
+                              newPoint: e.target.value,
+                            }
+                          }))}
+                          className="flex-1"
+                          autoComplete="off"
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              (e.target as HTMLElement).blur();
+                            }
+                          }}
+                        />
+                        <Button
+                          size="sm"
+                          className="bg-blue-400 hover:bg-blue-500 text-white rounded-lg transition-colors duration-200 shadow-sm"
+                          onClick={() => {
+                            const newPoint = terms[term.key].newPoint;
+                            if (newPoint && newPoint.trim() !== '') {
+                              handleAddCustom(term.key, newPoint);
+                              setTerms(prev => ({
+                                ...prev,
+                                [term.key]: {
+                                  ...prev[term.key],
+                                  newPoint: '',
+                                }
+                              }));
+                            }
+                          }}
+                        >
+                          <span className="flex items-center gap-1">
+                            <Plus className="w-4 h-4 text-white" /> Add
+                          </span>
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </CardContent>
       </Card>

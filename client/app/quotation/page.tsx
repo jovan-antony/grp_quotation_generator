@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import NewQuotationForm from '@/components/quotation/NewQuotationForm';
@@ -19,7 +19,16 @@ export default function QuotationPage() {
   const [previewHtml, setPreviewHtml] = useState('');
   const [loadQuotationData, setLoadQuotationData] = useState<any>(null);
 
+  // Clear all form data from sessionStorage on page load/reload
+  useEffect(() => {
+    sessionStorage.removeItem('newQuotationFormData');
+    sessionStorage.removeItem('quotationRevisionFormData');
+    sessionStorage.removeItem('searchQuotationFormData');
+    console.log('✓ All form data cleared on page load');
+  }, []); // Empty dependency array means this runs only on mount (page load/reload)
+
   const handleLoadQuotation = (quotationData: any) => {
+    console.log('📥 Loading quotation data to revision form:', quotationData);
     setLoadQuotationData(quotationData);
     setActiveTab('revision');
   };

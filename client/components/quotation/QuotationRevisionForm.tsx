@@ -604,11 +604,13 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
   useEffect(() => {
     if (!loadQuotationData) return;
 
-    console.log('Loading quotation data:', loadQuotationData);
+    console.log('📥 Loading quotation data into revision form:', loadQuotationData);
 
     // API returns data with 'quotation' object for full details from /api/quotations/{id}
     // or direct quotation data from search results
     const quotationData = loadQuotationData.quotation || loadQuotationData;
+    
+    console.log('📋 Extracted quotation data:', quotationData);
 
     // Set form fields from loaded data
     setFromCompany(quotationData.from_company || quotationData.fromCompany || '');
@@ -651,32 +653,41 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
     setProjectLocation(quotationData.project_location || quotationData.projectLocation || '');
     setGeneratedBy(quotationData.generated_by || quotationData.generatedBy || '');
     
+    // Mark as loaded
+    setIsQuotationLoaded(true);
+    setOriginalQuotationNumber(quotationData.quotation_number || quotationData.quotationNumber || '');
+    setOriginalRevisionNumber(quotationData.revision_number ?? quotationData.revisionNumber ?? 0);
+    setOriginalFullQuoteNumber(loadQuotationData.fullQuoteNumber || quotationData.full_quote_number || '');
+    
     // Load tanks data
     if (loadQuotationData.tanks || quotationData.tanksData) {
       const tanksArray = loadQuotationData.tanks?.tanks || quotationData.tanksData?.tanks || [];
       const gallonTypeFromData = loadQuotationData.tanks?.gallonType || quotationData.tanksData?.gallonType || '';
       
+      console.log('🚰 Loading tanks:', tanksArray.length, 'tanks, gallon type:', gallonTypeFromData);
       setGallonType(gallonTypeFromData);
       setNumberOfTanks(tanksArray.length);
       setTanks(tanksArray);
     }
     
     // Load form options
-    if (quotationData.formOptions) {
-      setShowSubTotal(quotationData.formOptions.showSubTotal ?? true);
-      setShowVat(quotationData.formOptions.showVat ?? true);
-      setShowGrandTotal(quotationData.formOptions.showGrandTotal ?? true);
+    if (loadQuotationData.formOptions || quotationData.formOptions) {
+      const formOpts = loadQuotationData.formOptions || quotationData.formOptions;
+      setShowSubTotal(formOpts.showSubTotal ?? true);
+      setShowVat(formOpts.showVat ?? true);
+      setShowGrandTotal(formOpts.showGrandTotal ?? true);
     }
     
-    // Load terms - API returns terms directly
-    if (loadQuotationData.terms) {
-      const apiTerms = loadQuotationData.terms;
+    // Load terms - check both loadQuotationData.terms and quotationData.terms
+    const termsData = loadQuotationData.terms || quotationData.terms;
+    if (termsData) {
+      console.log('📑 Loading terms data');
       const formattedTerms: Record<string, any> = {};
       
       // Convert API terms to form format
-      Object.keys(apiTerms).forEach(key => {
+      Object.keys(termsData).forEach(key => {
         if (key === '_order') return; // Skip legacy _order key if exists
-        const termData = apiTerms[key];
+        const termData = termsData[key];
         formattedTerms[key] = {
           action: termData?.action === 'yes' || termData?.action === true,
           details: Array.isArray(termData?.details) ? termData.details : (Array.isArray(termData) ? termData : []),
@@ -687,12 +698,20 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
       setTerms(prev => ({ ...prev, ...formattedTerms }));
     }
     
-    // Load additional details
-    if (quotationData.additionalData?.additionalDetails) {
-      console.log('📝 Loading additional details from search:', quotationData.additionalData.additionalDetails);
-      setAdditionalDetails(quotationData.additionalData.additionalDetails);
+    // Load additional details - check both locations
+    const additionalData = loadQuotationData.additionalData || quotationData.additionalData;
+    if (additionalData?.additionalDetails) {
+      console.log('📝 Loading additional details from search:', additionalData.additionalDetails);
+      setAdditionalDetails(additionalData.additionalDetails);
     } else {
-      console.warn('⚠ No additional details found in search data:', quotationData.additionalData);
+      console.warn('⚠ No additional details found in search data');
+    }
+    
+    // Fetch company details if fromCompany is set
+    const companyToFetch = quotationData.from_company || quotationData.fromCompany;
+    if (companyToFetch) {
+      console.log('🏢 Fetching company details for:', companyToFetch);
+      fetchCompanyDetails(companyToFetch);
     }
     
     toast.success('Quotation loaded successfully!');
@@ -1596,6 +1615,12 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
 
   // Load form data from sessionStorage on component mount
   useEffect(() => {
+    // Don't restore from sessionStorage if we're loading a quotation from search
+    if (loadQuotationData) {
+      console.log('⏭ Skipping sessionStorage restore - loading from search data');
+      return;
+    }
+    
     const savedFormData = sessionStorage.getItem('quotationRevisionFormData');
     if (savedFormData) {
       try {
@@ -1643,7 +1668,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
         console.error('Error restoring revision form data:', error);
       }
     }
-  }, []); // Run only on mount
+  }, [loadQuotationData]); // Re-run when loadQuotationData changes
 
   // Save form data to sessionStorage whenever state changes (only when active)
   useEffect(() => {

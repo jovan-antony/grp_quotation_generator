@@ -130,7 +130,7 @@ class QuotationWebpageInputDetailsSave(SQLModel, table=True):
     final_doc_file_path: Optional[str] = None
     company_id: int = Field(foreign_key="company_details.id")
     recipient_id: int = Field(foreign_key="recipient_details.id")
-    sales_person_id: int = Field(foreign_key="sales_details.id")
+    sales_person_id: Optional[int] = Field(default=None, foreign_key="sales_details.id")
     project_manager_id: Optional[int] = Field(default=None, foreign_key="project_manager_details.id")
     quotation_date: date
     subject: Optional[str] = None

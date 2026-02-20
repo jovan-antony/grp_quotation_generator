@@ -1233,29 +1233,36 @@ async def save_quotation(request: SaveQuotationRequest, session: Session = Depen
         sales_person_id = None
         project_manager_id = None
         
+        print(f"📋 QuotationFrom: {request.quotationFrom}")
+        print(f"👤 SalesPersonName: '{request.salesPersonName}'")
+        print(f"👤 OfficePersonName: '{request.officePersonName}'")
+        print(f"✍️ GeneratedBy: '{request.generatedBy}'")
+        
+        # Only process sales person for Sales quotations
         if request.quotationFrom == 'Sales' and request.salesPersonName:
             person_name = request.salesPersonName.split('(')[0].strip()
             statement = select(SalesDetails).where(SalesDetails.sales_person_name == person_name)
             sales_person = session.exec(statement).first()
             if sales_person:
                 sales_person_id = sales_person.id
+                print(f"✓ Found sales person: {sales_person.sales_person_name} (ID: {sales_person_id})")
+            else:
+                print(f"⚠ Sales person not found: {person_name}")
         
+        # Process office/project manager
         if request.officePersonName:
             person_name = request.officePersonName.split('(')[0].strip()
             statement = select(ProjectManagerDetails).where(ProjectManagerDetails.manager_name == person_name)
             pm = session.exec(statement).first()
             if pm:
                 project_manager_id = pm.id
+                print(f"✓ Found project manager: {pm.manager_name} (ID: {project_manager_id})")
+            else:
+                print(f"⚠ Project manager not found: {person_name}")
         
-        # Use first sales person as default if not found
-        if not sales_person_id:
-            statement = select(SalesDetails)
-            first_sales = session.exec(statement).first()
-            if first_sales:
-                sales_person_id = first_sales.id
-        
-        if not sales_person_id:
-            raise HTTPException(status_code=404, detail="No sales person found in database")
+        # Convert empty generatedBy to None
+        generated_by_value = request.generatedBy if request.generatedBy else None
+        print(f"📝 Final generatedBy value: {generated_by_value}")
         
         # Parse date
         try:
@@ -1290,7 +1297,7 @@ async def save_quotation(request: SaveQuotationRequest, session: Session = Depen
             existing_quotation.quotation_date = quotation_date
             existing_quotation.subject = request.subject
             existing_quotation.project_location = request.projectLocation
-            existing_quotation.generated_by = request.generatedBy
+            existing_quotation.generated_by = generated_by_value
             existing_quotation.tanks_data = request.tanksData
             existing_quotation.form_options = request.formOptions or {}
             existing_quotation.additional_data = request.additionalData or {}
@@ -1313,7 +1320,7 @@ async def save_quotation(request: SaveQuotationRequest, session: Session = Depen
                 quotation_date=quotation_date,
                 subject=request.subject,
                 project_location=request.projectLocation,
-                generated_by=request.generatedBy,
+                generated_by=generated_by_value,
                 tanks_data=request.tanksData,
                 form_options=request.formOptions or {},
                 additional_data=request.additionalData or {},

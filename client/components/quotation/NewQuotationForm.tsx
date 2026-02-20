@@ -657,6 +657,7 @@ export default function NewQuotationForm({ onPreviewUpdate, isActive = true, isP
 
       // Save to database
       console.log(`💾 Saving quotation - Number: ${quotationNumber}, Revision: ${revisionNumber}`);
+      console.log(`👤 QuotationFrom: ${quotationFrom}, SalesPerson: ${salesPersonName}, OfficePerson: ${officePersonName}, GeneratedBy: ${generatedBy}`);
       const saveResponse = await fetch(getApiUrl('api/save-quotation'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -674,10 +675,11 @@ export default function NewQuotationForm({ onPreviewUpdate, isActive = true, isP
           email,
           quotationDate: formattedDate,
           quotationFrom,
-          salesPersonName,
-          officePersonName,
+          salesPersonName: quotationFrom === 'Sales' ? salesPersonName : '',
+          officePersonName: quotationFrom === 'Office' || quotationFrom === 'Sales' ? officePersonName : '',
           subject,
           projectLocation,
+          generatedBy,
           tanksData: {
             numberOfTanks: tanks.length,
             gallonType: formattedGallonType,
@@ -790,6 +792,7 @@ export default function NewQuotationForm({ onPreviewUpdate, isActive = true, isP
       }
 
       // Send all data to Python backend for document generation
+      console.log(`👤 Export - QuotationFrom: ${quotationFrom}, SalesPerson: ${salesPersonName}, OfficePerson: ${officePersonName}, GeneratedBy: ${generatedBy}`);
       const response = await fetch('/api/generate-quotation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -807,8 +810,8 @@ export default function NewQuotationForm({ onPreviewUpdate, isActive = true, isP
           email: formattedEmail,
           quotationDate: formattedDate,
           quotationFrom,
-          salesPersonName,
-          officePersonName,
+          salesPersonName: quotationFrom === 'Sales' ? salesPersonName : '',
+          officePersonName: quotationFrom === 'Office' || quotationFrom === 'Sales' ? officePersonName : '',
           quotationNumber,
           revisionEnabled,
           revisionNumber,
@@ -840,7 +843,8 @@ export default function NewQuotationForm({ onPreviewUpdate, isActive = true, isP
         try {
           const finalDocPath = filepath;
           
-          console.log(`💾 Saving quotation - Number: ${quotationNumber}, Revision: ${revisionNumber}`);
+          console.log(`💾 Saving quotation after export - Number: ${quotationNumber}, Revision: ${revisionNumber}`);
+          console.log(`👤 Post-export save - QuotationFrom: ${quotationFrom}, SalesPerson: ${salesPersonName}, OfficePerson: ${officePersonName}, GeneratedBy: ${generatedBy}`);
           const saveResponse = await fetch(getApiUrl('api/save-quotation'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -858,8 +862,8 @@ export default function NewQuotationForm({ onPreviewUpdate, isActive = true, isP
               email,
               quotationDate: formattedDate,
               quotationFrom,
-              salesPersonName,
-              officePersonName,
+              salesPersonName: quotationFrom === 'Sales' ? salesPersonName : '',
+              officePersonName: quotationFrom === 'Office' || quotationFrom === 'Sales' ? officePersonName : '',
               subject,
               projectLocation,
               generatedBy,

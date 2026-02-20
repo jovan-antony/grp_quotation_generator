@@ -32,6 +32,7 @@ import { CSS } from '@dnd-kit/utilities';
 interface NewQuotationFormProps {
   onPreviewUpdate: (html: string) => void;
   isActive?: boolean;
+  isPageReload?: boolean;
 }
 
 interface TankData {
@@ -54,7 +55,7 @@ interface TankData {
   }>;
 }
 
-export default function NewQuotationForm({ onPreviewUpdate, isActive = true }: NewQuotationFormProps) {
+export default function NewQuotationForm({ onPreviewUpdate, isActive = true, isPageReload = false }: NewQuotationFormProps) {
   const [fromCompany, setFromCompany] = useState('');
   const [companyCode, setCompanyCode] = useState(''); // CODE from company_details.xlsx
   const [companyShortName, setCompanyShortName] = useState(''); // company_name (brand name) from company_details.xlsx
@@ -1240,8 +1241,14 @@ export default function NewQuotationForm({ onPreviewUpdate, isActive = true }: N
     );
   }
 
-  // Load form data from sessionStorage on component mount
+  // Load form data from sessionStorage on component mount (only if not a page reload)
   useEffect(() => {
+    // Don't restore from sessionStorage on page reload
+    if (isPageReload) {
+      console.log('⏭ Skipping sessionStorage restore - page reload detected');
+      return;
+    }
+    
     const savedFormData = sessionStorage.getItem('newQuotationFormData');
     if (savedFormData) {
       try {
@@ -1284,7 +1291,7 @@ export default function NewQuotationForm({ onPreviewUpdate, isActive = true }: N
         console.error('Error restoring form data:', error);
       }
     }
-  }, []); // Run only on mount
+  }, [isPageReload]); // Re-run if isPageReload changes
 
   // Save form data to sessionStorage whenever state changes (only when active)
   useEffect(() => {

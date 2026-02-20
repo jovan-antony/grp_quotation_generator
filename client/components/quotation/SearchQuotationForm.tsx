@@ -14,12 +14,14 @@ interface SearchQuotationFormProps {
   onPreviewUpdate: (html: string) => void;
   onLoadQuotation?: (quotationData: any) => void;
   isActive?: boolean;
+  isPageReload?: boolean;
 }
 
 export default function SearchQuotationForm({
   onPreviewUpdate,
   onLoadQuotation,
   isActive = true,
+  isPageReload = false,
 }: SearchQuotationFormProps) {
   const [filters, setFilters] = useState({
     recipientName: false,
@@ -45,8 +47,14 @@ export default function SearchQuotationForm({
   const [quotations, setQuotations] = useState<any[]>([]);
   const [selectedQuotation, setSelectedQuotation] = useState<any>(null);
 
-  // Load form data from sessionStorage on component mount
+  // Load form data from sessionStorage on component mount (only if not a page reload)
   useEffect(() => {
+    // Don't restore from sessionStorage on page reload
+    if (isPageReload) {
+      console.log('⏭ Skipping sessionStorage restore - page reload detected');
+      return;
+    }
+    
     const savedFormData = sessionStorage.getItem('searchQuotationFormData');
     if (savedFormData) {
       try {
@@ -64,7 +72,7 @@ export default function SearchQuotationForm({
         console.error('Error restoring search form data:', error);
       }
     }
-  }, []); // Run only on mount
+  }, [isPageReload]); // Re-run if isPageReload changes
 
   // Save form data to sessionStorage whenever state changes (only when active)
   useEffect(() => {

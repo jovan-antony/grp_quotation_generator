@@ -18,14 +18,38 @@ export default function QuotationPage() {
   const [activeTab, setActiveTab] = useState('new');
   const [previewHtml, setPreviewHtml] = useState('');
   const [loadQuotationData, setLoadQuotationData] = useState<any>(null);
+  const [isPageReload, setIsPageReload] = useState(true);
 
-  // Clear all form data from sessionStorage on page load/reload
+  // Detect if this is a page reload and clear sessionStorage
   useEffect(() => {
-    sessionStorage.removeItem('newQuotationFormData');
-    sessionStorage.removeItem('quotationRevisionFormData');
-    sessionStorage.removeItem('searchQuotationFormData');
-    console.log('✓ All form data cleared on page load');
-  }, []); // Empty dependency array means this runs only on mount (page load/reload)
+    // Check if this is a page reload (not just component mount)
+    const perfEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+    const isReload = perfEntries.length > 0 && perfEntries[0].type === 'reload';
+    
+    if (isReload || !sessionStorage.getItem('appInitialized')) {
+      // This is a fresh page load or reload
+      sessionStorage.removeItem('newQuotationFormData');
+      sessionStorage.removeItem('quotationRevisionFormData');
+      sessionStorage.removeItem('searchQuotationFormData');
+      sessionStorage.setItem('appInitialized', 'true');
+      setIsPageReload(true);
+      console.log('✓ All form data cleared on page load/reload');
+    } else {
+      // This is just a component remount (shouldn't happen but handle it)
+      setIsPageReload(false);
+      console.log('✓ App already initialized, keeping sessionStorage');
+    }
+    
+    // Clear the initialization flag when the user closes/navigates away
+    const handleBeforeUnload = () => {
+      sessionStorage.removeItem('appInitialized');
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
 
   const handleLoadQuotation = (quotationData: any) => {
     console.log('📥 Loading quotation data to revision form:', quotationData);
@@ -110,15 +134,15 @@ export default function QuotationPage() {
 
             <div className="order-1 lg:order-2">
               <TabsContent value="new" className="-mt-4">
-                <NewQuotationForm onPreviewUpdate={setPreviewHtml} isActive={activeTab === 'new'} />
+                <NewQuotationForm onPreviewUpdate={setPreviewHtml} isActive={activeTab === 'new'} isPageReload={isPageReload} />
               </TabsContent>
 
               <TabsContent value="search" className="-mt-4">
-                <SearchQuotationForm onPreviewUpdate={setPreviewHtml} onLoadQuotation={handleLoadQuotation} isActive={activeTab === 'search'} />
+                <SearchQuotationForm onPreviewUpdate={setPreviewHtml} onLoadQuotation={handleLoadQuotation} isActive={activeTab === 'search'} isPageReload={isPageReload} />
               </TabsContent>
 
               <TabsContent value="revision" className="-mt-4">
-                <QuotationRevisionForm onPreviewUpdate={setPreviewHtml} loadQuotationData={loadQuotationData} isActive={activeTab === 'revision'} />
+                <QuotationRevisionForm onPreviewUpdate={setPreviewHtml} loadQuotationData={loadQuotationData} isActive={activeTab === 'revision'} isPageReload={isPageReload} />
               </TabsContent>
             </div>
           </div>

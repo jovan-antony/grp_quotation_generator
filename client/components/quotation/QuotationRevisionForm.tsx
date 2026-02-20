@@ -33,6 +33,7 @@ interface QuotationRevisionFormProps {
   onPreviewUpdate: (html: string) => void;
   loadQuotationData?: any;
   isActive?: boolean;
+  isPageReload?: boolean;
 }
 
 interface TankData {
@@ -55,7 +56,7 @@ interface TankData {
   }>;
 }
 
-export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationData, isActive = true }: QuotationRevisionFormProps) {
+export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationData, isActive = true, isPageReload = false }: QuotationRevisionFormProps) {
   // Load functionality states
   const [loadSearchInput, setLoadSearchInput] = useState('');
   const [isQuotationLoaded, setIsQuotationLoaded] = useState(false);
@@ -1613,8 +1614,14 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
     );
   }
 
-  // Load form data from sessionStorage on component mount
+  // Load form data from sessionStorage on component mount (only if not a page reload)
   useEffect(() => {
+    // Don't restore from sessionStorage on page reload
+    if (isPageReload) {
+      console.log('⏭ Skipping sessionStorage restore - page reload detected');
+      return;
+    }
+    
     // Don't restore from sessionStorage if we're loading a quotation from search
     if (loadQuotationData) {
       console.log('⏭ Skipping sessionStorage restore - loading from search data');
@@ -1668,7 +1675,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
         console.error('Error restoring revision form data:', error);
       }
     }
-  }, [loadQuotationData]); // Re-run when loadQuotationData changes
+  }, [loadQuotationData, isPageReload]); // Re-run when loadQuotationData or isPageReload changes
 
   // Save form data to sessionStorage whenever state changes (only when active)
   useEffect(() => {

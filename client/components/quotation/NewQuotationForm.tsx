@@ -108,26 +108,36 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
     const num = parseInt(value) || 1;
     setNumberOfTanks(num);
 
-    const newTanks = Array.from({ length: num }, (_, i) => ({
-      tankNumber: i + 1,
-      optionEnabled: false,
-      optionNumbers: 1,
-      options: [
-        {
-          tankName: '',
-          quantity: 1,
-          hasPartition: false,
-          tankType: '',
-          length: '',
-          width: '',
-          height: '',
-          unit: '',
-          unitPrice: '',
-          supportSystem: 'Internal',
-        },
-      ],
-    }));
-    setTanks(newTanks);
+    // Preserve existing tank data
+    const currentTanks = [...tanks];
+    
+    if (num > currentTanks.length) {
+      // Add new empty tanks
+      const newTanks = Array.from({ length: num - currentTanks.length }, (_, i) => ({
+        tankNumber: currentTanks.length + i + 1,
+        optionEnabled: false,
+        optionNumbers: 1,
+        options: [
+          {
+            tankName: '',
+            quantity: 1,
+            hasPartition: false,
+            tankType: '',
+            length: '',
+            width: '',
+            height: '',
+            unit: '',
+            unitPrice: '',
+            supportSystem: 'Internal',
+          },
+        ],
+      }));
+      setTanks([...currentTanks, ...newTanks]);
+    } else if (num < currentTanks.length) {
+      // Remove excess tanks
+      setTanks(currentTanks.slice(0, num));
+    }
+    // If num === currentTanks.length, do nothing (no change)
   };
 
   const updateTank = (index: number, data: Partial<TankData>) => {
@@ -209,7 +219,7 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
             <td style="padding: 12px 10px; color: #374151; font-size: 12px; font-weight: 500; border-right: 1px solid #f3f4f6;">${option.tankName || '-'}</td>
             <td style="padding: 12px 10px; color: #6b7280; font-size: 12px; border-right: 1px solid #f3f4f6;">${option.tankType || '-'}</td>
             <td style="padding: 12px 10px; color: #374151; font-size: 12px; border-right: 1px solid #f3f4f6;">${option.length || '-'} × ${option.width || '-'} × ${option.height || '-'}</td>
-            <td style="padding: 12px 10px; color: #374151; font-size: 12px; border-right: 1px solid #f3f4f6;">${volumeM3} m³ (${gallons} ${gallonType === 'US Gallons' ? 'USG' : 'IMG'})</td>
+            <td style="padding: 12px 10px; color: #374151; font-size: 12px; border-right: 1px solid #f3f4f6;">${volumeM3} m³ (${gallons} ${gallonType === 'US Gallons' ? 'USG' : 'IMP GALLON'})</td>
             <td style="padding: 12px 10px; text-align: center; color: #374151; font-size: 12px; font-weight: 600; border-right: 1px solid #f3f4f6;">${qty}</td>
             <td style="padding: 12px 10px; text-align: right; color: #374151; font-size: 12px; border-right: 1px solid #f3f4f6;">AED ${unitPrice.toLocaleString()}</td>
             <td style="padding: 12px 10px; text-align: right; color: #111827; font-size: 12px; font-weight: 600;">AED ${total.toLocaleString()}</td>
@@ -602,8 +612,8 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
       const year = String(dateObj.getFullYear()).slice(-2);
       const formattedDate = `${day}/${month}/${year}`;
 
-      // Convert gallon type to Python format (USG or IMG)
-      const formattedGallonType = gallonType === 'US Gallons' ? 'USG' : gallonType === 'Imperial Gallons' ? 'IMG' : gallonType;
+      // Convert gallon type to Python format (USG or IMP GALLON)
+      const formattedGallonType = gallonType === 'US Gallons' ? 'USG' : gallonType === 'Imperial Gallons' ? 'IMP GALLON' : gallonType;
 
       // Convert terms.action boolean to 'yes'/'no' string for backend
       const formattedTerms = Object.fromEntries(
@@ -724,8 +734,8 @@ export default function NewQuotationForm({ onPreviewUpdate }: NewQuotationFormPr
       const year = String(dateObj.getFullYear()).slice(-2);
       const formattedDate = `${day}/${month}/${year}`;
 
-      // Convert gallon type to Python format (USG or IMG)
-      const formattedGallonType = gallonType === 'US Gallons' ? 'USG' : gallonType === 'Imperial Gallons' ? 'IMG' : gallonType;
+      // Convert gallon type to Python format (USG or IMP GALLON)
+      const formattedGallonType = gallonType === 'US Gallons' ? 'USG' : gallonType === 'Imperial Gallons' ? 'IMP GALLON' : gallonType;
 
       // Convert terms.action boolean to 'yes'/'no' string for backend
       const formattedTerms = Object.fromEntries(

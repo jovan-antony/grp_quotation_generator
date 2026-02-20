@@ -110,9 +110,9 @@ class TankInvoiceGenerator:
         # Get gallon type preference
         print("\nSelect gallon type for capacity display:")
         print("1. USG (US Gallons)")
-        print("2. IMG (Imperial Gallons)")
+        print("2. IMP GALLON (Imperial Gallons)")
         gallon_choice = input("Enter 1 or 2: ").strip()
-        self.gallon_type = "IMG" if gallon_choice == "2" else "USG"
+        self.gallon_type = "IMP GALLON" if gallon_choice == "2" else "USG"
         
         # Collect data for each tank
         for n in range(1, num_tanks + 1):

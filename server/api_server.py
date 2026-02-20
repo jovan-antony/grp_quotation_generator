@@ -1057,6 +1057,7 @@ async def get_recipients(session: Session = Depends(get_session)):
         for recipient in recipients:
             if recipient.recipient_name:  # Only include if name exists
                 recipient_list.append({
+                    "title": recipient.recipient_title or "Mr.",
                     "name": recipient.recipient_name,
                     "role": recipient.role_of_recipient or "",
                     "company": recipient.to_company_name or "",
@@ -1122,6 +1123,7 @@ async def get_recipient_details(name: str, session: Session = Depends(get_sessio
         
         # Get recipient details
         details = {
+            "recipientTitle": recipient.recipient_title or "Mr.",
             "recipientName": recipient.recipient_name,
             "role": recipient.role_of_recipient or "",
             "companyName": recipient.to_company_name or "",
@@ -1210,6 +1212,7 @@ async def save_quotation(request: SaveQuotationRequest, session: Session = Depen
         
         if recipient:
             # Update existing recipient
+            recipient.recipient_title = request.recipientTitle
             recipient.role_of_recipient = request.role
             recipient.to_company_location = request.location
             recipient.phone_number = request.phoneNumber
@@ -1218,6 +1221,7 @@ async def save_quotation(request: SaveQuotationRequest, session: Session = Depen
         else:
             # Create new recipient
             recipient = RecipientDetails(
+                recipient_title=request.recipientTitle,
                 recipient_name=request.recipientName,
                 role_of_recipient=request.role,
                 to_company_name=request.companyName,
@@ -1714,7 +1718,7 @@ async def get_quotation_by_id(quotation_id: int, session: Session = Depends(get_
                 "full_main_quote_number": quotation.full_main_quote_number,
                 "revision_number": quotation.revision_number,
                 "from_company": company.full_name if company else "",
-                "recipient_title": "Mr.",
+                "recipient_title": recipient.recipient_title if recipient else "Mr.",
                 "recipient_name": recipient.recipient_name if recipient else "",
                 "role": recipient.role_of_recipient if recipient else "",
                 "recipient_company": recipient.to_company_name if recipient else "",

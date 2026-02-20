@@ -358,6 +358,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
         
         // Auto-fill all recipient fields
         console.log('📝 Auto-filling fields...');
+        if (data.recipientTitle) setRecipientTitle(data.recipientTitle);
         setRecipientName(data.recipientName || '');
         setRole(data.role || '');
         setCompanyName(data.companyName || '');

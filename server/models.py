@@ -110,6 +110,7 @@ class RecipientDetails(SQLModel, table=True):
     __tablename__ = "recipient_details"
     
     id: Optional[int] = Field(default=None, primary_key=True)
+    recipient_title: str = Field(default="Mr.")
     recipient_name: str
     role_of_recipient: Optional[str] = None
     to_company_name: Optional[str] = None

@@ -165,7 +165,7 @@ class QuotationRequest(BaseModel):
     projectLocation: str
     generatedBy: Optional[str] = ""
     additionalDetails: Optional[List[AdditionalDetail]] = []
-    gallonType: str
+    gallonType: Optional[str] = "USG"
     numberOfTanks: int
     showSubTotal: bool
     showVat: bool
@@ -297,7 +297,7 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
             (detail.key or "", detail.value or "") 
             for detail in request.additionalDetails
         ] if request.additionalDetails else []
-        generator.gallon_type = request.gallonType
+        generator.gallon_type = request.gallonType if request.gallonType else "USG"
         
         # Set company full name from frontend (for "Yours truly" and NOTE sections)
         generator.company_full_name = request.fromCompany
@@ -351,7 +351,8 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
                     volume_m3 = length * width * height
                     
                     # Calculate gallons
-                    if request.gallonType == "USG":
+                    gallon_type_to_use = request.gallonType if request.gallonType else "USG"
+                    if gallon_type_to_use == "USG":
                         gallons = volume_m3 * 264.172
                     else:
                         gallons = volume_m3 * 219.969

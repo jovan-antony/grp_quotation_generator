@@ -855,16 +855,8 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
         toast.error('Please enter recipient name');
         return;
       }
-      if (!companyName) {
-        toast.error('Please enter company name');
-        return;
-      }
       if (!quotationNumber) {
         toast.error('Please enter quotation number');
-        return;
-      }
-      if (!gallonType) {
-        toast.error('Please select gallon type');
         return;
       }
 
@@ -980,16 +972,8 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
         toast.error('Please enter recipient name');
         return;
       }
-      if (!companyName) {
-        toast.error('Please enter company name');
-        return;
-      }
       if (!quotationNumber) {
         toast.error('Please enter quotation number');
-        return;
-      }
-      if (!gallonType) {
-        toast.error('Please select gallon type');
         return;
       }
 
@@ -1880,7 +1864,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
             </div>
 
             <div>
-              <Label htmlFor="companyName"> To Company Name</Label>
+              <Label htmlFor="companyName">To Company Name (Optional)</Label>
               <AutocompleteInput
                 id="companyName"
                 value={companyName}
@@ -2310,7 +2294,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, loadQuotationDa
             </div>
 
             <div>
-              <Label htmlFor="gallonType">Gallon Type</Label>
+              <Label htmlFor="gallonType">Gallon Type (Optional)</Label>
               <AutocompleteInput
                 id="gallonType"
                 options={[

@@ -27,7 +27,7 @@ class Quotation(SQLModel, table=True):
     revision_number: int = Field(default=0)
     subject: str
     project_location: str
-    gallon_type: str
+    gallon_type: Optional[str] = "USG"
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     

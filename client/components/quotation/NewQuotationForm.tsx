@@ -278,7 +278,7 @@ export default function NewQuotationForm({ onPreviewUpdate, isActive = true, isP
 
   ${subject ? `<p style="margin-bottom: 12px; color: #374151; font-size: 13px;"><strong style="color: #111827;">Subject:</strong> ${subject}</p>` : ''}
   ${projectLocation ? `<p style="margin-bottom: 12px; color: #374151; font-size: 13px;"><strong style="color: #111827;">Project Location:</strong> ${projectLocation}</p>` : ''}
-  ${additionalDetails.map(detail => detail.key && detail.value ? `<p style=\"margin-bottom: 12px; color: #374151; font-size: 13px;\"><strong style=\"color: #111827;\">${detail.key}:</strong> ${detail.value}</p>` : '').join('')}
+  ${additionalDetails.map(detail => detail.key && detail.value ? `<p style="margin-bottom: 12px; color: #374151; font-size: 13px;"><strong style="color: #111827;">${detail.key}:</strong> ${detail.value}</p>` : '').join('')}
 
         <div style="margin: 20px 0; border-radius: 12px; overflow: hidden; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);">
           <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
@@ -605,16 +605,8 @@ export default function NewQuotationForm({ onPreviewUpdate, isActive = true, isP
         toast.error('Please enter recipient name');
         return;
       }
-      if (!companyName) {
-        toast.error('Please enter company name');
-        return;
-      }
       if (!quotationNumber) {
         toast.error('Please enter quotation number');
-        return;
-      }
-      if (!gallonType) {
-        toast.error('Please select gallon type');
         return;
       }
 
@@ -644,8 +636,17 @@ export default function NewQuotationForm({ onPreviewUpdate, isActive = true, isP
           }
         })).flatMap(obj => Object.entries(obj))
       );
+      
+      // Debug: Log terms data being sent
+      console.log('=== TERMS DATA BEING SENT ===');
+      console.log('termsConditions:', formattedTerms.termsConditions);
+      if (formattedTerms.termsConditions) {
+        console.log('  Details:', formattedTerms.termsConditions.details);
+        console.log('  Custom:', formattedTerms.termsConditions.custom);
+      }
+      console.log('============================');
 
-      // Construct full quote number
+      // Construct full quote number using companyCode from state (already fetched from database)
       const yy = String(dateObj.getFullYear()).slice(-2);
       const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
       const yymm = `${yy}${mm}`;
@@ -730,16 +731,8 @@ export default function NewQuotationForm({ onPreviewUpdate, isActive = true, isP
         toast.error('Please enter recipient name');
         return;
       }
-      if (!companyName) {
-        toast.error('Please enter company name');
-        return;
-      }
       if (!quotationNumber) {
         toast.error('Please enter quotation number');
-        return;
-      }
-      if (!gallonType) {
-        toast.error('Please select gallon type');
         return;
       }
 
@@ -786,7 +779,6 @@ export default function NewQuotationForm({ onPreviewUpdate, isActive = true, isP
       const yymm = `${yy}${mm}`;
       const codeForQuote = personCode || 'XX';
       
-      // Include revision in full quote number if revision is enabled and > 0
       let fullQuoteNumber = `${companyCode}/${yymm}/${codeForQuote}/${quotationNumber}`;
       if (revisionEnabled && parseInt(revisionNumber) > 0) {
         fullQuoteNumber = `${companyCode}/${yymm}/${codeForQuote}/${quotationNumber}-R${revisionNumber}`;
@@ -1455,7 +1447,7 @@ export default function NewQuotationForm({ onPreviewUpdate, isActive = true, isP
             </div>
 
             <div>
-              <Label htmlFor="companyName"> To Company Name</Label>
+              <Label htmlFor="companyName">To Company Name (Optional)</Label>
               <AutocompleteInput
                 id="companyName"
                 value={companyName}
@@ -1728,6 +1720,7 @@ export default function NewQuotationForm({ onPreviewUpdate, isActive = true, isP
                   { value: 'SUPPLY OF PANEL & ACCESSORIES ONLY', label: 'SUPPLY OF PANEL & ACCESSORIES ONLY' },
                   { value: 'SUPPLY OF PANELS & ACCESSORIES ONLY', label: 'SUPPLY OF PANELS & ACCESSORIES ONLY' },
                   { value: 'SUPPLY OF PANELS AND ACCESSORIES ONLY', label: 'SUPPLY OF PANELS AND ACCESSORIES ONLY' }
+                  { value: 'SUPPLY OF PANELS ONLY', label: 'SUPPLY OF PANELS ONLY' }
                 ]}
                 value={subject}
                 onValueChange={(value) => setSubject(value)}
@@ -1880,7 +1873,7 @@ export default function NewQuotationForm({ onPreviewUpdate, isActive = true, isP
             </div>
 
             <div>
-              <Label htmlFor="gallonType">Gallon Type</Label>
+              <Label htmlFor="gallonType">Gallon Type (Optional)</Label>
               <AutocompleteInput
                 id="gallonType"
                 options={[

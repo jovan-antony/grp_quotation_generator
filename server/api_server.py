@@ -451,6 +451,8 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
             'extra_note': request.terms['extraNote'].action == 'yes' if 'extraNote' in request.terms else True,  # Default to True
             'supplier_scope': request.terms['supplierScope'].action == 'yes' if 'supplierScope' in request.terms else False,
             'customer_scope': request.terms['customerScope'].action == 'yes' if 'customerScope' in request.terms else False,
+            'scope_of_work': request.terms['scopeOfWork'].action == 'yes' if 'scopeOfWork' in request.terms else False,
+            'work_excluded': request.terms['workExcluded'].action == 'yes' if 'workExcluded' in request.terms else False,
             'final_note': False,  # Can be enabled if needed
             'thank_you': True,
         }

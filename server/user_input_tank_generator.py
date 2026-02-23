@@ -194,7 +194,7 @@ class TankInvoiceGenerator:
             height = tank_data["height"]
             if 2.0 <= height <= 3.0:
                 tank_data["skid"] = "SKID BASE - HDG HOLLOW SECTION 50 X 50 X 3 MM (SQUARE TUBE)"
-            elif 1.0 <= height < 1.5:
+            elif 1.0 <= height <= 1.5:
                 tank_data["skid"] = "WITHOUT SKID"
             elif height > 3.0:
                 tank_data["skid"] = "SKID BASE - I BEAM SKID"
@@ -2207,7 +2207,7 @@ class TankInvoiceGenerator:
                 # Free Board below Net Volume (aligned format with tabs for colon alignment)
                 free_board_m = tank.get('free_board', 0.3)
                 free_board_cm = free_board_m * 100  # Convert meters to cm
-                run = size_para.add_run(f"FREE BOARD\t:\t{free_board_cm:.0f} cm ({free_board_m:.2f} M)")
+                run = size_para.add_run(f"FREE BOARD\t:\t{free_board_cm:.0f} CM ({free_board_m:.2f} M)")
                 run.font.bold = True
                 run.font.name = 'Calibri'
                 run.font.size = Pt(10)

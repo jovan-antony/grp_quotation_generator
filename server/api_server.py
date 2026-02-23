@@ -530,6 +530,16 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
             customer_data = request.terms['customerScope']
             generator.section_content['customer_scope'] = customer_data.details + customer_data.custom
         
+        # SCOPE OF WORK
+        if generator.sections['scope_of_work']:
+            scope_of_work_data = request.terms['scopeOfWork']
+            generator.section_content['scope_of_work'] = scope_of_work_data.details + scope_of_work_data.custom
+        
+        # WORK EXCLUDED
+        if generator.sections['work_excluded']:
+            work_excluded_data = request.terms['workExcluded']
+            generator.section_content['work_excluded'] = work_excluded_data.details + work_excluded_data.custom
+        
         # Set signature info based on sales person or office person
         if generator.sections['signature']:
             sig_type = 's' if request.quotationFrom == 'Sales' else 'o'
@@ -1738,8 +1748,8 @@ async def search_quotations(
                 
                 # Check each component independently
                 if quote_company:
-                    # First component is company code
-                    if len(quote_parts) < 1 or quote_company.upper() not in quote_parts[0].upper():
+                    # First component is company code (exact match)
+                    if len(quote_parts) < 1 or quote_company.upper() != quote_parts[0].upper():
                         continue
                 
                 if quote_yearmonth:

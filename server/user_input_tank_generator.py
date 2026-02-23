@@ -279,6 +279,8 @@ class TankInvoiceGenerator:
             'extra_note': True,
             'supplier_scope': False,
             'customer_scope': False,
+            'scope_of_work': False,
+            'work_excluded': False,
             'final_note': False,
             'thank_you': True
         }
@@ -294,6 +296,8 @@ class TankInvoiceGenerator:
             ('extra_note', 'Include extra NOTE section (deviations, delays, documents)?'),
             ('supplier_scope', 'Include SUPPLIER SCOPE section?'),
             ('customer_scope', 'Include CUSTOMER SCOPE section?'),
+            ('scope_of_work', 'Include SCOPE OF WORK section?'),
+            ('work_excluded', 'Include WORK EXCLUDED section?'),
             ('final_note', 'Include final NOTE section?'),
             ('thank_you', 'Include THANK YOU FOR YOUR BUSINESS?')
         ]
@@ -2637,6 +2641,12 @@ class TankInvoiceGenerator:
         if self.sections.get('customer_scope'):
             self._add_customer_scope_section()
         
+        if self.sections.get('scope_of_work'):
+            self._add_scope_of_work_section()
+        
+        if self.sections.get('work_excluded'):
+            self._add_work_excluded_section()
+        
         if self.sections.get('extra_note'):
             self._add_extra_note_section()
         
@@ -3110,6 +3120,58 @@ class TankInvoiceGenerator:
         
         # Add each item
         for item in self.section_content['customer_scope']:
+            para = self.doc.add_paragraph()
+            para.paragraph_format.space_before = Pt(0)
+            para.paragraph_format.space_after = Pt(0)
+            para.paragraph_format.left_indent = Inches(0.5)
+            para.paragraph_format.first_line_indent = Inches(-0.25)
+            run = para.add_run(f'➢  {item}')
+            run.font.name = 'Calibri'
+            run.font.size = Pt(10)
+    
+    def _add_scope_of_work_section(self):
+        """Add scope of work section"""
+        spacer = self.doc.add_paragraph()
+        spacer.paragraph_format.space_before = Pt(12)
+        spacer.paragraph_format.space_after = Pt(0)
+        
+        # Heading
+        heading = self.doc.add_paragraph()
+        heading.paragraph_format.space_before = Pt(0)
+        heading.paragraph_format.space_after = Pt(6)
+        run = heading.add_run('SCOPE OF WORK: -')
+        run.font.name = 'Calibri'
+        run.font.size = Pt(10)
+        run.font.bold = True
+        
+        # Add each item
+        for item in self.section_content['scope_of_work']:
+            para = self.doc.add_paragraph()
+            para.paragraph_format.space_before = Pt(0)
+            para.paragraph_format.space_after = Pt(0)
+            para.paragraph_format.left_indent = Inches(0.5)
+            para.paragraph_format.first_line_indent = Inches(-0.25)
+            run = para.add_run(f'➢  {item}')
+            run.font.name = 'Calibri'
+            run.font.size = Pt(10)
+    
+    def _add_work_excluded_section(self):
+        """Add work excluded section"""
+        spacer = self.doc.add_paragraph()
+        spacer.paragraph_format.space_before = Pt(12)
+        spacer.paragraph_format.space_after = Pt(0)
+        
+        # Heading
+        heading = self.doc.add_paragraph()
+        heading.paragraph_format.space_before = Pt(0)
+        heading.paragraph_format.space_after = Pt(6)
+        run = heading.add_run('WORK EXCLUDED: -')
+        run.font.name = 'Calibri'
+        run.font.size = Pt(10)
+        run.font.bold = True
+        
+        # Add each item
+        for item in self.section_content['work_excluded']:
             para = self.doc.add_paragraph()
             para.paragraph_format.space_before = Pt(0)
             para.paragraph_format.space_after = Pt(0)

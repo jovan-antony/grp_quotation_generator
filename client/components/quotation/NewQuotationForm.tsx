@@ -1719,7 +1719,7 @@ export default function NewQuotationForm({ onPreviewUpdate, isActive = true, isP
                   { value: 'Supply of GRP Cylindrical Horizontal Water Tank EX WARE HOUSE', label: 'Supply of GRP Cylindrical Horizontal Water Tank EX WARE HOUSE' },
                   { value: 'SUPPLY OF PANEL & ACCESSORIES ONLY', label: 'SUPPLY OF PANEL & ACCESSORIES ONLY' },
                   { value: 'SUPPLY OF PANELS & ACCESSORIES ONLY', label: 'SUPPLY OF PANELS & ACCESSORIES ONLY' },
-                  { value: 'SUPPLY OF PANELS AND ACCESSORIES ONLY', label: 'SUPPLY OF PANELS AND ACCESSORIES ONLY' }
+                  { value: 'SUPPLY OF PANELS AND ACCESSORIES ONLY', label: 'SUPPLY OF PANELS AND ACCESSORIES ONLY' },
                   { value: 'SUPPLY OF PANELS ONLY', label: 'SUPPLY OF PANELS ONLY' }
                 ]}
                 value={subject}

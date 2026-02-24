@@ -814,6 +814,8 @@ class TankInvoiceGenerator:
         # Check if all tanks have the same skid
         if len(self.tanks) > 0:
             first_skid = self.tanks[0]["skid"]
+            # Always treat 'WITHOUT SKID' as a valid and displayable skid type;
+            # include in common elements as long as value is non-empty and all tanks match
             if first_skid and all(tank["skid"] == first_skid for tank in self.tanks):
                 common_elements.append(("skid", first_skid))
         
@@ -1978,11 +1980,13 @@ class TankInvoiceGenerator:
         # Line 3: Skid base details
         for element_type, element_value in common_elements:
             if element_type == "type":
-                # Add tank type on new line (line 2)
                 common_text += f"\n{element_value}"
             elif element_type == "skid":
-                # Add skid base on new line (line 3)
-                common_text += f"\n{element_value}"
+                # Always display 'WITHOUT SKID' if that's the skid type
+                if element_value == "WITHOUT SKID":
+                    common_text += f"\nWITHOUT SKID"
+                else:
+                    common_text += f"\n{element_value}"
         
         # Set the text in the merged cell
         cell = self.table.rows[1].cells[0]
@@ -2077,33 +2081,25 @@ class TankInvoiceGenerator:
         if tank_name:
             # Check if skid is common
             skid_is_common = "skid" in common_types
-            
             # Add partition status to tank name
             partition_status = " (WITH PARTITION)" if tank.get('partition', False) else ""
-            
+            # Always show skid (including 'WITHOUT SKID') if present and not common
             if tank_skid and not skid_is_common:
-                # Add tank name with partition status and underline
                 run = paragraph.add_run(tank_name + partition_status)
                 run.underline = True
                 run.font.bold = True
                 run.font.name = 'Calibri'
                 run.font.size = Pt(10)
-                
-                # Add space and opening bracket with underline
                 run = paragraph.add_run(" (")
                 run.underline = True
                 run.font.bold = True
                 run.font.name = 'Calibri'
                 run.font.size = Pt(10)
-                
-                # Add skid details with underline
                 run = paragraph.add_run(tank_skid)
                 run.underline = True
                 run.font.bold = True
                 run.font.name = 'Calibri'
                 run.font.size = Pt(10)
-                
-                # Add closing bracket with underline, then no newline
                 run = paragraph.add_run(")")
                 run.underline = True
                 run.font.bold = True
@@ -2116,7 +2112,7 @@ class TankInvoiceGenerator:
                 run.font.name = 'Calibri'
                 run.font.size = Pt(10)
         elif tank_skid and "skid" not in common_types:
-            # No name, just print skid without brackets
+            # Always print skid (including 'WITHOUT SKID') without brackets if no name
             run = paragraph.add_run(tank_skid)
             run.font.bold = True
             run.font.name = 'Calibri'
@@ -2166,7 +2162,17 @@ class TankInvoiceGenerator:
         # Handle potentially empty dimension values
         length_display = tank.get('length_display', '') or str(tank.get('length', '') or '')
         width_display = tank.get('width_display', '') or str(tank.get('width', '') or '')
-        height_display = str(tank.get('height', '') or '')
+        # Always format as decimal (e.g., 1 → 1.0)
+        def format_decimal(val):
+            try:
+                f = float(val)
+                return f"{f:.1f}"
+            except Exception:
+                return str(val)
+
+        length_display = format_decimal(length_display)
+        width_display = format_decimal(width_display)
+        height_display = format_decimal(tank.get('height', '') or '')
         
         # Only show Size if at least one dimension exists
         if length_display or width_display or height_display:
@@ -2207,11 +2213,11 @@ class TankInvoiceGenerator:
                 run.font.bold = True
                 run.font.name = 'Calibri'
                 run.font.size = Pt(10)
-                
                 # Free Board below Net Volume (aligned format with tabs for colon alignment)
                 free_board_m = tank.get('free_board', 0.3)
                 free_board_cm = free_board_m * 100  # Convert meters to cm
-                run = size_para.add_run(f"FREE BOARD\t:\t{free_board_cm:.0f} CM ({free_board_m:.2f} M)")
+                # Always format free_board_m as decimal
+                run = size_para.add_run(f"FREE BOARD\t:\t{free_board_cm:.0f} CM ({free_board_m:.1f} M)")
                 run.font.bold = True
                 run.font.name = 'Calibri'
                 run.font.size = Pt(10)

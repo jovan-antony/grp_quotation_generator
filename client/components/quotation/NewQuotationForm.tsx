@@ -541,7 +541,7 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
     if (quotationFrom === 'Sales' && salesPersonName) {
       fetchPersonDetails(salesPersonName, 'sales', setLeftPersonSig);
     } else if (quotationFrom !== 'Sales') {
-      setLeftPersonSig({ name: '', title: '', mobile: '', email: '' });
+      setLeftPersonSig({ name: '', title: '', mobile: '', email: '', signatureImage: '' });
     }
   }, [salesPersonName, quotationFrom, fromCompany]);
 
@@ -552,7 +552,7 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
     } else if (quotationFrom === 'Office' && officePersonName) {
       fetchPersonDetails(officePersonName, 'office', setRightPersonSig);
     } else {
-      setRightPersonSig({ name: '', title: '', mobile: '', email: '' });
+      setRightPersonSig({ name: '', title: '', mobile: '', email: '', signatureImage: '' });
     }
   }, [officePersonName, quotationFrom, fromCompany]);
 
@@ -629,9 +629,9 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
     }
   };
 
-  // Fetch full person signature details (name, designation, mobile, email)
-  const fetchPersonDetails = async (personName: string, personType: 'sales' | 'office', setter: (v: {name:string;title:string;mobile:string;email:string}) => void) => {
-    if (!personName) { setter({ name: '', title: '', mobile: '', email: '' }); return; }
+  // Fetch full person signature details (name, designation, mobile, email, signatureImage)
+  const fetchPersonDetails = async (personName: string, personType: 'sales' | 'office', setter: (v: {name:string;title:string;mobile:string;email:string;signatureImage:string}) => void) => {
+    if (!personName) { setter({ name: '', title: '', mobile: '', email: '', signatureImage: '' }); return; }
     try {
       const url = getApiUrl(`api/person-details?name=${encodeURIComponent(personName)}&type=${personType}&company=${encodeURIComponent(fromCompany)}`);
       const res = await fetch(url);
@@ -641,7 +641,7 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
       } else {
         setter({ name: personName, title: personType === 'sales' ? 'Sales Executive' : 'Manager - Projects', mobile: '', email: '', signatureImage: '' });
       }
-    } catch { setter({ name: personName, title: '', mobile: '', email: '' }); }
+    } catch { setter({ name: personName, title: '', mobile: '', email: '', signatureImage: '' }); }
   };
 
   // Fetch CODE from Excel based on person name and type

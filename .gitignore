@@ -52,8 +52,17 @@ Thumbs.db
 *.sqlite
 *.sqlite3
 
+# Database exports/dumps (contain real data - never commit)
+database/grp_full_export.sql
+database/grp_server_export.sql
+database/grp_data_export.sql
+database/backups/
+
 # Temporary files
 *.tmp
 temp/
 tmp/
 server/.env
+
+# Ignore environment and requirements files for safety
+server/requirements.txt

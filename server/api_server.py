@@ -592,13 +592,20 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
                             left_email = construct_email(selected_sales.email_name, company_domain)
                             
                             # Get signature image from DATA_PATH/signs&seals
-                            code = selected_sales.code
+                            # Use sign_path from DB (e.g. 'VV_sign'), fallback to '{code}_sign'
+                            sign_base = (selected_sales.sign_path or f"{selected_sales.code}_sign").strip()
+                            # Remove extension if already present in DB value
+                            if '.' in os.path.basename(sign_base):
+                                sign_base = os.path.splitext(sign_base)[0]
                             signs_dir = os.path.join(data_path, 'signs&seals')
                             for ext in ['.png', '.jpg', '.jpeg']:
-                                if not signature_image:
-                                    sign_path = os.path.join(signs_dir, f"{code}_sign{ext}")
-                                    if os.path.exists(sign_path):
-                                        signature_image = sign_path
+                                if signature_image:
+                                    break
+                                for name_variant in [sign_base, sign_base.lower()]:
+                                    candidate = os.path.join(signs_dir, name_variant + ext)
+                                    if os.path.exists(candidate):
+                                        signature_image = candidate
+                                        break
                     
                     # Right side: Office Person (Project Manager)
                     if request.officePersonName:
@@ -634,13 +641,18 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
                         left_email = construct_email(selected_pm.email_name, company_domain)
                         
                         # Get signature image from DATA_PATH/signs&seals
-                        code = selected_pm.code
+                        sign_base = (selected_pm.sign_path or f"{selected_pm.code}_sign").strip()
+                        if '.' in os.path.basename(sign_base):
+                            sign_base = os.path.splitext(sign_base)[0]
                         signs_dir = os.path.join(data_path, 'signs&seals')
                         for ext in ['.png', '.jpg', '.jpeg']:
-                            if not signature_image:
-                                sign_path = os.path.join(signs_dir, f"{code}_sign{ext}")
-                                if os.path.exists(sign_path):
-                                    signature_image = sign_path
+                            if signature_image:
+                                break
+                            for name_variant in [sign_base, sign_base.lower()]:
+                                candidate = os.path.join(signs_dir, name_variant + ext)
+                                if os.path.exists(candidate):
+                                    signature_image = candidate
+                                    break
                     
                     # No right signatory for office
                     right_name = ""
@@ -2063,6 +2075,100 @@ async def get_person_code(name: str, type: str, session: Session = Depends(get_s
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error reading person CODE: {str(e)}")
+
+
+@app.get("/api/person-details")
+async def get_person_details(name: str, type: str, company: Optional[str] = "", session: Session = Depends(get_session)):
+    """
+    Get full person details (name, designation, mobile, email) from database.
+    type: 'sales' or 'office'
+    company: optional company full_name for email domain construction
+    """
+    try:
+        clean_name = name.split('(')[0].strip()
+
+        # Get company domain if company provided (accepts code or full name)
+        email_domain = ""
+        if company:
+            try:
+                # Try by code first, then by full_name
+                stmt = select(CompanyDetails).where(CompanyDetails.code == company.strip())
+                co = session.exec(stmt).first()
+                if not co:
+                    stmt = select(CompanyDetails).where(CompanyDetails.full_name == company.strip())
+                    co = session.exec(stmt).first()
+                if co and co.company_domain:
+                    email_domain = co.company_domain
+            except Exception:
+                pass
+
+        result_name = clean_name
+        designation = ""
+        mobile = ""
+        email = ""
+        sign_path_val = ""
+
+        if type == "sales":
+            stmt = select(SalesDetails).where(SalesDetails.sales_person_name == clean_name)
+            person = session.exec(stmt).first()
+            if person:
+                result_name   = person.sales_person_name
+                designation   = person.designation or "Sales Executive"
+                mobile        = person.phone_number or ""
+                email_name    = person.email_name or ""
+                email         = f"{email_name}@{email_domain}" if email_name and email_domain else ""
+                sign_path_val = person.sign_path or ""
+        elif type == "office":
+            stmt = select(ProjectManagerDetails).where(ProjectManagerDetails.manager_name == clean_name)
+            person = session.exec(stmt).first()
+            if person:
+                result_name   = person.manager_name
+                designation   = person.designation or "Manager - Projects"
+                mobile        = person.phone_number or ""
+                email_name    = person.email_name or ""
+                email         = f"{email_name}@{email_domain}" if email_name and email_domain else ""
+                sign_path_val = person.sign_path or ""
+        else:
+            raise HTTPException(status_code=400, detail="Invalid type. Use 'sales' or 'office'")
+
+        # Build base64 signature image from sign_path_val
+        signature_image_b64 = ""
+        if sign_path_val:
+            try:
+                import base64 as _b64
+                from sync_excel_to_db import get_data_path as _get_data_path
+                _data_path = _get_data_path()
+                _sign_base = sign_path_val.strip()
+                if '.' in os.path.basename(_sign_base):
+                    _sign_base = os.path.splitext(_sign_base)[0]
+                _signs_dir = os.path.join(_data_path, 'signs&seals')
+                for _ext in ['.png', '.jpg', '.jpeg']:
+                    if signature_image_b64:
+                        break
+                    for _name in [_sign_base, _sign_base.lower()]:
+                        _candidate = os.path.join(_signs_dir, _name + _ext)
+                        if os.path.exists(_candidate):
+                            with open(_candidate, 'rb') as _f:
+                                _img = _b64.b64encode(_f.read()).decode('utf-8')
+                            _mime = 'image/png' if _ext == '.png' else 'image/jpeg'
+                            signature_image_b64 = f"data:{_mime};base64,{_img}"
+                            break
+            except Exception:
+                pass
+
+        return {
+            "name":           result_name,
+            "designation":    designation,
+            "mobile":         mobile,
+            "email":          email,
+            "signatureImage": signature_image_b64,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"⚠ Error reading person details: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error reading person details: {str(e)}")
 
 
 if __name__ == "__main__":

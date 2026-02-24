@@ -377,7 +377,7 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
                 if height:
                     if 2.0 <= height <= 3.0:
                         skid = "SKID BASE - HDG HOLLOW SECTION 50 X 50 X 3 MM (SQUARE TUBE)"
-                    elif 1.0 <= height < 1.5:
+                    elif 1.0 <= height <= 1.5:
                         skid = "WITHOUT SKID"
                     elif height > 3.0:
                         skid = "SKID BASE - I BEAM SKID"

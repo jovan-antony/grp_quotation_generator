@@ -13,6 +13,7 @@ import { getApiUrl } from '@/lib/api-config';
 interface SearchQuotationFormProps {
   onPreviewUpdate: (html: string) => void;
   onLoadQuotation?: (quotationData: any) => void;
+  onCompanyChange?: (code: string) => void;
   isActive?: boolean;
   isPageReload?: boolean;
 }
@@ -20,6 +21,7 @@ interface SearchQuotationFormProps {
 export default function SearchQuotationForm({
   onPreviewUpdate,
   onLoadQuotation,
+  onCompanyChange,
   isActive = true,
   isPageReload = false,
 }: SearchQuotationFormProps) {
@@ -64,6 +66,8 @@ export default function SearchQuotationForm({
   const [dateFilterType, setDateFilterType] = useState<'day' | 'week' | 'month'>('day');
   const [quotations, setQuotations] = useState<any[]>([]);
   const [selectedQuotation, setSelectedQuotation] = useState<any>(null);
+  const [leftPersonSig,  setLeftPersonSig]  = useState({ name: '', title: '', mobile: '', email: '', signatureImage: '' });
+  const [rightPersonSig, setRightPersonSig] = useState({ name: '', title: '', mobile: '', email: '', signatureImage: '' });
 
   // Load form data from sessionStorage on component mount (only if not a page reload)
   useEffect(() => {
@@ -215,9 +219,45 @@ export default function SearchQuotationForm({
       const data = await response.json();
       setSelectedQuotation({ ...data.quotation, tanks: data.tanks });
       toast.success('Quotation loaded successfully');
-      
+
+      // Notify parent of company code for header image
+      const fullQuoteNumber = data.quotation?.full_main_quote_number || '';
+      const detectedCode = fullQuoteNumber.split('/')[0] || '';
+      onCompanyChange?.(detectedCode);
+
+      // Fetch company name for signature
+      let fromCompanyName = '';
+      try {
+        const cdRes = await fetch(getApiUrl(`api/company-details?code=${detectedCode}`));
+        if (cdRes.ok) { const cd = await cdRes.json(); fromCompanyName = cd.company_name || ''; }
+      } catch {}
+
+      // Fetch person details for signature
+      const quotationFrom = data.quotation?.quotation_from || '';
+      const salesName  = data.quotation?.sales_person_name  || '';
+      const officeName = data.quotation?.office_person_name || '';
+
+      const fetchSig = async (name: string, type: 'sales' | 'office') => {
+        if (!name) return { name: '', title: '', mobile: '', email: '', signatureImage: '' };
+        try {
+          const res = await fetch(getApiUrl(`api/person-details?name=${encodeURIComponent(name)}&type=${type}&company=${encodeURIComponent(fromCompanyName || detectedCode)}`));
+          if (res.ok) { const d = await res.json(); return { name: d.name || name, title: d.designation || '', mobile: d.mobile || '', email: d.email || '', signatureImage: d.signatureImage || '' }; }
+        } catch {}
+        return { name, title: '', mobile: '', email: '', signatureImage: '' };
+      };
+
+      let leftSig  = { name: '', title: '', mobile: '', email: '', signatureImage: '' };
+      let rightSig = { name: '', title: '', mobile: '', email: '', signatureImage: '' };
+      if (quotationFrom === 'Sales') {
+        [leftSig, rightSig] = await Promise.all([fetchSig(salesName, 'sales'), fetchSig(officeName, 'office')]);
+      } else if (quotationFrom === 'Office') {
+        rightSig = await fetchSig(officeName, 'office');
+      }
+      setLeftPersonSig(leftSig);
+      setRightPersonSig(rightSig);
+
       // Generate preview HTML for the selected quotation
-      const previewHtml = generateQuotationPreview(data.quotation, data.tanks);
+      const previewHtml = generateQuotationPreview(data.quotation, data.tanks, data.terms, leftSig, rightSig, fromCompanyName);
       onPreviewUpdate(previewHtml);
     } catch (error) {
       console.error('Error:', error);
@@ -225,46 +265,345 @@ export default function SearchQuotationForm({
     }
   };
 
-  const generateQuotationPreview = (quotation: any, tanks: any[]) => {
+  const generateQuotationPreview = (quotation: any, tanksData: any, termsData?: any, leftSig?: {name:string;title:string;mobile:string;email:string;signatureImage?:string}, rightSig?: {name:string;title:string;mobile:string;email:string;signatureImage?:string}, fromCompanyName?: string) => {
+    // ── Extract data ─────────────────────────────────────────────────────────
+    const tanksArray: any[] = (tanksData?.tanks) || [];
+    const gallonType: string = tanksData?.gallonType || 'US Gallons';
+
+    // ── Date (already formatted as "DD/MM/YY" by API) ────────────────────────
+    const displayDate = quotation.quotation_date || '—';
+
+    // ── Quote number ─────────────────────────────────────────────────────────
+    const fullQuoteNumber = quotation.full_main_quote_number || quotation.quotation_number || '';
+    const revNum = parseInt(quotation.revision_number || '0');
+    const displayQuoteNumber = (fullQuoteNumber && revNum > 0)
+      ? `${fullQuoteNumber}-R${revNum}`
+      : fullQuoteNumber;
+
+    // ── Company-specific theme ──────────────────────────────────────────────
+    const companyCode = (fullQuoteNumber || '').split('/')[0] || '';
+    const isColex         = companyCode === 'CLX';
+    const headerRowColor  = isColex ? '#A3B463' : '#5F9EA0';
+    const quoteBoxTextColor = '#147BC5';
+    const brandName = isColex ? 'COLEX KOREA' : 'PIPECO TANKS\u00AE\u2013MALAYSIA';
+
+    // ── Form options ─────────────────────────────────────────────────────────
+    const formOptions = quotation.formOptions || {};
+    const showSubTotal  = formOptions.showSubTotal  !== false;
+    const showVat       = formOptions.showVat       || false;
+    const showGrandTotal= formOptions.showGrandTotal !== false;
+
+    // ── Additional details ───────────────────────────────────────────────────
+    const additionalDetails: { key: string; value: string }[] =
+      quotation.additionalData?.additionalDetails || [];
+
+    // ── Gallon settings ──────────────────────────────────────────────────────
+    const isImpGallon = gallonType === 'Imperial Gallons' || gallonType === 'IMP Gallons';
+    const gallonAbbr  = isImpGallon ? 'IMP GALLON' : 'USG';
+    const gallonMult  = isImpGallon ? 219.969 : 264.172;
+
+    // Handle plain values AND partition notation like "2(1+1)" → use only the part before "("
+    const parseDim = (s: string) => {
+      const clean = (s || '').split('(')[0].trim();
+      const n = parseFloat(clean.replace(/[^0-9.]/g, ''));
+      return isNaN(n) ? 0 : n;
+    };
+
+    // ── Determine common elements ────────────────────────────────────────────
+    const allOpts    = tanksArray.flatMap((t: any) => t.options || []);
+    const allTypes   = allOpts.map((o: any) => (o.tankType || '').trim().toUpperCase());
+    const allSupport = allOpts.map((o: any) => o.supportSystem || 'Internal');
+    const commonType    = allTypes.length > 0 && allTypes.every((t: string) => t === allTypes[0] && t !== '') ? allTypes[0] : null;
+    const commonSupport = allSupport.length > 0 && allSupport.every((s: string) => s === allSupport[0]) ? allSupport[0] : null;
+
+    const supportLabel = () => 'INTERNAL SS 316 AND EXTERNAL HDG SUPPORT SYSTEM';
+
+    let commonLine1 = `GRP SECTIONAL WATER TANK - 10 YEAR WARRANTY - ${brandName}`;
+    if (commonSupport) commonLine1 += ` - ${supportLabel()}`;
+    const commonRowHtml = [
+      `<div style="font-weight:bold;font-size:11px;line-height:1.35;">${commonLine1}</div>`,
+      commonType ? `<div style="font-weight:bold;font-size:11px;line-height:1.35;">${commonType}</div>` : '',
+    ].filter(Boolean).join('');
+
+    // ── Discount flag ─────────────────────────────────────────────────────────
+    const hasAnyDiscount = tanksArray.some((t: any) => (t.options || []).some((o: any) => o.hasDiscount));
+
+    // ── Pre-calculate subtotal ───────────────────────────────────────────────
+    let subTotal = 0;
+    tanksArray.forEach((tank: any) =>
+      (tank.options || []).forEach((opt: any) => {
+        const q  = Number(opt.quantity)  || 0;
+        const up = Number(opt.unitPrice) || 0;
+        const hasDisc = opt.hasDiscount || false;
+        const discTot = hasDisc ? (Number(opt.discountedTotalPrice) || 0) : 0;
+        subTotal += hasDisc ? discTot : q * up;
+      })
+    );
+
+    // ── Build tank rows ──────────────────────────────────────────────────────
+    let slNo = 1;
+    const cellBorder = '1px solid #000000';
+    const noBorder   = 'none';
+
+    const tankRowsHtml = tanksArray.flatMap((tank: any, tIdx: number) => {
+      const opts = tank.options || [];
+      const numOpts = opts.length;
+      return opts.map((opt: any, oIdx: number) => {
+        const qty      = Number(opt.quantity)  || 0;
+        const unitPrice = Number(opt.unitPrice) || 0;
+        const hasDisc  = opt.hasDiscount || false;
+        const discTot  = hasDisc ? (Number(opt.discountedTotalPrice) || 0) : 0;
+        const total    = hasDisc ? discTot : qty * unitPrice;
+
+        const L = parseDim(opt.length);
+        const W = parseDim(opt.width);
+        const H = parseDim(opt.height);
+        const volM3    = L * W * H;
+        const gallons  = volM3 * gallonMult;
+
+        const needFB   = opt.needFreeBoard || false;
+        // freeBoardSize is stored in CM (as entered in TankForm "Free Board Size (CM)")
+        const freeBoardCM = needFB ? (parseFloat(opt.freeBoardSize || '30') || 30) : 0;
+        const fbM    = freeBoardCM / 100;
+        const fbCm   = freeBoardCM;
+        const netVolM3 = L * W * Math.max(0, H - fbM);
+        const netGall  = netVolM3 * gallonMult;
+
+        const isFirst  = oIdx === 0;
+        const curSlNo  = isFirst ? slNo++ : slNo - 1;
+        const rowBg    = tIdx % 2 === 0 ? '#ffffff' : '#f9fafb';
+
+        const desc: string[] = [];
+        const hasMultiOpts = tank.optionEnabled && numOpts > 1;
+        const romans = ['I','II','III','IV','V','VI','VII','VIII'];
+
+        if (hasMultiOpts) {
+          const label = `OPTION ${romans[oIdx] || oIdx + 1}`;
+          desc.push(
+            commonSupport
+              ? `<div style="font-weight:bold;font-size:11px;">${label}</div>`
+              : `<div style="font-weight:bold;font-size:11px;">${label} \u2013 ${supportLabel()}</div>`
+          );
+        } else if (!commonSupport) {
+          desc.push(`<div style="font-weight:bold;font-size:11px;">${supportLabel()}</div>`);
+        }
+
+        const partSuffix = opt.hasPartition ? ' (WITH PARTITION)' : '';
+        const tankName   = ((opt.tankName || '') + partSuffix).trim().toUpperCase();
+        if (tankName)  desc.push(`<div style="font-weight:bold;text-decoration:underline;font-size:11px;">${tankName}</div>`);
+
+        if (!commonType && opt.tankType)
+          desc.push(`<div style="font-weight:bold;font-size:11px;">TYPE&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:&nbsp;${opt.tankType.toUpperCase()}</div>`);
+
+        const sizeFrags = [
+          (opt.length || '').trim() ? `${(opt.length || '').trim()} M (L)` : '',
+          (opt.width  || '').trim() ? `${(opt.width  || '').trim()} M (W)` : '',
+          (opt.height || '').trim() ? `${(opt.height || '').trim()} M (H)` : '',
+        ].filter(Boolean);
+        if (sizeFrags.length)
+          desc.push(`<div style="font-weight:bold;font-size:11px;">SIZE&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:&nbsp;${sizeFrags.join(' X ')}</div>`);
+
+        if (volM3 > 0) {
+          desc.push(`<div style="font-weight:bold;font-size:11px;">TOTAL CAPACITY&nbsp;:&nbsp;${volM3.toFixed(2)} M\u00B3 (${Math.round(gallons).toLocaleString()} ${gallonAbbr})</div>`);
+          if (needFB) {
+            desc.push(`<div style="font-weight:bold;font-size:11px;">NET VOLUME&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:&nbsp;${netVolM3.toFixed(2)} M\u00B3 (${Math.round(netGall).toLocaleString()} ${gallonAbbr})</div>`);
+            desc.push(`<div style="font-weight:bold;font-size:11px;">FREE BOARD&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:&nbsp;${fbCm.toFixed(0)} CM (${fbM.toFixed(2)} M)</div>`);
+          }
+        }
+
+        return `
+          <tr style="background:${rowBg};">
+            ${isFirst
+              ? `<td rowspan="${numOpts}" style="border:${cellBorder};padding:5px 6px;text-align:center;vertical-align:middle;font-weight:bold;font-size:11px;font-family:Calibri,sans-serif;">${curSlNo}</td>`
+              : ''}
+            <td style="border:${cellBorder};padding:5px 7px;vertical-align:top;font-family:Calibri,sans-serif;">${desc.join('') || '<span style="font-size:11px;color:#aaa;">&mdash;</span>'}</td>
+            <td style="border:${cellBorder};padding:5px 6px;text-align:center;vertical-align:middle;font-weight:bold;font-size:11px;font-family:Calibri,sans-serif;">${opt.unit || 'Nos'}</td>
+            <td style="border:${cellBorder};padding:5px 6px;text-align:center;vertical-align:middle;font-weight:bold;font-size:11px;font-family:Calibri,sans-serif;">${qty || ''}</td>
+            <td style="border:${cellBorder};padding:5px 6px;text-align:right;vertical-align:middle;font-size:11px;font-family:Calibri,sans-serif;">${unitPrice ? unitPrice.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : ''}</td>
+            <td style="border:${cellBorder};padding:5px 6px;text-align:right;vertical-align:middle;font-weight:bold;font-size:11px;font-family:Calibri,sans-serif;">${total ? total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : ''}</td>
+          </tr>`;
+      });
+    }).join('');
+
+    // ── Footer rows ──────────────────────────────────────────────────────────
+    const vat        = showVat ? subTotal * 0.05 : 0;
+    const grandTotal = subTotal + vat;
+    let footerHtml   = '';
+
+    const fRow = (label: string, amount: string, isGrand = false) => `
+      <tr>
+        <td colspan="2" style="border:${noBorder};"></td>
+        <td colspan="2" style="border:${cellBorder};padding:4px 7px;font-weight:bold;font-size:11px;font-family:Calibri,sans-serif;${isGrand ? 'font-size:11.5px;' : ''}">${label}</td>
+        <td style="border:${cellBorder};padding:4px 6px;text-align:center;font-weight:bold;font-size:11px;font-family:Calibri,sans-serif;">AED</td>
+        <td style="border:${cellBorder};padding:4px 7px;text-align:right;font-weight:bold;font-size:11px;font-family:Calibri,sans-serif;${isGrand ? 'font-size:11.5px;' : ''}">${amount}</td>
+      </tr>`;
+
+    if (showSubTotal)   footerHtml += fRow(hasAnyDiscount ? 'DISCOUNTED SUB TOTAL:' : 'SUB TOTAL:',   subTotal.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}));
+    if (showVat)        footerHtml += fRow('VAT 5%:',      vat.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}));
+    if (showGrandTotal) footerHtml += fRow('GRAND TOTAL:', Math.round(grandTotal).toLocaleString('en-US'), true);
+
+    // ── After-table sections (order matches Python generator) ──────────────────────
+    const td = termsData || {};
+    let afterTableHtml = '';
+
+    // 1. NOTE (numbered list)
+    if (td.note?.action) {
+      const notePts = [...(td.note?.details || []), ...(td.note?.custom || [])].filter(Boolean);
+      if (notePts.length) {
+        afterTableHtml += `
+          <div style="margin-top:14px;">
+            <p style="font-weight:bold;font-size:11px;margin:0 0 3px;font-family:Calibri,sans-serif;">NOTE:</p>
+            ${notePts.map((p: string, i: number) => `<p style="margin:1px 0;font-size:11px;font-weight:bold;font-family:Calibri,sans-serif;line-height:1.45;">${i + 1}. ${p}</p>`).join('')}
+          </div>`;
+      }
+    }
+
+    // 2. Closing paragraph
+    const quotationFrom = quotation.quotation_from || '';
+    if (quotationFrom) {
+      afterTableHtml += `
+        <p style="margin-top:14px;margin-bottom:0;font-size:11px;font-family:Calibri,sans-serif;line-height:1.5;">We hope the above offer meets your requirements and awaiting the valuable order confirmation.</p>
+        <p style="margin:0;font-size:11px;font-family:Calibri,sans-serif;line-height:1.5;">If you have any questions concerning the offer, please contact the undersigned.</p>`;
+    }
+
+    // 3. Signature section
+    if (quotationFrom) {
+      const isSales = quotationFrom === 'Sales';
+      // Fallback to quotation field names when API details haven't loaded
+      const salesName  = (quotation.sales_person_name  || '').split('(')[0].trim();
+      const officeName = (quotation.office_person_name || '').split('(')[0].trim();
+      const mkFallback = (name: string, defaultTitle: string) =>
+        ({ name, title: defaultTitle, mobile: '', email: '' });
+      const rawLSig = isSales ? leftSig : rightSig;
+      const rawRSig = isSales ? rightSig : null;
+      const lSig = (rawLSig && rawLSig.name) ? rawLSig
+        : (isSales && salesName ? mkFallback(salesName, 'Sales Executive')
+          : (officeName ? mkFallback(officeName, 'Manager - Projects') : null));
+      const rSig = (rawRSig && rawRSig.name) ? rawRSig
+        : (isSales && officeName ? mkFallback(officeName, 'Manager - Projects') : null);
+
+      const sigCell = (sig: {name:string;title:string;mobile:string;email:string;signatureImage?:string} | null | undefined) => {
+        if (!sig || !sig.name) return '';
+        return [
+          sig.signatureImage ? `<img src="${sig.signatureImage}" style="height:44px;max-width:130px;object-fit:contain;display:block;margin-bottom:3px;">` : '',
+          sig.name   ? `<div style="font-weight:bold;font-size:11px;font-family:Calibri,sans-serif;line-height:1.6;">${sig.name}</div>` : '',
+          sig.title  ? `<div style="font-weight:bold;font-size:11px;font-family:Calibri,sans-serif;line-height:1.6;">${sig.title}</div>` : '',
+          sig.mobile ? `<div style="font-weight:bold;font-size:11px;font-family:Calibri,sans-serif;line-height:1.6;">MOB: ${sig.mobile}</div>` : '',
+          sig.email  ? `<div style="font-size:11px;font-family:Calibri,sans-serif;line-height:1.6;"><span style="font-weight:bold;">EMAIL: </span><a href="mailto:${sig.email}" style="color:#0000FF;text-decoration:underline;">${sig.email}</a></div>` : '',
+        ].join('');
+      };
+
+      afterTableHtml += `
+        <div style="margin-top:16px;">
+          <p style="margin:0 0 1px;font-size:11px;font-family:Calibri,sans-serif;">Yours truly,</p>
+          <p style="margin:0;font-size:11px;font-weight:bold;font-style:italic;font-family:Calibri,sans-serif;">For ${fromCompanyName || companyCode}</p>
+          <div style="height:8px;"></div>
+          <table style="width:100%;border-collapse:collapse;">
+            <tr>
+              <td style="width:62%;vertical-align:top;padding:0;">${sigCell(lSig)}</td>
+              <td style="width:38%;vertical-align:top;padding:0;">${sigCell(rSig)}</td>
+            </tr>
+          </table>
+        </div>`;
+    }
+
+    // 4-11. Terms sections in correct order with ➢ bullets
+    const termsSectionsDef = [
+      { key: 'materialSpecification', label: 'MATERIAL SPECIFICATION: -' },
+      { key: 'warrantyExclusions',    label: 'THE WARRANTY WILL NOT BE APPLICABLE FOR THE FOLLOWING CASES:' },
+      { key: 'termsConditions',       label: 'TERMS AND CONDITIONS: -' },
+      { key: 'supplierScope',         label: 'SUPPLIER SCOPE: -' },
+      { key: 'customerScope',         label: 'CUSTOMER SCOPE: -' },
+      { key: 'scopeOfWork',           label: 'SCOPE OF WORK: -' },
+      { key: 'workExcluded',          label: 'WORK EXCLUDED: -' },
+      { key: 'extraNote',             label: 'NOTE:' },
+    ];
+    for (const t of termsSectionsDef) {
+      if (!td[t.key]?.action) continue;
+      const pts = [...(td[t.key]?.details || []), ...(td[t.key]?.custom || [])].filter(Boolean);
+      if (!pts.length) continue;
+      afterTableHtml += `
+        <div style="margin-top:14px;">
+          <p style="font-weight:bold;font-size:11px;margin:0 0 4px;font-family:Calibri,sans-serif;">${t.label}</p>
+          ${pts.map((p: string) => `<div style="display:flex;align-items:flex-start;margin:1px 0;font-family:Calibri,sans-serif;line-height:1.45;"><span style="min-width:18px;font-size:11px;">&#10146;</span><span style="font-size:11px;font-weight:bold;">${p}</span></div>`).join('')}
+        </div>`;
+    }
+
+    // 12. THANK YOU
+    afterTableHtml += `<div style="height:20px;"></div><p style="text-align:center;font-weight:bold;font-size:13px;color:#002060;font-family:Calibri,sans-serif;margin:0;">THANK YOU FOR YOUR BUSINESS</p>`;
+
     return `
-      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 800px; margin: 0 auto; padding: 4px;">
-        <div style="background: linear-gradient(135deg, #93c5fd 0%, #60a5fa 100%); color: white; padding: 24px; border-radius: 12px; margin-bottom: 20px;">
-          <h2 style="margin: 0 0 8px 0; font-weight: 600; font-size: 20px;">${quotation.from_company || 'Company'}</h2>
-          <p style="margin: 0; opacity: 0.95; font-size: 14px; text-transform: uppercase;">QUOTATION</p>
-        </div>
-        
-        <div style="background: #f9fafb; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #e5e7eb;">
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-            <div>
-              <p style="margin: 6px 0; font-size: 13px;"><strong>To:</strong> ${quotation.recipient_title} ${quotation.recipient_name}</p>
-              <p style="margin: 6px 0; font-size: 13px;"><strong>Company:</strong> ${quotation.recipient_company}</p>
-            </div>
-            <div style="text-align: right;">
-              <p style="margin: 6px 0; font-size: 13px;"><strong>Quote No:</strong> ${quotation.quotation_number}</p>
-              <p style="margin: 6px 0; font-size: 13px;"><strong>Date:</strong> ${new Date(quotation.quotation_date).toLocaleDateString()}</p>
-            </div>
-          </div>
-        </div>
-        
-        <div style="margin-top: 24px; padding: 16px; background: #f9fafb; border-radius: 8px;">
-          <p style="margin: 0; color: #6b7280; font-size: 13px;">
-            Click "View Details" to see complete quotation information.
-          </p>
-        </div>
+      <div style="font-family:Calibri,'Segoe UI',sans-serif;background:white;padding:4px 22px 18px;">
+
+          <p style="text-align:center;font-weight:bold;font-style:italic;text-decoration:underline;color:#002060;font-size:16px;margin:0 0 5px;font-family:Calibri,sans-serif;">QUOTATION</p>
+          <p style="font-weight:bold;font-size:12px;margin:0 0 1px;font-family:Calibri,sans-serif;">To.</p>
+
+          <table style="width:100%;border-collapse:collapse;margin-bottom:4px;">
+            <tr>
+              <td style="width:62%;vertical-align:top;padding:0;font-size:12px;font-weight:bold;font-family:Calibri,sans-serif;line-height:1.5;">
+                ${quotation.recipient_title && quotation.recipient_name ? `${quotation.recipient_title} ${quotation.recipient_name}<br/>` : ''}
+                ${quotation.role           ? `${quotation.role}<br/>`           : ''}
+                ${quotation.recipient_company ? `${quotation.recipient_company}<br/>` : ''}
+                ${quotation.location       ? `${quotation.location}<br/>`       : ''}
+                ${quotation.phone_number   ? quotation.phone_number             : ''}
+              </td>
+              <td style="width:38%;vertical-align:top;padding:0;font-size:12px;font-weight:bold;font-family:Calibri,sans-serif;line-height:1.6;">
+                Date&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: ${displayDate}<br/>
+                Page&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: 1/1<br/>
+                Quote No.&nbsp;&nbsp;&nbsp;&nbsp;: ${displayQuoteNumber || '&mdash;'}
+              </td>
+            </tr>
+          </table>
+
+          <div style="height:5px;"></div>
+          ${quotation.subject        ? `<p style="margin:0;font-size:12px;font-weight:bold;font-family:Calibri,sans-serif;line-height:1.5;">Subject&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: <u>${quotation.subject}</u></p>` : ''}
+          ${quotation.project_location ? `<p style="margin:0;font-size:12px;font-weight:bold;font-family:Calibri,sans-serif;line-height:1.5;">Project&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: <u>${quotation.project_location}</u></p>` : ''}
+          ${additionalDetails.filter((d: any) => d.key && d.value).map((d: any) =>
+            `<p style="margin:0;font-size:12px;font-weight:bold;font-family:Calibri,sans-serif;line-height:1.5;">${d.key}&nbsp;&nbsp;: <u>${d.value}</u></p>`
+          ).join('')}
+
+          <div style="height:5px;"></div>
+          <p style="margin:0;font-size:12px;font-family:Calibri,sans-serif;line-height:1.5;">Dear Sir,</p>
+          <p style="margin:0;font-size:12px;font-family:Calibri,sans-serif;line-height:1.5;">With reference to your enquiry, we would like to give our competitive offer for <strong>${quotation.subject || 'supply and installation'}</strong> as follows</p>
+
+          <div style="height:6px;"></div>
+
+          <table style="width:100%;border-collapse:collapse;border:1px solid #000;font-family:Calibri,sans-serif;">
+            <thead>
+              <tr style="background-color:${headerRowColor};color:#fff;">
+                <th style="border:1px solid #000;padding:5px 5px;text-align:center;font-size:11px;font-weight:bold;width:5%;vertical-align:bottom;">SL.<br/>NO.</th>
+                <th style="border:1px solid #000;padding:5px 5px;text-align:center;font-size:11px;font-weight:bold;width:49%;vertical-align:bottom;">ITEM DESCRIPTION</th>
+                <th style="border:1px solid #000;padding:5px 5px;text-align:center;font-size:11px;font-weight:bold;width:8%;vertical-align:bottom;">UNIT</th>
+                <th style="border:1px solid #000;padding:5px 5px;text-align:center;font-size:11px;font-weight:bold;width:7%;vertical-align:bottom;">QTY</th>
+                <th style="border:1px solid #000;padding:5px 5px;text-align:center;font-size:11px;font-weight:bold;width:14%;vertical-align:bottom;">UNIT PRICE<br/>(AED)</th>
+                <th style="border:1px solid #000;padding:5px 5px;text-align:center;font-size:11px;font-weight:bold;width:14%;vertical-align:bottom;">${hasAnyDiscount ? 'DISCOUNTED TOTAL PRICE' : 'TOTAL PRICE'}<br/>(AED)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colspan="6" style="border:1px solid #000;padding:5px 7px;font-family:Calibri,sans-serif;">${commonRowHtml}</td>
+              </tr>
+              ${tankRowsHtml || '<tr><td colspan="6" style="text-align:center;padding:20px;color:#9ca3af;font-size:11px;">No tanks found</td></tr>'}
+              ${footerHtml}
+            </tbody>
+          </table>
+
+          ${afterTableHtml}
+
       </div>
     `;
   };
 
   return (
-    <div className="space-y-6 pt-12">
+    <div className="space-y-3 pt-12">
       <Card className="border border-blue-200 rounded-xl shadow-sm bg-white">
-        <CardHeader className="bg-white text-blue-600 border-b border-blue-200 rounded-t-xl px-6 py-4">
+        <CardHeader className="bg-white text-blue-600 border-b border-blue-200 rounded-t-xl px-6 py-2">
           <CardTitle className="flex items-center text-base font-semibold">
             <Filter className="mr-2 h-5 w-5" />
             Search Filters
           </CardTitle>
         </CardHeader>
-        <CardContent className="pt-6 space-y-4 px-6">
+        <CardContent className="pt-3 space-y-3 px-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
             <div className="flex items-center space-x-2">
               <Checkbox
@@ -873,10 +1212,10 @@ export default function SearchQuotationForm({
 
       {quotations.length > 0 && (
         <Card className="border border-blue-200 rounded-xl shadow-sm bg-white">
-          <CardHeader className="bg-white text-blue-600 border-b border-blue-200 rounded-t-xl px-6 py-4">
+          <CardHeader className="bg-white text-blue-600 border-b border-blue-200 rounded-t-xl px-6 py-2">
             <CardTitle className="text-base font-semibold">Search Results ({quotations.length})</CardTitle>
           </CardHeader>
-          <CardContent className="pt-6 px-6">
+          <CardContent className="pt-3 px-6">
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {quotations.map((quotation) => (
                 <div
@@ -944,10 +1283,10 @@ export default function SearchQuotationForm({
 
       {selectedQuotation && (
         <Card className="border border-blue-200 rounded-xl shadow-sm bg-white">
-          <CardHeader className="bg-white text-blue-600 border-b border-blue-200 rounded-t-xl px-6 py-4">
+          <CardHeader className="bg-white text-blue-600 border-b border-blue-200 rounded-t-xl px-6 py-2">
             <CardTitle className="text-base font-semibold">Selected Quotation Details</CardTitle>
           </CardHeader>
-          <CardContent className="pt-6 space-y-4 px-6">
+          <CardContent className="pt-3 space-y-3 px-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-blue-50 rounded-lg">
               <div>
                 <span className="font-semibold">From:</span>{' '}

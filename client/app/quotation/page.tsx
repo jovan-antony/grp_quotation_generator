@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import NewQuotationForm from '@/components/quotation/NewQuotationForm';
 import SearchQuotationForm from '@/components/quotation/SearchQuotationForm';
 import QuotationRevisionForm from '@/components/quotation/QuotationRevisionForm';
@@ -17,8 +16,15 @@ const paytoneOne = Paytone_One({
 export default function QuotationPage() {
   const [activeTab, setActiveTab] = useState('new');
   const [previewHtml, setPreviewHtml] = useState('');
+  const [selectedCompany, setSelectedCompany] = useState('');
   const [loadQuotationData, setLoadQuotationData] = useState<any>(null);
   const [isPageReload, setIsPageReload] = useState(true);
+
+  const COMPANY_HEADER_MAP: Record<string, string> = {
+    'GRP':   '/header-images/GRPT.png',
+    'GRPPT': '/header-images/GRPPT.png',
+    'CLX':   '/header-images/CLX.png',
+  };
 
   // Detect if this is a page reload and clear sessionStorage
   useEffect(() => {
@@ -107,42 +113,49 @@ export default function QuotationPage() {
       {/* Content Section with proper top padding to avoid header overlap */}
       <div className="container mx-auto px-6 pt-20 pb-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="order-2 lg:order-1 lg:pt-8">
-              <Card className="border border-blue-200 rounded-xl shadow-sm sticky top-28 bg-white">
-                <CardHeader className="bg-white text-blue-600 border-b border-blue-200 rounded-t-xl px-6 py-4">
-                  <CardTitle className="text-base font-semibold">Live Preview</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-6 px-6 max-h-[calc(100vh-12rem)] overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                  <style jsx>{`
-                    .scrollbar-hide::-webkit-scrollbar {
-                      display: none;
-                    }
-                  `}</style>
-                  <div>
-                    {previewHtml ? (
-                      <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
-                    ) : (
-                      <div className="flex items-center justify-center h-full text-gray-500 py-12">
-                        <p className="text-sm">Preview will appear here</p>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="sticky top-28 rounded-xl overflow-hidden bg-white" style={{ border: '1px solid #d1d5db' }}>
+                <div className="border-b" style={{ borderColor: '#f3f4f6' }}>
+                  {selectedCompany && COMPANY_HEADER_MAP[selectedCompany] ? (
+                    <img
+                      src={COMPANY_HEADER_MAP[selectedCompany]}
+                      alt={selectedCompany}
+                      style={{ width: '100%', height: 'auto', display: 'block' }}
+                    />
+                  ) : (
+                    <div className="px-6 py-4">
+                      <span className="text-base font-semibold text-blue-600">Live Preview</span>
+                    </div>
+                  )}
+                </div>
+                <div
+                  className="overflow-y-auto"
+                  style={{ maxHeight: 'calc(100vh - 12rem)', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                >
+                  <style>{`.preview-scroll::-webkit-scrollbar { display: none; }`}</style>
+                  {previewHtml ? (
+                    <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
+                  ) : (
+                    <div className="flex items-center justify-center text-gray-400 py-16">
+                      <p className="text-sm">Preview will appear here</p>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="order-1 lg:order-2">
               <TabsContent value="new" className="-mt-4">
-                <NewQuotationForm onPreviewUpdate={setPreviewHtml} isActive={activeTab === 'new'} isPageReload={isPageReload} />
+                <NewQuotationForm onPreviewUpdate={setPreviewHtml} onCompanyChange={setSelectedCompany} isActive={activeTab === 'new'} isPageReload={isPageReload} />
               </TabsContent>
 
               <TabsContent value="search" className="-mt-4">
-                <SearchQuotationForm onPreviewUpdate={setPreviewHtml} onLoadQuotation={handleLoadQuotation} isActive={activeTab === 'search'} isPageReload={isPageReload} />
+                <SearchQuotationForm onPreviewUpdate={setPreviewHtml} onLoadQuotation={handleLoadQuotation} onCompanyChange={setSelectedCompany} isActive={activeTab === 'search'} isPageReload={isPageReload} />
               </TabsContent>
 
               <TabsContent value="revision" className="-mt-4">
-                <QuotationRevisionForm onPreviewUpdate={setPreviewHtml} loadQuotationData={loadQuotationData} isActive={activeTab === 'revision'} isPageReload={isPageReload} />
+                <QuotationRevisionForm onPreviewUpdate={setPreviewHtml} loadQuotationData={loadQuotationData} onCompanyChange={setSelectedCompany} isActive={activeTab === 'revision'} isPageReload={isPageReload} />
               </TabsContent>
             </div>
           </div>

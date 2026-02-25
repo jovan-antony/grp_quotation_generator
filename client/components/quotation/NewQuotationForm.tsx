@@ -9,6 +9,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, Trash2, FileDown, GripVertical } from 'lucide-react';
 import TankForm from './TankForm';
+import DismantlingTankForm, { DismantlingTankItem } from './DismantlingTankForm';
+import CylindricalTankForm, { CylindricalTankItem } from './CylindricalTankForm';
 import { toast } from 'sonner';
 import { getApiUrl } from '@/lib/api-config';
 import {
@@ -98,6 +100,14 @@ export default function NewQuotationForm({ onPreviewUpdate, isActive = true, isP
   const [additionalDetails, setAdditionalDetails] = useState<Array<{key: string; value: string}>>([]);
   const [numberOfTanks, setNumberOfTanks] = useState(1);
   const [gallonType, setGallonType] = useState('');
+  const [dismantlingEnabled, setDismantlingEnabled] = useState(false);
+  const [dismantlingTanks, setDismantlingTanks] = useState<DismantlingTankItem[]>([{
+    tankName: '', length: '', width: '', height: '', unit: 'LS', quantity: 1, unitPrice: 0, hasDiscount: false, discountedTotalPrice: '',
+  }]);
+  const [cylindricalEnabled, setCylindricalEnabled] = useState(false);
+  const [cylindricalTanks, setCylindricalTanks] = useState<CylindricalTankItem[]>([{
+    tankName: '', material: 'PVC', layers: 3, orientation: 'Vertical', capacity: 0, size: '', unit: 'Nos', quantity: 1, unitPrice: 0, hasDiscount: false, discountedTotalPrice: '',
+  }]);
   const [personCode, setPersonCode] = useState(''); // CODE from Excel
   const [salesPersonOptions, setSalesPersonOptions] = useState<Array<{value: string; label: string}>>([]);
   const [officePersonOptions, setOfficePersonOptions] = useState<Array<{value: string; label: string}>>([]);
@@ -818,6 +828,8 @@ export default function NewQuotationForm({ onPreviewUpdate, isActive = true, isP
           showVat,
           showGrandTotal,
           tanks,
+          dismantlingTanks: dismantlingEnabled ? dismantlingTanks : [],
+          cylindricalTanks: cylindricalEnabled ? cylindricalTanks : [],
           terms: formattedTerms,
         }),
       });
@@ -1281,6 +1293,10 @@ export default function NewQuotationForm({ onPreviewUpdate, isActive = true, isP
         if (formData.gallonType !== undefined) setGallonType(formData.gallonType);
         if (formData.personCode !== undefined) setPersonCode(formData.personCode);
         if (formData.tanks !== undefined) setTanks(formData.tanks);
+        if (formData.dismantlingEnabled !== undefined) setDismantlingEnabled(formData.dismantlingEnabled);
+        if (formData.dismantlingTanks !== undefined) setDismantlingTanks(formData.dismantlingTanks);
+        if (formData.cylindricalEnabled !== undefined) setCylindricalEnabled(formData.cylindricalEnabled);
+        if (formData.cylindricalTanks !== undefined) setCylindricalTanks(formData.cylindricalTanks);
         if (formData.terms !== undefined) setTerms(formData.terms);
         
         console.log('✓ Form data restored from session');
@@ -1324,6 +1340,10 @@ export default function NewQuotationForm({ onPreviewUpdate, isActive = true, isP
       gallonType,
       personCode,
       tanks,
+      dismantlingEnabled,
+      dismantlingTanks,
+      cylindricalEnabled,
+      cylindricalTanks,
       terms,
     };
     
@@ -1337,7 +1357,7 @@ export default function NewQuotationForm({ onPreviewUpdate, isActive = true, isP
     quotationNumber, revisionEnabled, revisionNumber,
     subject, projectLocation, generatedBy,
     additionalDetails, numberOfTanks, gallonType, personCode,
-    tanks, terms,
+    tanks, dismantlingEnabled, dismantlingTanks, cylindricalEnabled, cylindricalTanks, terms,
   ]);
 
   return (
@@ -1833,9 +1853,62 @@ export default function NewQuotationForm({ onPreviewUpdate, isActive = true, isP
         </CardContent>
       </Card>
 
+      <Card className="border border-orange-200 rounded-xl shadow-sm bg-white">
+        <CardHeader className="bg-white text-orange-600 border-b border-orange-200 rounded-t-xl px-6 py-4">
+          <div className="flex items-center gap-3">
+            <Checkbox
+              id="dismantlingEnabled"
+              checked={dismantlingEnabled}
+              onCheckedChange={checked => setDismantlingEnabled(checked === true)}
+              className="accent-orange-500"
+            />
+            <CardTitle className="text-base font-semibold">
+              <Label htmlFor="dismantlingEnabled" className="cursor-pointer text-orange-700">
+                Dismantling &amp; Disposal of Existing Tanks
+              </Label>
+            </CardTitle>
+          </div>
+        </CardHeader>
+        {dismantlingEnabled && (
+          <CardContent className="pt-6 px-6 pb-6">
+            <DismantlingTankForm
+              tanks={dismantlingTanks}
+              onChange={setDismantlingTanks}
+            />
+          </CardContent>
+        )}
+      </Card>
+
+      <Card className="border border-teal-200 rounded-xl shadow-sm bg-white">
+        <CardHeader className="bg-white text-teal-600 border-b border-teal-200 rounded-t-xl px-6 py-4">
+          <div className="flex items-center gap-3">
+            <Checkbox
+              id="cylindricalEnabled"
+              checked={cylindricalEnabled}
+              onCheckedChange={checked => setCylindricalEnabled(checked === true)}
+              className="accent-teal-500"
+            />
+            <CardTitle className="text-base font-semibold">
+              <Label htmlFor="cylindricalEnabled" className="cursor-pointer text-teal-700">
+                Cylindrical Tanks (PVC / GRP)
+              </Label>
+            </CardTitle>
+          </div>
+        </CardHeader>
+        {cylindricalEnabled && (
+          <CardContent className="pt-6 px-6 pb-6">
+            <CylindricalTankForm
+              tanks={cylindricalTanks}
+              gallonType={gallonType}
+              onChange={setCylindricalTanks}
+            />
+          </CardContent>
+        )}
+      </Card>
+
       <Card className="border border-blue-200 rounded-xl shadow-sm bg-white">
         <CardHeader className="bg-white text-blue-600 border-b border-blue-200 rounded-t-xl px-6 py-4">
-          <CardTitle className="text-base font-semibold">Tank Details</CardTitle>
+          <CardTitle className="text-base font-semibold">Panel Tank Details</CardTitle>
         </CardHeader>
         <CardContent className="pt-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

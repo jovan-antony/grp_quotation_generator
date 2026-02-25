@@ -109,6 +109,24 @@ async def root():
     return {"status": "running", "message": "GRP Quotation Generator API"}
 
 
+@app.get("/api/cylindrical-tank-size")
+async def get_cylindrical_tank_size(material: str, orientation: str, capacity: float):
+    """
+    Look up the size of a cylindrical tank from the dimensions Excel file.
+    material: 'PVC' or 'GRP'
+    orientation: 'Horizontal' or 'Vertical'
+    capacity: capacity in US gallons
+    """
+    try:
+        generator = TankInvoiceGenerator.__new__(TankInvoiceGenerator)
+        generator.template_path = ""
+        size_str = generator.get_cylindrical_tank_size(material, orientation, capacity)
+        return {"size": size_str, "material": material, "orientation": orientation, "capacity": capacity}
+    except Exception as e:
+        print(f"⚠ Error looking up cylindrical size: {e}")
+        return {"size": "SIZE N/A", "error": str(e)}
+
+
 class TankOption(BaseModel):
     tankName: str
     quantity: int
@@ -131,6 +149,31 @@ class TankData(BaseModel):
     optionEnabled: bool
     optionNumbers: int
     options: List[TankOption]
+
+
+class DismantlingTankItem(BaseModel):
+    tankName: str
+    length: str = ""
+    width: str = ""
+    height: str = ""
+    unit: str = ""
+    quantity: float = 1
+    unitPrice: float = 0.0
+    hasDiscount: bool = False
+    discountedTotalPrice: str = ""
+
+
+class CylindricalTankItem(BaseModel):
+    tankName: str
+    material: str        # "PVC" or "GRP"
+    layers: int = 1
+    orientation: str     # "Horizontal" or "Vertical"
+    capacity: float      # in US Gallons (or selected gallon type)
+    unit: str = "Nos"
+    quantity: float = 1
+    unitPrice: float = 0.0
+    hasDiscount: bool = False
+    discountedTotalPrice: str = ""
 
 
 
@@ -171,6 +214,8 @@ class QuotationRequest(BaseModel):
     showVat: bool
     showGrandTotal: bool
     tanks: List[TankData]
+    dismantlingTanks: Optional[List[DismantlingTankItem]] = []
+    cylindricalTanks: Optional[List[CylindricalTankItem]] = []
     terms: Dict[str, TermSection]
 
 
@@ -424,16 +469,73 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
             # Increment sl_no only after all options of this tank
             sl_no += 1
         
+        # ── Process Dismantling Tanks ──
+        generator.dismantling_tanks = []
+        for item in (request.dismantlingTanks or []):
+            unit_price = float(item.unitPrice) if item.unitPrice else 0.0
+            quantity   = float(item.quantity) if item.quantity else 0.0
+            if item.hasDiscount and item.discountedTotalPrice:
+                total_price = float(item.discountedTotalPrice)
+            else:
+                total_price = unit_price * quantity
+            generator.dismantling_tanks.append({
+                "tank_name":   item.tankName or "",
+                "length":      item.length or "",
+                "width":       item.width or "",
+                "height":      item.height or "",
+                "unit":        item.unit or "",
+                "quantity":    quantity,
+                "unit_price":  unit_price,
+                "total_price": total_price,
+                "has_discount": item.hasDiscount,
+            })
+
+        # ── Process Cylindrical Tanks ──
+        generator.cylindrical_tanks = []
+        gallon_type_for_cyl = request.gallonType if request.gallonType else "USG"
+        for item in (request.cylindricalTanks or []):
+            unit_price = float(item.unitPrice) if item.unitPrice else 0.0
+            quantity   = float(item.quantity) if item.quantity else 0.0
+            if item.hasDiscount and item.discountedTotalPrice:
+                total_price = float(item.discountedTotalPrice)
+            else:
+                total_price = unit_price * quantity
+            # Look up the size from the dimensions Excel
+            try:
+                size_str = generator.get_cylindrical_tank_size(
+                    item.material, item.orientation, float(item.capacity)
+                )
+            except Exception:
+                size_str = "SIZE N/A"
+            generator.cylindrical_tanks.append({
+                "tank_name":   item.tankName or "",
+                "material":    item.material or "PVC",
+                "orientation": item.orientation or "Vertical",
+                "layers":      int(item.layers) if item.layers else 1,
+                "capacity":    float(item.capacity) if item.capacity else 0.0,
+                "size":        size_str,
+                "unit":        item.unit or "Nos",
+                "quantity":    quantity,
+                "unit_price":  unit_price,
+                "total_price": total_price,
+                "has_discount": item.hasDiscount,
+            })
+
         # Calculate total pages (estimate based on tanks)
         tanks_per_page = 3
-        generator.total_pages = max(1, (len(generator.tanks) + tanks_per_page - 1) // tanks_per_page)
+        total_item_count = len(generator.tanks) + len(generator.dismantling_tanks) + len(generator.cylindrical_tanks)
+        generator.total_pages = max(1, (total_item_count + tanks_per_page - 1) // tanks_per_page)
         generator.quote_page = f"1/{generator.total_pages}"
         
         # Check if ladder is needed
         generator.needs_ladder = any(float(tank.get('height', 0)) > 2.0 for tank in generator.tanks)
         
-        # Check if any tank has discount enabled
-        generator.has_discount = any(tank.get('has_discount', False) for tank in generator.tanks)
+        # Check if any tank has discount enabled (across all sections)
+        generator.has_discount = (
+            any(tank.get('has_discount', False) for tank in generator.tanks) or
+            any(t.get('has_discount', False) for t in generator.dismantling_tanks) or
+            any(t.get('has_discount', False) for t in generator.cylindrical_tanks)
+        )
         
         # Set flags for showing totals
         generator.show_sub_total = request.showSubTotal

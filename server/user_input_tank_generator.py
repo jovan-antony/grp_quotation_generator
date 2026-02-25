@@ -1815,7 +1815,8 @@ class TankInvoiceGenerator:
         if not self.cylindrical_tanks:
             return start_row
 
-        sl_no = 1
+        # SL.NO continues from where dismantling left off
+        sl_no = len(self.dismantling_tanks) + 1
         current_row = start_row
         for i, tank in enumerate(self.cylindrical_tanks):
             header_row_idx = current_row

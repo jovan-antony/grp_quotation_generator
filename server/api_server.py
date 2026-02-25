@@ -352,7 +352,8 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
         
         # Process tanks data - convert from UI format to generator format
         generator.tanks = []
-        sl_no = 1
+        # SL.NO must be continuous across all sections: dismantling (1..) → cylindrical → panel
+        sl_no = len(request.dismantlingTanks or []) + len(request.cylindricalTanks or []) + 1
         
         # Roman numeral conversion helper
         def to_roman(num):

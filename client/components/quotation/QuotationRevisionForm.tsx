@@ -334,8 +334,12 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
       });
     }
 
+    // ── SL.NO ordering: dismantling (1..) → cylindrical → panel ────────────────
+    const nbDismantling = dismantlingEnabled ? dismantlingTanks.length : 0;
+    const nbCylindrical = cylindricalEnabled ? cylindricalTanks.length : 0;
+
     // ── Tank rows ───────────────────────────────────────────────────────────────
-    let slNo = 1;
+    let slNo = nbDismantling + nbCylindrical + 1;
     const cellBorder = '1px solid #000000';
     const noBorder   = 'none';
 
@@ -471,7 +475,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
         ].filter(Boolean).join('');
         cylindricalRowsHtml += `
           <tr>
-            <td style="border:${cellBorder};padding:5px 6px;text-align:center;vertical-align:middle;font-weight:bold;font-size:11px;font-family:Calibri,sans-serif;">${i + 1}</td>
+            <td style="border:${cellBorder};padding:5px 6px;text-align:center;vertical-align:middle;font-weight:bold;font-size:11px;font-family:Calibri,sans-serif;">${nbDismantling + i + 1}</td>
             <td style="border:${cellBorder};padding:5px 7px;vertical-align:top;font-family:Calibri,sans-serif;">${descLines}</td>
             <td style="border:${cellBorder};padding:5px 6px;text-align:center;vertical-align:middle;font-weight:bold;font-size:11px;font-family:Calibri,sans-serif;">${tank.unit || 'Nos'}</td>
             <td style="border:${cellBorder};padding:5px 6px;text-align:center;vertical-align:middle;font-weight:bold;font-size:11px;font-family:Calibri,sans-serif;">${qty || ''}</td>
@@ -631,10 +635,10 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
               </tr>
             </thead>
             <tbody>
-              ${commonRowHtml ? `<tr><td colspan="6" style="border:1px solid #000;padding:5px 7px;font-family:Calibri,sans-serif;">${commonRowHtml}</td></tr>` : ''}
-              ${tankRowsHtml}
               ${dismantlingRowsHtml}
               ${cylindricalRowsHtml}
+              ${commonRowHtml ? `<tr><td colspan="6" style="border:1px solid #000;padding:5px 7px;font-family:Calibri,sans-serif;">${commonRowHtml}</td></tr>` : ''}
+              ${tankRowsHtml}
               ${!tankRowsHtml && !dismantlingRowsHtml && !cylindricalRowsHtml ? `<tr><td colspan="6" style="border:1px solid #000;padding:14px;text-align:center;color:#9ca3af;font-size:12px;">No tanks added yet</td></tr>` : ''}
               ${footerHtml}
             </tbody>
@@ -2791,18 +2795,15 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
                         )}
                       </div>
                     </div>
-                    {tanks.length > 1 && (
-                      <Button
+                    <Button
                         type="button"
                         variant="ghost"
-                        size="sm"
+                        size="icon"
                         onClick={() => removePanelTank(index)}
-                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50"
                       >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        Remove
+                        <Trash2 className="h-4 w-4" />
                       </Button>
-                    )}
                   </div>
                   <hr className="border-blue-200 my-3" />
                   <TankForm

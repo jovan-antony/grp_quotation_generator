@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,11 +11,12 @@ import { getApiUrl } from '@/lib/api-config';
 
 export interface CylindricalTankItem {
   tankName: string;
-  material: string;       // 'PVC' or 'GRP'
-  layers: number;
-  orientation: string;    // 'Horizontal' or 'Vertical'
-  capacity: number;       // in US Gallons
-  size: string;           // auto-looked-up from API
+  material: string;           // 'PVC' or 'GRP'
+  layers: number | null;      // optional
+  groundLocation: string;     // 'Above Ground' or 'Below Ground'
+  orientation: string;        // 'Horizontal' or 'Vertical'
+  capacity: number;           // in US Gallons
+  size: string;               // auto-looked-up from API
   unit: string;
   quantity: number;
   unitPrice: number;
@@ -33,7 +33,8 @@ interface CylindricalTankFormProps {
 const emptyTank = (): CylindricalTankItem => ({
   tankName: '',
   material: 'PVC',
-  layers: 3,
+  layers: null,
+  groundLocation: 'Above Ground',
   orientation: 'Vertical',
   capacity: 0,
   size: '',
@@ -54,42 +55,52 @@ const ORIENTATION_OPTIONS = [
   { value: 'Horizontal', label: 'Horizontal' },
 ];
 
+const GROUND_OPTIONS = [
+  { value: 'Above Ground', label: 'Above Ground' },
+  { value: 'Below Ground', label: 'Below Ground' },
+];
+
 export default function CylindricalTankForm({
   tanks,
   gallonType = 'US Gallons',
   onChange,
 }: CylindricalTankFormProps) {
 
-  // Auto-lookup size from backend when capacity / material / orientation change
-  const lookupSize = useCallback(
-    async (idx: number, material: string, orientation: string, capacity: number) => {
-      if (!capacity || capacity <= 0) return;
-      try {
-        const params = new URLSearchParams({
-          material,
-          orientation,
-          capacity: String(capacity),
-        });
-        const response = await fetch(getApiUrl(`api/cylindrical-tank-size?${params}`));
-        if (response.ok) {
-          const data = await response.json();
-          onChange(
-            tanks.map((t, i) => (i === idx ? { ...t, size: data.size || 'SIZE N/A' } : t))
-          );
-        }
-      } catch {
-        // Silently fail – user can still type manually
-      }
-    },
-    [tanks, onChange]
-  );
-
   const addTank = () => onChange([...tanks, emptyTank()]);
 
   const removeTank = (idx: number) =>
     onChange(tanks.filter((_, i) => i !== idx));
 
-  const updateTank = async (
+  // Fix: pass the already-updated array to lookupSize so it never reads stale state
+  const lookupSize = async (
+    latestTanks: CylindricalTankItem[],
+    idx: number,
+    material: string,
+    orientation: string,
+    capacity: number
+  ) => {
+    if (!capacity || capacity <= 0) return;
+    try {
+      const params = new URLSearchParams({
+        material,
+        orientation,
+        capacity: String(capacity),
+      });
+      const response = await fetch(getApiUrl(`api/cylindrical-tank-size?${params}`));
+      if (response.ok) {
+        const data = await response.json();
+        onChange(
+          latestTanks.map((t, i) =>
+            i === idx ? { ...t, size: data.size || 'SIZE N/A' } : t
+          )
+        );
+      }
+    } catch {
+      // Silently fail – user can still edit manually
+    }
+  };
+
+  const updateTank = (
     idx: number,
     patch: Partial<CylindricalTankItem>,
     triggerLookup = false
@@ -98,7 +109,7 @@ export default function CylindricalTankForm({
     onChange(updated);
     if (triggerLookup) {
       const merged = { ...tanks[idx], ...patch };
-      await lookupSize(idx, merged.material, merged.orientation, merged.capacity);
+      lookupSize(updated, idx, merged.material, merged.orientation, merged.capacity);
     }
   };
 
@@ -144,8 +155,8 @@ export default function CylindricalTankForm({
                 />
               </div>
 
-              {/* Material + Orientation + Layers */}
-              <div className="grid grid-cols-3 gap-3">
+              {/* Material + Orientation + Ground Location + Layers */}
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs text-gray-600">Material</Label>
                   <AutocompleteInput
@@ -169,15 +180,27 @@ export default function CylindricalTankForm({
                   />
                 </div>
                 <div>
-                  <Label className="text-xs text-gray-600">No. of Layers</Label>
+                  <Label className="text-xs text-gray-600">Ground Location (Optional)</Label>
+                  <AutocompleteInput
+                    options={GROUND_OPTIONS}
+                    value={tank.groundLocation}
+                    onValueChange={val =>
+                      updateTank(idx, { groundLocation: val })
+                    }
+                    placeholder="Above / Below Ground"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-gray-600">No. of Layers (Optional)</Label>
                   <Input
                     type="number"
                     min="1"
-                    value={tank.layers || ''}
-                    onChange={e =>
-                      updateTank(idx, { layers: parseInt(e.target.value) || 1 })
-                    }
-                    placeholder="3"
+                    value={tank.layers ?? ''}
+                    onChange={e => {
+                      const raw = e.target.value;
+                      updateTank(idx, { layers: raw === '' ? null : (parseInt(raw) || null) });
+                    }}
+                    placeholder="e.g. 3"
                     autoComplete="off"
                   />
                 </div>
@@ -308,8 +331,14 @@ export default function CylindricalTankForm({
                     </span>
                   </div>
                 )}
-                {tank.size && tank.size !== 'SIZE N/A' && (
+                {tank.groundLocation && (
                   <div className="mt-2 text-teal-800 font-medium text-xs">
+                    📍 {tank.groundLocation}
+                    {tank.layers ? ` – ${tank.layers} Layer` : ''}
+                  </div>
+                )}
+                {tank.size && tank.size !== 'SIZE N/A' && (
+                  <div className="mt-1 text-teal-800 font-medium text-xs">
                     📐 Size: {tank.size}
                   </div>
                 )}

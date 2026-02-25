@@ -166,7 +166,8 @@ class DismantlingTankItem(BaseModel):
 class CylindricalTankItem(BaseModel):
     tankName: str
     material: str        # "PVC" or "GRP"
-    layers: int = 1
+    layers: Optional[int] = None
+    groundLocation: Optional[str] = "Above Ground"  # "Above Ground" or "Below Ground"
     orientation: str     # "Horizontal" or "Vertical"
     capacity: float      # in US Gallons (or selected gallon type)
     unit: str = "Nos"
@@ -508,17 +509,18 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
             except Exception:
                 size_str = "SIZE N/A"
             generator.cylindrical_tanks.append({
-                "tank_name":   item.tankName or "",
-                "material":    item.material or "PVC",
-                "orientation": item.orientation or "Vertical",
-                "layers":      int(item.layers) if item.layers else 1,
-                "capacity":    float(item.capacity) if item.capacity else 0.0,
-                "size":        size_str,
-                "unit":        item.unit or "Nos",
-                "quantity":    quantity,
-                "unit_price":  unit_price,
-                "total_price": total_price,
-                "has_discount": item.hasDiscount,
+                "tank_name":      item.tankName or "",
+                "material":       item.material or "PVC",
+                "orientation":    item.orientation or "Vertical",
+                "layers":         int(item.layers) if item.layers else None,
+                "ground_location": item.groundLocation or "Above Ground",
+                "capacity":       float(item.capacity) if item.capacity else 0.0,
+                "size":           size_str,
+                "unit":           item.unit or "Nos",
+                "quantity":       quantity,
+                "unit_price":     unit_price,
+                "total_price":    total_price,
+                "has_discount":   item.hasDiscount,
             })
 
         # Calculate total pages (estimate based on tanks)

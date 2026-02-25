@@ -1693,20 +1693,15 @@ class TankInvoiceGenerator:
     # DISMANTLING TABLE
     # ─────────────────────────────────────────────────────────────────────────
 
-    def add_dismantling_section(self):
-        """Add a Dismantling & Disposal table to the document."""
+    def add_dismantling_section(self, start_row):
+        """Fill dismantling rows into self.table starting at start_row. Returns next row index."""
         if not self.dismantling_tanks:
-            return
+            return start_row
 
-        has_discount = any(t.get('has_discount', False) for t in self.dismantling_tanks)
-        # rows: header + common + one per tank
-        num_rows = 1 + 1 + len(self.dismantling_tanks)
-        table = self._build_quotation_table(num_rows, has_discount)
-
-        # ── Common row (merged) ──
-        self._merge_in(table, 1, 0, 1, 5)
-        common_cell = table.rows[1].cells[0]
-        common_cell.text = "DISMANTLING & DISPOSAL OF EXISTING TANK"
+        # ── Separator/common row (merged, blank) ──
+        self._merge_in(self.table, start_row, 0, start_row, 5)
+        common_cell = self.table.rows[start_row].cells[0]
+        common_cell.text = " "
         for paragraph in common_cell.paragraphs:
             paragraph.paragraph_format.space_before = Pt(0)
             paragraph.paragraph_format.space_after = Pt(0)
@@ -1715,10 +1710,11 @@ class TankInvoiceGenerator:
                 run.font.name = 'Calibri'
                 run.font.size = Pt(10)
 
+        current_row = start_row + 1
+
         # ── Data rows ──
         for i, tank in enumerate(self.dismantling_tanks):
-            row_idx = 2 + i
-            row = table.rows[row_idx]
+            row = self.table.rows[current_row]
 
             # SL NO
             sl_cell = row.cells[0]
@@ -1737,8 +1733,8 @@ class TankInvoiceGenerator:
             ts.add_tab_stop(Inches(1.05))
             ts.add_tab_stop(Inches(1.25))
 
-            # Tank name (underlined bold)
-            tank_name = tank.get('tank_name', '')
+            # Tank name (underlined bold uppercase)
+            tank_name = tank.get('tank_name', '').upper()
             if tank_name:
                 run = para.add_run(tank_name)
                 run.underline = True
@@ -1806,30 +1802,28 @@ class TankInvoiceGenerator:
             tp_run.font.size = Pt(10)
             self._vcenter_cell(tp_cell)
 
-        self._apply_font_to_table(table)
+            current_row += 1
+
+        return current_row
 
     # ─────────────────────────────────────────────────────────────────────────
     # CYLINDRICAL TANK TABLE
     # ─────────────────────────────────────────────────────────────────────────
 
-    def add_cylindrical_section(self):
-        """Add a Cylindrical Tanks table to the document."""
+    def add_cylindrical_section(self, start_row):
+        """Fill cylindrical rows into self.table starting at start_row. Returns next row index."""
         if not self.cylindrical_tanks:
-            return
-
-        has_discount = any(t.get('has_discount', False) for t in self.cylindrical_tanks)
-        # Each tank type = 1 merged header row + 1 data row
-        num_rows = 1 + len(self.cylindrical_tanks) * 2
-        table = self._build_quotation_table(num_rows, has_discount)
+            return start_row
 
         sl_no = 1
+        current_row = start_row
         for i, tank in enumerate(self.cylindrical_tanks):
-            header_row_idx = 1 + i * 2
-            data_row_idx   = 1 + i * 2 + 1
+            header_row_idx = current_row
+            data_row_idx   = current_row + 1
 
             # Section header (tank name, merged full width)
-            self._merge_in(table, header_row_idx, 0, header_row_idx, 5)
-            hdr_cell = table.rows[header_row_idx].cells[0]
+            self._merge_in(self.table, header_row_idx, 0, header_row_idx, 5)
+            hdr_cell = self.table.rows[header_row_idx].cells[0]
             hdr_cell.text = tank.get('tank_name', '').upper()
             for paragraph in hdr_cell.paragraphs:
                 paragraph.paragraph_format.space_before = Pt(0)
@@ -1840,7 +1834,7 @@ class TankInvoiceGenerator:
                     run.font.size = Pt(10)
 
             # Data row
-            row = table.rows[data_row_idx]
+            row = self.table.rows[data_row_idx]
 
             # SL NO
             sl_cell = row.cells[0]
@@ -1860,17 +1854,23 @@ class TankInvoiceGenerator:
             ts.add_tab_stop(Inches(1.35))
             ts.add_tab_stop(Inches(1.55))
 
-            material    = tank.get('material', 'PVC').upper()
-            orientation = tank.get('orientation', 'Vertical').upper()
-            layers      = tank.get('layers', 1)
-            capacity    = tank.get('capacity', 0.0)
-            size_str    = tank.get('size', '')
-            warranty    = '3 YEAR'
+            material        = tank.get('material', 'PVC').upper()
+            orientation     = tank.get('orientation', 'Vertical').upper()
+            layers          = tank.get('layers', None)
+            ground_location = tank.get('ground_location', 'Above Ground')
+            capacity        = tank.get('capacity', 0.0)
+            size_str        = tank.get('size', '')
+            warranty        = '3 YEAR'
 
-            # "ABOVE GROUND-{n} LAYER"
-            above_text = f"ABOVE GROUND-{layers} LAYER" if layers else "ABOVE GROUND TANK"
+            # Build ground text: "ABOVE GROUND-{n} LAYER" / "ABOVE GROUND" / "BELOW GROUND-{n} LAYER" / "BELOW GROUND"
+            is_above = (ground_location or 'Above Ground').strip().lower() != 'below ground'
+            if is_above:
+                above_text = f"ABOVE GROUND-{layers} LAYER" if layers else "ABOVE GROUND"
+            else:
+                above_text = f"BELOW GROUND-{layers} LAYER" if layers else "BELOW GROUND"
             r = para.add_run(above_text)
             r.font.bold = True
+            r.font.underline = True
             r.font.name = 'Calibri'
             r.font.size = Pt(10)
 
@@ -1889,7 +1889,7 @@ class TankInvoiceGenerator:
                 r2.font.name = 'Calibri'
                 r2.font.size = Pt(10)
 
-            type_str = f"{material} – {('VERTICAL' if orientation == 'VERTICAL' else 'HORIZONTAL')}"
+            type_str = f"{material} \u2013 {('VERTICAL' if orientation == 'VERTICAL' else 'HORIZONTAL')}"
             _add_desc_line(desc_cell, "TYPE",     type_str)
             _add_desc_line(desc_cell, "WARRANTY", warranty)
             gal_label = self.gallon_type if self.gallon_type else "USG"
@@ -1932,7 +1932,9 @@ class TankInvoiceGenerator:
             tp_run.font.size = Pt(10)
             self._vcenter_cell(tp_cell)
 
-        self._apply_font_to_table(table)
+            current_row += 2
+
+        return current_row
 
     # ─────────────────────────────────────────────────────────────────────────
     # COMBINED FOOTER (appears in the last table created)
@@ -1950,125 +1952,114 @@ class TankInvoiceGenerator:
         return total
 
     def create_invoice_table(self):
-        """Create the invoice table with all tank details"""
+        """Create the invoice table with all tank details — all sections in a single combined table."""
         # Add header with quote box and green line - will appear on ALL pages
         self._add_header_to_all_pages()
         # Ensure all tables are deleted from first page header (per user request)
         self.delete_tables_in_first_page_header()
-        
-        # Seal insertion removed - no longer adding seal to footers
-        
+
         # Add quotation header before table
         self._create_quotation_header()
 
-        # ── Dismantling & Disposal section ──
-        if self.dismantling_tanks:
-            self.add_dismantling_section()
-            # Small paragraph gap between tables
-            gap = self.doc.add_paragraph()
-            gap.paragraph_format.space_before = Pt(4)
-            gap.paragraph_format.space_after = Pt(0)
-
-        # ── Cylindrical Tanks section ──
-        if self.cylindrical_tanks:
-            self.add_cylindrical_section()
-            gap = self.doc.add_paragraph()
-            gap.paragraph_format.space_before = Pt(4)
-            gap.paragraph_format.space_after = Pt(0)
-
-        # ── Panel Tanks section (original behavior) ──
-        # Determine whether to show the panel-tank table at all
         has_panel_tanks = bool(self.tanks)
-        # Determine whether to add footer to the last table generated
-        has_any_tanks = has_panel_tanks or bool(self.cylindrical_tanks) or bool(self.dismantling_tanks)
+        has_any_tanks   = has_panel_tanks or bool(self.cylindrical_tanks) or bool(self.dismantling_tanks)
 
+        if not has_any_tanks:
+            self._add_additional_sections()
+            return
+
+        # Combined has_discount flag
+        combined_has_discount = (
+            any(t.get('has_discount', False) for t in self.dismantling_tanks) or
+            any(t.get('has_discount', False) for t in self.cylindrical_tanks) or
+            any(t.get('has_discount', False) for t in self.tanks)
+        )
+        self.has_discount = combined_has_discount
+
+        # Footer row count
+        show_sub   = getattr(self, 'show_sub_total', True)
+        show_vat   = getattr(self, 'show_vat', True)
+        show_grand = getattr(self, 'show_grand_total', True)
+        num_footer_rows = sum([show_sub, show_vat, show_grand])
+
+        # Total row count
+        total_rows = 1  # header row
+        if self.dismantling_tanks:
+            total_rows += 1 + len(self.dismantling_tanks)
+        if self.cylindrical_tanks:
+            total_rows += len(self.cylindrical_tanks) * 2
         if has_panel_tanks:
-            # Calculate number of rows needed
-            # Header + common row + tank rows + footer rows (based on which totals are enabled)
-            show_sub = getattr(self, 'show_sub_total', True)
-            show_vat = getattr(self, 'show_vat', True)
-            show_grand = getattr(self, 'show_grand_total', True)
-            num_footer_rows = sum([show_sub, show_vat, show_grand])
-            
-            num_tank_rows = len(self.tanks)
-            total_rows = 1 + 1 + num_tank_rows + num_footer_rows
-            
-            # Add a paragraph break before the table if template has content
-            # Then immediately remove it to avoid Aptos font gap
-            if len(self.doc.paragraphs) > 0:
-                para = self.doc.add_paragraph()
-                # Remove spacing to prevent table from being pushed down
-                para.paragraph_format.space_before = Pt(0)
-                para.paragraph_format.space_after = Pt(0)
-                # Remove the paragraph element to prevent Aptos font gap
-                p = para._element
-                p.getparent().remove(p)
-            
-            # Create table and add it to the document
-            self.table = self.doc.add_table(rows=total_rows, cols=6)
-            
-            # Try to apply Table Grid style, fallback to manual borders if not available
-            try:
-                self.table.style = 'Table Grid'
-            except KeyError:
-                # Template doesn't have Table Grid style, manually add borders
-                print("⚠ 'Table Grid' style not found in template, applying manual borders")
-                self._apply_table_borders()
-            
-            # Remove cell padding to make text compact like image 1
-            self._remove_cell_padding()
-            
-            # Set column widths - UNIT and QTY increased to fit "GRAND TOTAL" on single line
-            widths = [Inches(0.6), Inches(9.625), Inches(1.1), Inches(1.0), Inches(1.4), Inches(1.4)]
-            for idx, width in enumerate(widths):
-                for cell in self.table.columns[idx].cells:
-                    cell.width = width
-            
-            # Format header row (row 0)
-            self._create_header()
-            
-            # Row 1: Common information row (merge all columns)
-            self._merge_cells(1, 0, 1, 5)
-            self._fill_common_row()
-            
-            # Add tank rows (starting from row 2)
-            row_idx = 2
-            tank_start_rows = {}  # Track starting row for each sl_no
-            
+            total_rows += 1 + len(self.tanks)
+        total_rows += num_footer_rows
+
+        # Remove pending paragraph to avoid Aptos font gap
+        if len(self.doc.paragraphs) > 0:
+            para = self.doc.add_paragraph()
+            para.paragraph_format.space_before = Pt(0)
+            para.paragraph_format.space_after = Pt(0)
+            p = para._element
+            p.getparent().remove(p)
+
+        # Create single combined table
+        self.table = self.doc.add_table(rows=total_rows, cols=6)
+        try:
+            self.table.style = 'Table Grid'
+        except KeyError:
+            print("⚠ 'Table Grid' style not found in template, applying manual borders")
+            self._apply_table_borders()
+
+        self._remove_cell_padding()
+        widths = [Inches(0.6), Inches(9.625), Inches(1.1), Inches(1.0), Inches(1.4), Inches(1.4)]
+        for idx, width in enumerate(widths):
+            for cell in self.table.columns[idx].cells:
+                cell.width = width
+
+        # Format header row (row 0)
+        self._create_header()
+
+        current_row = 1
+
+        # Dismantling rows
+        if self.dismantling_tanks:
+            current_row = self.add_dismantling_section(current_row)
+
+        # Cylindrical rows
+        if self.cylindrical_tanks:
+            current_row = self.add_cylindrical_section(current_row)
+
+        # Panel Tank rows
+        if has_panel_tanks:
+            # Common information row (merged)
+            self._merge_cells(current_row, 0, current_row, 5)
+            self._fill_common_row(row_idx=current_row)
+            current_row += 1
+
+            tank_start_rows = {}
             for tank in self.tanks:
                 sl_no = tank['sl_no']
-                option_num = tank.get('option_number', 1)
-                
-                # Track the first row for this sl_no
                 if sl_no not in tank_start_rows:
-                    tank_start_rows[sl_no] = row_idx
-                
-                self._fill_tank_row(row_idx, tank)
-                row_idx += 1
-            
+                    tank_start_rows[sl_no] = current_row
+                self._fill_tank_row(current_row, tank)
+                current_row += 1
+
             # Merge SL. NO. cells for tanks with multiple options
-            for sl_no, start_row in tank_start_rows.items():
-                # Find all tanks with this sl_no
+            for sl_no, start_r in tank_start_rows.items():
                 tanks_with_sl = [t for t in self.tanks if t['sl_no'] == sl_no]
                 if len(tanks_with_sl) > 1:
-                    # Merge from start_row to start_row + len(tanks_with_sl) - 1
-                    end_row = start_row + len(tanks_with_sl) - 1
-                    self._merge_cells(start_row, 0, end_row, 0)
-            
-            # Footer rows with combined subtotal from all sections
-            footer_start = row_idx
+                    self._merge_cells(start_r, 0, start_r + len(tanks_with_sl) - 1, 0)
+
+        # Footer rows
+        if num_footer_rows > 0:
             combined_subtotal = self._get_combined_subtotal()
-            self._create_footer(footer_start, override_subtotal=combined_subtotal)
-            
-            # Apply column-specific padding
-            self._apply_column_specific_padding()
-            
-            # Apply Calibri 11 to all cells
-            self._apply_font_to_all_cells()
-        
+            self._create_footer(current_row, override_subtotal=combined_subtotal)
+
+        # Apply column-specific padding and font
+        self._apply_column_specific_padding()
+        self._apply_font_to_all_cells()
+
         # Add additional sections after the table (these will flow across all pages)
         self._add_additional_sections()
-    
+
     def _create_quotation_header(self):
         """Create quotation header content above the table"""
         # CRITICAL FIX: Remove ALL paragraphs from document body to eliminate any gaps
@@ -2485,7 +2476,7 @@ class TankInvoiceGenerator:
                     run.font.name = 'Calibri'
                     run.font.size = Pt(10)
     
-    def _fill_common_row(self):
+    def _fill_common_row(self, row_idx=1):
         """Fill the common row with preset phrases and common elements"""
         # Get company brand name from frontend or fallback to template-based detection
         if self.company_short_name:
@@ -2522,7 +2513,7 @@ class TankInvoiceGenerator:
                     common_text += f"\n{element_value}"
         
         # Set the text in the merged cell
-        cell = self.table.rows[1].cells[0]
+        cell = self.table.rows[row_idx].cells[0]
         cell.text = common_text
         
         # Make everything bold and Calibri 11, remove spacing
@@ -2608,8 +2599,8 @@ class TankInvoiceGenerator:
                 run.font.size = Pt(10)
         
         # Tank name with underline and optionally skid in brackets
-        tank_name = tank.get('name', '') or ''
-        tank_skid = tank.get('skid', '') or ''
+        tank_name = (tank.get('name', '') or '').upper()
+        tank_skid = (tank.get('skid', '') or '').upper()
         
         if tank_name:
             # Check if skid is common
@@ -2652,7 +2643,7 @@ class TankInvoiceGenerator:
             run.font.size = Pt(10)
         
         # Type (only if not common) - with hanging indent for wrapped lines
-        tank_type = tank.get('type', '') or ''
+        tank_type = (tank.get('type', '') or '').upper()
         if "type" not in common_types and tank_type:
             # Create separate paragraph for Type with hanging indent
             type_para = cell.add_paragraph()

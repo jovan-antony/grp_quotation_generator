@@ -9,6 +9,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, Trash2, FileDown, GripVertical } from 'lucide-react';
 import TankForm from './TankForm';
+import DismantlingTankForm, { DismantlingTankItem } from './DismantlingTankForm';
+import CylindricalTankForm, { CylindricalTankItem } from './CylindricalTankForm';
 import { toast } from 'sonner';
 import { getApiUrl } from '@/lib/api-config';
 import {
@@ -109,6 +111,15 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
   const [additionalDetails, setAdditionalDetails] = useState<Array<{key: string; value: string}>>([]);
   const [numberOfTanks, setNumberOfTanks] = useState(1);
   const [gallonType, setGallonType] = useState('');
+  const [dismantlingEnabled, setDismantlingEnabled] = useState(false);
+  const [dismantlingTanks, setDismantlingTanks] = useState<DismantlingTankItem[]>([{
+    tankName: '', length: '', width: '', height: '', unit: 'LS', quantity: 1, unitPrice: 0, hasDiscount: false, discountedTotalPrice: ''
+  }]);
+  const [cylindricalEnabled, setCylindricalEnabled] = useState(false);
+  const [cylindricalTanks, setCylindricalTanks] = useState<CylindricalTankItem[]>([{
+    tankName: '', material: 'PVC', layers: null, groundLocation: 'Above Ground', orientation: 'Vertical', capacity: 0, size: '', unit: 'Nos', quantity: 1, unitPrice: 0, hasDiscount: false, discountedTotalPrice: ''
+  }]);
+  const [panelEnabled, setPanelEnabled] = useState(true);
   const [personCode, setPersonCode] = useState(''); // CODE from Excel
   const [companyDomain, setCompanyDomain] = useState('');
   const [leftPersonSig,  setLeftPersonSig]  = useState({ name: '', title: '', mobile: '', email: '', signatureImage: '' });
@@ -171,6 +182,30 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
       setTanks(currentTanks.slice(0, num));
     }
     // If num === currentTanks.length, do nothing (no change)
+  };
+
+  const addPanelTank = () => {
+    const newTank = {
+      tankNumber: tanks.length + 1,
+      optionEnabled: false,
+      optionNumbers: 1,
+      options: [{
+        tankName: '', quantity: 1, hasPartition: false, tankType: '',
+        length: '', width: '', height: '', unit: '', unitPrice: '', supportSystem: 'Internal',
+      }],
+    };
+    const updated = [...tanks, newTank];
+    setTanks(updated);
+    setNumberOfTanks(updated.length);
+  };
+
+  const removePanelTank = (index: number) => {
+    if (tanks.length <= 1) return;
+    const updated = tanks
+      .filter((_, i) => i !== index)
+      .map((tank, i) => ({ ...tank, tankNumber: i + 1 }));
+    setTanks(updated);
+    setNumberOfTanks(updated.length);
   };
 
   const updateTank = (index: number, data: Partial<TankData>) => {
@@ -239,35 +274,65 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
     };
 
     // ── Determine common elements ───────────────────────────────────────────────
-    const allOpts    = tanks.flatMap(t => t.options);
+    const allOpts    = panelEnabled ? tanks.flatMap(t => t.options) : [];
     const allTypes   = allOpts.map(o => (o.tankType || '').trim().toUpperCase());
     const allSupport = allOpts.map(o => o.supportSystem || 'Internal');
     const commonType    = allTypes.length > 0  && allTypes.every(t => t === allTypes[0]   && t !== '')  ? allTypes[0]   : null;
     const commonSupport = allSupport.length > 0 && allSupport.every(s => s === allSupport[0]) ? allSupport[0] : null;
     const supportLabel  = () => 'INTERNAL SS 316 AND EXTERNAL HDG SUPPORT SYSTEM';
 
+    // ── Skid computation ─────────────────────────────────────────────────────────
+    const computeSkid = (h: number) => {
+      if (h >= 1.0 && h <= 1.5) return 'WITHOUT SKID';
+      if (h >= 2.0 && h <= 3.0) return 'SKID BASE - HDG HOLLOW SECTION 50 X 50 X 3 MM (SQUARE TUBE)';
+      if (h > 3.0) return 'SKID BASE - I BEAM SKID';
+      return '';
+    };
+    const allSkids   = allOpts.map(o => computeSkid(parseDim(o.height)));
+    const commonSkid = allSkids.length > 0 && allSkids[0] !== '' && allSkids.every(s => s === allSkids[0]) ? allSkids[0] : null;
+
     // ── Common row ─────────────────────────────────────────────────────────────
     let commonLine1 = `GRP SECTIONAL WATER TANK - 10 YEAR WARRANTY - ${brandName}`;
     if (commonSupport) commonLine1 += ` - ${supportLabel()}`;
-    const commonRowHtml = [
+    const commonRowHtml = panelEnabled ? [
       `<div style="font-weight:bold;font-size:11px;line-height:1.35;">${commonLine1}</div>`,
       commonType ? `<div style="font-weight:bold;font-size:11px;line-height:1.35;">${commonType}</div>` : '',
-    ].filter(Boolean).join('');
+      commonSkid ? `<div style="font-weight:bold;font-size:11px;line-height:1.35;">${commonSkid}</div>` : '',
+    ].filter(Boolean).join('') : '';
 
     // ── Discount flag ─────────────────────────────────────────────────────────────
-    const hasAnyDiscount = tanks.some(t => t.options?.some((o: any) => o.hasDiscount));
+    const hasAnyDiscount =
+      (panelEnabled && tanks.some(t => t.options?.some((o: any) => o.hasDiscount))) ||
+      (dismantlingEnabled && dismantlingTanks.some((t: any) => t.hasDiscount)) ||
+      (cylindricalEnabled && cylindricalTanks.some((t: any) => t.hasDiscount));
 
     // ── Pre-calculate subtotal ─────────────────────────────────────────────────
     let subTotal = 0;
-    tanks.forEach(tank =>
-      tank.options.forEach(opt => {
-        const q  = Number(opt.quantity)  || 0;
-        const up = Number(opt.unitPrice) || 0;
-        const hasDisc = (opt as any).hasDiscount || false;
-        const discTot = hasDisc ? (Number((opt as any).discountedTotalPrice) || 0) : 0;
-        subTotal += hasDisc ? discTot : q * up;
-      })
-    );
+    if (panelEnabled) {
+      tanks.forEach(tank =>
+        tank.options.forEach(opt => {
+          const q  = Number(opt.quantity)  || 0;
+          const up = Number(opt.unitPrice) || 0;
+          const hasDisc = (opt as any).hasDiscount || false;
+          const discTot = hasDisc ? (Number((opt as any).discountedTotalPrice) || 0) : 0;
+          subTotal += hasDisc ? discTot : q * up;
+        })
+      );
+    }
+    if (dismantlingEnabled) {
+      dismantlingTanks.forEach((t: any) => {
+        const q = Number(t.quantity) || 0;
+        const up = Number(t.unitPrice) || 0;
+        subTotal += t.hasDiscount ? (Number(t.discountedTotalPrice) || 0) : q * up;
+      });
+    }
+    if (cylindricalEnabled) {
+      cylindricalTanks.forEach((t: any) => {
+        const q = Number(t.quantity) || 0;
+        const up = Number(t.unitPrice) || 0;
+        subTotal += t.hasDiscount ? (Number(t.discountedTotalPrice) || 0) : q * up;
+      });
+    }
 
     // ── Tank rows ───────────────────────────────────────────────────────────────
     let slNo = 1;
@@ -318,6 +383,10 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
         const tankName   = ((opt.tankName || '') + partSuffix).trim().toUpperCase();
         if (tankName) desc.push(`<div style="font-weight:bold;text-decoration:underline;font-size:11px;">${tankName}</div>`);
 
+        const rowSkid = computeSkid(H);
+        if (rowSkid && rowSkid !== commonSkid)
+          desc.push(`<div style="font-weight:bold;font-size:11px;">${rowSkid}</div>`);
+
         if (!commonType && opt.tankType)
           desc.push(`<div style="font-weight:bold;font-size:11px;">TYPE       :&nbsp;${opt.tankType.toUpperCase()}</div>`);
 
@@ -344,6 +413,73 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
           </tr>`;
       });
     }).join('');
+
+    // ── Build dismantling rows HTML ──────────────────────────────────────────
+    let dismantlingRowsHtml = '';
+    if (dismantlingEnabled && dismantlingTanks.length > 0) {
+      dismantlingRowsHtml += `<tr><td colspan="6" style="border:${cellBorder};padding:4px 7px;font-size:11px;font-family:Calibri,sans-serif;">&nbsp;</td></tr>`;
+      dismantlingTanks.forEach((tank: any, i: number) => {
+        const qty = Number(tank.quantity) || 0;
+        const up  = Number(tank.unitPrice) || 0;
+        const total = tank.hasDiscount ? (Number(tank.discountedTotalPrice) || 0) : qty * up;
+        const dd: string[] = [];
+        const tn = (tank.tankName || '').trim().toUpperCase();
+        if (tn) dd.push(`<div style="font-weight:bold;text-decoration:underline;font-size:11px;">${tn}</div>`);
+        const sf = [
+          tank.length ? `${tank.length} M (L)` : '',
+          tank.width  ? `${tank.width} M (W)`  : '',
+          tank.height ? `${tank.height} M (H)` : '',
+        ].filter(Boolean);
+        if (sf.length) dd.push(`<div style="font-weight:bold;font-size:11px;">SIZE&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:&nbsp;${sf.join(' X ')}</div>`);
+        dismantlingRowsHtml += `
+          <tr>
+            <td style="border:${cellBorder};padding:5px 6px;text-align:center;vertical-align:middle;font-weight:bold;font-size:11px;font-family:Calibri,sans-serif;">${i + 1}</td>
+            <td style="border:${cellBorder};padding:5px 7px;vertical-align:top;font-family:Calibri,sans-serif;">${dd.join('') || '<span style="font-size:11px;color:#aaa;">&mdash;</span>'}</td>
+            <td style="border:${cellBorder};padding:5px 6px;text-align:center;vertical-align:middle;font-weight:bold;font-size:11px;font-family:Calibri,sans-serif;">${tank.unit || ''}</td>
+            <td style="border:${cellBorder};padding:5px 6px;text-align:center;vertical-align:middle;font-weight:bold;font-size:11px;font-family:Calibri,sans-serif;">${qty || ''}</td>
+            <td style="border:${cellBorder};padding:5px 6px;text-align:right;vertical-align:middle;font-size:11px;font-family:Calibri,sans-serif;">${up ? up.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : ''}</td>
+            <td style="border:${cellBorder};padding:5px 6px;text-align:right;vertical-align:middle;font-weight:bold;font-size:11px;font-family:Calibri,sans-serif;">${total ? total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : ''}</td>
+          </tr>`;
+      });
+    }
+
+    // ── Build cylindrical rows HTML ──────────────────────────────────────────
+    let cylindricalRowsHtml = '';
+    if (cylindricalEnabled && cylindricalTanks.length > 0) {
+      cylindricalTanks.forEach((tank: any, i: number) => {
+        const hdrName = (tank.tankName || '').trim().toUpperCase();
+        cylindricalRowsHtml += `<tr><td colspan="6" style="border:${cellBorder};padding:4px 7px;font-weight:bold;font-size:11px;font-family:Calibri,sans-serif;">${hdrName || '&nbsp;'}</td></tr>`;
+        const qty = Number(tank.quantity) || 0;
+        const up  = Number(tank.unitPrice) || 0;
+        const total = tank.hasDiscount ? (Number(tank.discountedTotalPrice) || 0) : qty * up;
+        const material    = (tank.material || 'PVC').toUpperCase();
+        const orientation = (tank.orientation || 'Vertical').toUpperCase();
+        const layers      = tank.layers;
+        const isAbove     = (tank.groundLocation || 'Above Ground').toLowerCase() !== 'below ground';
+        const aboveText   = isAbove
+          ? (layers ? `ABOVE GROUND-${layers} LAYER` : 'ABOVE GROUND')
+          : (layers ? `BELOW GROUND-${layers} LAYER` : 'BELOW GROUND');
+        const capacity    = Number(tank.capacity) || 0;
+        const size        = tank.size || 'N/A';
+        const typeStr     = `${material} \u2013 ${orientation}`;
+        const descLines   = [
+          `<div style="font-weight:bold;text-decoration:underline;font-size:11px;">${aboveText}</div>`,
+          `<div style="font-weight:bold;font-size:11px;">TYPE&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:&nbsp;${typeStr}</div>`,
+          `<div style="font-weight:bold;font-size:11px;">WARRANTY&nbsp;:&nbsp;3 YEAR</div>`,
+          capacity ? `<div style="font-weight:bold;font-size:11px;">CAPACITY&nbsp;&nbsp;:&nbsp;${capacity} ${gallonAbbr}</div>` : '',
+          `<div style="font-weight:bold;font-size:11px;">SIZE&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:&nbsp;${size}</div>`,
+        ].filter(Boolean).join('');
+        cylindricalRowsHtml += `
+          <tr>
+            <td style="border:${cellBorder};padding:5px 6px;text-align:center;vertical-align:middle;font-weight:bold;font-size:11px;font-family:Calibri,sans-serif;">${i + 1}</td>
+            <td style="border:${cellBorder};padding:5px 7px;vertical-align:top;font-family:Calibri,sans-serif;">${descLines}</td>
+            <td style="border:${cellBorder};padding:5px 6px;text-align:center;vertical-align:middle;font-weight:bold;font-size:11px;font-family:Calibri,sans-serif;">${tank.unit || 'Nos'}</td>
+            <td style="border:${cellBorder};padding:5px 6px;text-align:center;vertical-align:middle;font-weight:bold;font-size:11px;font-family:Calibri,sans-serif;">${qty || ''}</td>
+            <td style="border:${cellBorder};padding:5px 6px;text-align:right;vertical-align:middle;font-size:11px;font-family:Calibri,sans-serif;">${up ? up.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : ''}</td>
+            <td style="border:${cellBorder};padding:5px 6px;text-align:right;vertical-align:middle;font-weight:bold;font-size:11px;font-family:Calibri,sans-serif;">${total ? total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : ''}</td>
+          </tr>`;
+      });
+    }
 
     // ── Footer ─────────────────────────────────────────────────────────────────
     const vat        = showVat ? subTotal * 0.05 : 0;
@@ -495,10 +631,11 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td colspan="6" style="border:1px solid #000;padding:5px 7px;font-family:Calibri,sans-serif;">${commonRowHtml}</td>
-              </tr>
-              ${tankRowsHtml || `<tr><td colspan="6" style="border:1px solid #000;padding:14px;text-align:center;color:#9ca3af;font-size:12px;">No tanks added yet</td></tr>`}
+              ${commonRowHtml ? `<tr><td colspan="6" style="border:1px solid #000;padding:5px 7px;font-family:Calibri,sans-serif;">${commonRowHtml}</td></tr>` : ''}
+              ${tankRowsHtml}
+              ${dismantlingRowsHtml}
+              ${cylindricalRowsHtml}
+              ${!tankRowsHtml && !dismantlingRowsHtml && !cylindricalRowsHtml ? `<tr><td colspan="6" style="border:1px solid #000;padding:14px;text-align:center;color:#9ca3af;font-size:12px;">No tanks added yet</td></tr>` : ''}
               ${footerHtml}
             </tbody>
           </table>
@@ -519,7 +656,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
     phoneNumber, email, quotationDate, quotationFrom, salesPersonName,
     quotationNumber, revisionEnabled, revisionNumber, subject, projectLocation,
     additionalDetails, gallonType, tanks, showSubTotal, showVat, showGrandTotal, personCode, officePersonName, companyCode,
-    leftPersonSig, rightPersonSig
+    leftPersonSig, rightPersonSig, dismantlingEnabled, dismantlingTanks, cylindricalEnabled, cylindricalTanks, panelEnabled
     // eslint-disable-next-line react-hooks/exhaustive-deps
   ]); // `terms` intentionally omitted (declared later in scope; closure captures latest value)
 
@@ -895,6 +1032,12 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
       setGallonType(gallonTypeFromData);
       setNumberOfTanks(tanksArray.length);
       setTanks(tanksArray);
+      const panelEnabledFromData = loadQuotationData.tanks?.panelEnabled ?? quotationData.tanksData?.panelEnabled;
+      setPanelEnabled(panelEnabledFromData !== undefined ? panelEnabledFromData : tanksArray.length > 0);
+      const dismantlingFromData = loadQuotationData.tanks?.dismantlingTanks || quotationData.tanksData?.dismantlingTanks || [];
+      const cylindricalFromData = loadQuotationData.tanks?.cylindricalTanks || quotationData.tanksData?.cylindricalTanks || [];
+      if (dismantlingFromData.length > 0) { setDismantlingEnabled(true); setDismantlingTanks(dismantlingFromData); }
+      if (cylindricalFromData.length > 0) { setCylindricalEnabled(true); setCylindricalTanks(cylindricalFromData); }
     }
     
     // Load form options
@@ -1026,6 +1169,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
         setNumberOfTanks(data.tanksData.tanks.length);
         setTanks(data.tanksData.tanks);
         setGallonType(data.tanksData.gallonType || 'USG');
+        setPanelEnabled(data.tanksData.panelEnabled !== undefined ? data.tanksData.panelEnabled : data.tanksData.tanks.length > 0);
       }
 
       // Load form options
@@ -1149,9 +1293,12 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
           projectLocation,
           generatedBy,
           tanksData: {
-            numberOfTanks: tanks.length,
+            numberOfTanks: panelEnabled ? tanks.length : 0,
             gallonType: formattedGallonType,
-            tanks: tanks
+            tanks: panelEnabled ? tanks : [],
+            panelEnabled,
+            dismantlingTanks: dismantlingEnabled ? dismantlingTanks : [],
+            cylindricalTanks: cylindricalEnabled ? cylindricalTanks : [],
           },
           formOptions: {
             showSubTotal,
@@ -1280,11 +1427,13 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
           generatedBy,
           additionalDetails,
           gallonType: formattedGallonType,
-          numberOfTanks,
+          numberOfTanks: panelEnabled ? tanks.length : 0,
           showSubTotal,
           showVat,
           showGrandTotal,
-          tanks,
+          tanks: panelEnabled ? tanks : [],
+          dismantlingTanks: dismantlingEnabled ? dismantlingTanks : [],
+          cylindricalTanks: cylindricalEnabled ? cylindricalTanks : [],
           terms: formattedTerms,
         }),
       });
@@ -1328,9 +1477,12 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
               projectLocation,
               generatedBy,
               tanksData: {
-                numberOfTanks: tanks.length,
+                numberOfTanks: panelEnabled ? tanks.length : 0,
                 gallonType: formattedGallonType,
-                tanks: tanks
+                tanks: panelEnabled ? tanks : [],
+                panelEnabled,
+                dismantlingTanks: dismantlingEnabled ? dismantlingTanks : [],
+                cylindricalTanks: cylindricalEnabled ? cylindricalTanks : [],
               },
               formOptions: {
                 showSubTotal,
@@ -1708,6 +1860,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
       if (data.tanksData && data.tanksData.tanks) {
         setTanks(data.tanksData.tanks);
         setNumberOfTanks(data.tanksData.tanks.length);
+        setPanelEnabled(data.tanksData.panelEnabled !== undefined ? data.tanksData.panelEnabled : data.tanksData.tanks.length > 0);
       }
       
       // Load gallon type
@@ -1888,6 +2041,11 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
         if (formData.gallonType !== undefined) setGallonType(formData.gallonType);
         if (formData.personCode !== undefined) setPersonCode(formData.personCode);
         if (formData.tanks !== undefined) setTanks(formData.tanks);
+        if (formData.dismantlingEnabled !== undefined) setDismantlingEnabled(formData.dismantlingEnabled);
+        if (formData.dismantlingTanks !== undefined) setDismantlingTanks(formData.dismantlingTanks);
+        if (formData.cylindricalEnabled !== undefined) setCylindricalEnabled(formData.cylindricalEnabled);
+        if (formData.cylindricalTanks !== undefined) setCylindricalTanks(formData.cylindricalTanks);
+        if (formData.panelEnabled !== undefined) setPanelEnabled(formData.panelEnabled);
         if (formData.terms !== undefined) setTerms(formData.terms);
         
         console.log('✓ Revision form data restored from session');
@@ -1936,6 +2094,11 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
       gallonType,
       personCode,
       tanks,
+      dismantlingEnabled,
+      dismantlingTanks,
+      cylindricalEnabled,
+      cylindricalTanks,
+      panelEnabled,
       terms,
     };
     
@@ -1950,7 +2113,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
     quotationNumber, revisionEnabled, revisionNumber,
     subject, projectLocation, generatedBy,
     additionalDetails, numberOfTanks, gallonType, personCode,
-    tanks, terms,
+    tanks, dismantlingEnabled, dismantlingTanks, cylindricalEnabled, cylindricalTanks, panelEnabled, terms,
   ]);
 
   return (
@@ -2321,6 +2484,54 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
             )}
 
             <div className="md:col-span-2">
+              <Label htmlFor="generatedBy">Generated By</Label>
+              <Input
+                id="generatedBy"
+                value={generatedBy}
+                onChange={(e) => setGeneratedBy(e.target.value)}
+                placeholder="Enter your name"
+                autoComplete="off"
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    const next = document.querySelector('#quantity-1-0');
+                    if (next) (next as HTMLElement).focus();
+                  }
+                }}
+              />
+            </div>
+
+            {/* Display Options */}
+            <div className="md:col-span-2">
+              <div>
+                <Label htmlFor="gallonType">Gallon Type (Optional)</Label>
+                <AutocompleteInput
+                  id="gallonType"
+                  options={[
+                    { value: 'US Gallons', label: 'US Gallons' },
+                    { value: 'Imperial Gallons', label: 'Imperial Gallons' },
+                  ]}
+                  value={gallonType}
+                  onValueChange={setGallonType}
+                  placeholder="Type gallon type..."
+                />
+              </div>
+              <div className="flex flex-row flex-wrap gap-6 mt-3">
+                <div className="flex items-center gap-2">
+                  <Checkbox id="showSubTotal" checked={showSubTotal} onCheckedChange={(checked) => setShowSubTotal(checked === true)} className="accent-blue-600" />
+                  <Label htmlFor="showSubTotal" className="text-black cursor-pointer whitespace-nowrap">Show Sub Total</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox id="showVat" checked={showVat} onCheckedChange={(checked) => setShowVat(checked === true)} className="accent-blue-600" />
+                  <Label htmlFor="showVat" className="text-black cursor-pointer whitespace-nowrap">Show VAT 5%</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox id="showGrandTotal" checked={showGrandTotal} onCheckedChange={(checked) => setShowGrandTotal(checked === true)} className="accent-blue-600" />
+                  <Label htmlFor="showGrandTotal" className="text-black cursor-pointer whitespace-nowrap">Show Grand Total</Label>
+                </div>
+              </div>
+            </div>
+
+            <div className="md:col-span-2">
               <Label htmlFor="subject">Subject</Label>
               <AutocompleteInput
                 id="subject"
@@ -2405,23 +2616,6 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
               />
             </div>
 
-            <div className="md:col-span-2">
-              <Label htmlFor="generatedBy">Generated By</Label>
-              <Input
-                id="generatedBy"
-                value={generatedBy}
-                onChange={(e) => setGeneratedBy(e.target.value)}
-                placeholder="Enter your name"
-                autoComplete="off"
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    const next = document.querySelector('#numberOfTanks');
-                    if (next) (next as HTMLElement).focus();
-                  }
-                }}
-              />
-            </div>
-
             {/* Additional Details Section */}
             <div className="md:col-span-2">
               <Label className="mb-2 block">Additional Details (Optional)</Label>
@@ -2485,78 +2679,152 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
         </CardContent>
       </Card>
 
-      <Card className="border border-blue-200 rounded-xl shadow-sm bg-white">
-        <CardHeader className="bg-white text-blue-600 border-b border-blue-200 rounded-t-xl px-6 py-2">
-          <CardTitle className="text-base font-semibold">Tank Details</CardTitle>
+      <Card className="border border-orange-200 rounded-xl shadow-sm bg-white">
+        <CardHeader className="bg-white text-orange-600 border-b border-orange-200 rounded-t-xl px-6 py-4">
+          <div className="flex items-center gap-3">
+            <Checkbox
+              id="dismantlingEnabled"
+              checked={dismantlingEnabled}
+              onCheckedChange={checked => setDismantlingEnabled(checked === true)}
+              className="accent-orange-500"
+            />
+            <CardTitle className="text-base font-semibold">
+              <Label htmlFor="dismantlingEnabled" className="cursor-pointer text-orange-700">
+                Dismantling &amp; Disposal of Existing Tanks
+              </Label>
+            </CardTitle>
+          </div>
         </CardHeader>
-        <CardContent className="pt-3 space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="numberOfTanks">Number of Types of Tanks</Label>
-              <Input
-                id="numberOfTanks"
-                type="number"
-                min="1"
-                value={numberOfTanks}
-                onChange={(e) => handleNumberOfTanksChange(e.target.value)}
-                placeholder="Enter number of tanks"
-                autoComplete="off"
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    const next = document.querySelector('#gallonType');
-                    if (next) (next as HTMLElement).focus();
-                  }
-                }}
-              />
-              <div className="flex flex-row gap-6 mt-4">
-                <div className="flex items-center gap-2">
-                  <Checkbox id="showSubTotal" checked={showSubTotal} onCheckedChange={(checked) => setShowSubTotal(checked === true)} className="accent-blue-600" />
-                  <Label htmlFor="showSubTotal" className="text-black cursor-pointer whitespace-nowrap">Show Sub Total</Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Checkbox id="showVat" checked={showVat} onCheckedChange={(checked) => setShowVat(checked === true)} className="accent-blue-600" />
-                  <Label htmlFor="showVat" className="text-black cursor-pointer whitespace-nowrap">Show VAT 5%</Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Checkbox id="showGrandTotal" checked={showGrandTotal} onCheckedChange={(checked) => setShowGrandTotal(checked === true)} className="accent-blue-600" />
-                  <Label htmlFor="showGrandTotal" className="text-black cursor-pointer whitespace-nowrap">Show Grand Total</Label>
-                </div>
-              </div>
-            </div>
+        {dismantlingEnabled && (
+          <CardContent className="pt-6 px-6 pb-6">
+            <DismantlingTankForm
+              tanks={dismantlingTanks}
+              onChange={setDismantlingTanks}
+            />
+          </CardContent>
+        )}
+      </Card>
 
-            <div>
-              <Label htmlFor="gallonType">Gallon Type (Optional)</Label>
-              <AutocompleteInput
-                id="gallonType"
-                options={[
-                  { value: 'US Gallons', label: 'US Gallons' },
-                  { value: 'Imperial Gallons', label: 'Imperial Gallons' },
-                ]}
-                value={gallonType}
-                onValueChange={setGallonType}
-                placeholder="Type gallon type..."
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    // Focus first tank's first option's quantity input
-                    const next = document.querySelector('#quantity-1-0');
-                    if (next) (next as HTMLElement).focus();
-                  }
-                }}
-              />
-            </div>
+      <Card className="border border-teal-200 rounded-xl shadow-sm bg-white">
+        <CardHeader className="bg-white text-teal-600 border-b border-teal-200 rounded-t-xl px-6 py-4">
+          <div className="flex items-center gap-3">
+            <Checkbox
+              id="cylindricalEnabled"
+              checked={cylindricalEnabled}
+              onCheckedChange={checked => setCylindricalEnabled(checked === true)}
+              className="accent-teal-500"
+            />
+            <CardTitle className="text-base font-semibold">
+              <Label htmlFor="cylindricalEnabled" className="cursor-pointer text-teal-700">
+                Cylindrical Tanks (PVC / GRP)
+              </Label>
+            </CardTitle>
           </div>
+        </CardHeader>
+        {cylindricalEnabled && (
+          <CardContent className="pt-6 px-6 pb-6">
+            <CylindricalTankForm
+              tanks={cylindricalTanks}
+              gallonType={gallonType}
+              onChange={setCylindricalTanks}
+            />
+          </CardContent>
+        )}
+      </Card>
 
-          <div className="space-y-4 mt-6">
-            {tanks.map((tank, index) => (
-              <TankForm
-                key={index}
-                tankNumber={tank.tankNumber}
-                data={tank}
-                onChange={(data) => updateTank(index, data)}
-              />
-            ))}
+      <Card className="border border-blue-200 rounded-xl shadow-sm bg-white">
+        <CardHeader className="bg-white text-blue-600 border-b border-blue-200 rounded-t-xl px-6 py-4">
+          <div className="flex items-center gap-3">
+            <Checkbox
+              id="panelEnabled"
+              checked={panelEnabled}
+              onCheckedChange={checked => setPanelEnabled(checked === true)}
+              className="accent-blue-500"
+            />
+            <CardTitle className="text-base font-semibold">
+              <Label htmlFor="panelEnabled" className="cursor-pointer text-blue-700">
+                Panel Tank Details
+              </Label>
+            </CardTitle>
           </div>
-        </CardContent>
+        </CardHeader>
+        {panelEnabled && (
+          <CardContent className="pt-4 px-6 pb-6">
+            <div className="space-y-4">
+              {tanks.map((tank, index) => (
+                <div key={index} className="border border-blue-200 rounded-xl p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <h3 className="text-base font-semibold text-blue-700">Tank {index + 1}</h3>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id={`option-${index + 1}`}
+                          checked={tank.optionEnabled}
+                          onCheckedChange={(checked) =>
+                            updateTank(index, { ...tank, optionEnabled: checked as boolean })
+                          }
+                          className="accent-blue-500"
+                        />
+                        <Label htmlFor={`option-${index + 1}`} className="cursor-pointer text-sm font-medium text-gray-700">
+                          Enable Option Numbers
+                        </Label>
+                        {tank.optionEnabled && (
+                          <Input
+                            type="number"
+                            min="1"
+                            value={tank.optionNumbers}
+                            onChange={(e) => {
+                              const newCount = parseInt(e.target.value) || 1;
+                              const newOptions = Array.from({ length: newCount }, (_, i) =>
+                                tank.options[i] || {
+                                  tankName: '', quantity: 1, hasPartition: false, tankType: '',
+                                  length: '', width: '', height: '', unit: '', unitPrice: '',
+                                  supportSystem: 'Internal', hasDiscount: false, discountedTotalPrice: '',
+                                }
+                              );
+                              updateTank(index, { ...tank, optionNumbers: newCount, options: newOptions });
+                            }}
+                            className="w-16 border-blue-300 focus:border-blue-400 focus:ring-1 focus:ring-blue-100 rounded text-sm bg-white"
+                            placeholder="No."
+                            autoComplete="off"
+                          />
+                        )}
+                      </div>
+                    </div>
+                    {tanks.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removePanelTank(index)}
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                  <hr className="border-blue-200 my-3" />
+                  <TankForm
+                    tankNumber={index + 1}
+                    data={tank}
+                    onChange={(data) => updateTank(index, data)}
+                  />
+                </div>
+              ))}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={addPanelTank}
+              className="w-full border-dashed border-blue-300 text-blue-600 hover:bg-blue-50 mt-4"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Panel Tank
+            </Button>
+          </CardContent>
+        )}
       </Card>
 
       {/* Contractual Terms & Specifications Section */}

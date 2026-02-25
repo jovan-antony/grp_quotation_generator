@@ -21,7 +21,7 @@ export default function QuotationPage() {
   const [isPageReload, setIsPageReload] = useState(true);
 
   const COMPANY_HEADER_MAP: Record<string, string> = {
-    'GRP':   '/header-images/GRPT.png',
+    'GRP':   '/header-images/GRP.png',
     'GRPPT': '/header-images/GRPPT.png',
     'CLX':   '/header-images/CLX.png',
   };

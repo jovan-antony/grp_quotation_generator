@@ -3010,7 +3010,7 @@ class TankInvoiceGenerator:
             cell.text = ""
             cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
             cell.paragraphs[0].paragraph_format.space_after = Pt(0)
-            run = cell.paragraphs[0].add_run(f'{round(grand_total):,.0f}')
+            run = cell.paragraphs[0].add_run(f'{grand_total:,.2f}')
             run.font.bold = True
             run.font.name = 'Calibri'
             run.font.size = Pt(10)

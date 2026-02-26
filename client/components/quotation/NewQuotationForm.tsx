@@ -62,6 +62,10 @@ interface TankData {
 
 export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isActive = true, isPageReload = false }: NewQuotationFormProps) {
   const [fromCompany, setFromCompany] = useState('');
+  // Confirm-before-action dialog
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'save' | 'export' | null>(null);
+  const [confirmQuoteNo, setConfirmQuoteNo] = useState('');
   const [companyCode, setCompanyCode] = useState(''); // CODE from company_details.xlsx
   const [companyShortName, setCompanyShortName] = useState(''); // company_name (brand name) from company_details.xlsx
   const [templatePath, setTemplatePath] = useState(''); // template_path from company_details.xlsx
@@ -505,7 +509,7 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
 
     if (showSubTotal)  footerHtml += fRow(hasAnyDiscount ? 'DISCOUNTED SUB TOTAL:' : 'SUB TOTAL:',   subTotal.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}));
     if (showVat)       footerHtml += fRow('VAT 5%:',      vat.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}));
-    if (showGrandTotal) footerHtml += fRow('GRAND TOTAL:', Math.round(grandTotal).toLocaleString('en-US'), true);
+    if (showGrandTotal) footerHtml += fRow('GRAND TOTAL:', grandTotal.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}), true);
 
     // ── After-table sections (order matches Python generator) ──────────────────────
     let afterTableHtml = '';
@@ -980,6 +984,22 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
       fetchPersonCode(officePersonName, 'office');
     }
   }, [officePersonName, quotationFrom]);
+
+  // Show confirmation dialog before save/export
+  const triggerConfirm = (action: 'save' | 'export') => {
+    const d = new Date(quotationDate);
+    const yy = String(d.getFullYear()).slice(-2);
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yymm = `${yy}${mm}`;
+    const code = personCode || 'XX';
+    let qn = companyCode && quotationNumber
+      ? `${companyCode}/${yymm}/${code}/${quotationNumber}`
+      : (quotationNumber || '—');
+    if (parseInt(revisionNumber) > 0) qn += `-R${revisionNumber}`;
+    setConfirmQuoteNo(qn);
+    setPendingAction(action);
+    setShowConfirmDialog(true);
+  };
 
   const handleSave = async () => {
     try {
@@ -2514,7 +2534,7 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
 
       <div className="flex justify-end gap-3">
         <Button
-          onClick={handleSave}
+          onClick={() => triggerConfirm('save')}
           className="bg-green-400 hover:bg-green-500 text-white px-8 py-4 text-base rounded-xl transition-colors duration-200 shadow-sm font-medium"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="mr-2 h-5 w-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2525,13 +2545,84 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
           Save Quotation
         </Button>
         <Button
-          onClick={handleExport}
+          onClick={() => triggerConfirm('export')}
           className="bg-blue-400 hover:bg-blue-500 text-white px-8 py-4 text-base rounded-xl transition-colors duration-200 shadow-sm font-medium"
         >
           <FileDown className="mr-2 h-5 w-5 text-white" />
           Export Quotation
         </Button>
       </div>
+
+      {/* ── Confirm before Save / Export dialog ───────────────────────────── */}
+      {showConfirmDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 relative">
+            {/* X close */}
+            <button
+              onClick={() => { setShowConfirmDialog(false); setPendingAction(null); }}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+              aria-label="Close"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+
+            {/* Icon */}
+            <div className="flex justify-center mb-5">
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center ${
+                pendingAction === 'save' ? 'bg-green-100' : 'bg-sky-100'
+              }`}>
+                <div className={`w-11 h-11 rounded-full flex items-center justify-center ${
+                  pendingAction === 'save' ? 'bg-green-400' : 'bg-sky-400'
+                }`}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                </div>
+              </div>
+            </div>
+
+            {/* Title */}
+            <h2 className="text-xl font-bold text-gray-900 text-center mb-2">
+              {pendingAction === 'save' ? 'Confirm Save Quotation?' : 'Confirm Export Quotation?'}
+            </h2>
+
+            {/* Body */}
+            <p className="text-sm text-gray-500 text-center mb-4 leading-relaxed">
+              Please verify the quote number is correct before proceeding.
+              This will {pendingAction === 'save' ? 'save the quotation to the database.' : 'generate and export the quotation document.'}
+            </p>
+
+            {/* Quote number */}
+            <div className="mb-6 p-4 bg-sky-50 border border-sky-100 rounded-xl text-center">
+              <p className="text-xs font-medium text-sky-400 uppercase tracking-widest mb-1">Quote Number</p>
+              <p className="text-2xl font-extrabold text-sky-700 break-all tracking-wide">{confirmQuoteNo}</p>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowConfirmDialog(false); setPendingAction(null); }}
+                className="flex-1 py-2.5 text-sm font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowConfirmDialog(false);
+                  if (pendingAction === 'save') handleSave();
+                  else if (pendingAction === 'export') handleExport();
+                  setPendingAction(null);
+                }}
+                className={`flex-1 py-2.5 text-sm font-semibold text-white rounded-xl transition-colors ${
+                  pendingAction === 'save'
+                    ? 'bg-green-400 hover:bg-green-500'
+                    : 'bg-sky-400 hover:bg-sky-500'
+                }`}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

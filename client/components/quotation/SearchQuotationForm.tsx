@@ -440,7 +440,7 @@ export default function SearchQuotationForm({
 
     if (showSubTotal)   footerHtml += fRow(hasAnyDiscount ? 'DISCOUNTED SUB TOTAL:' : 'SUB TOTAL:',   subTotal.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}));
     if (showVat)        footerHtml += fRow('VAT 5%:',      vat.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}));
-    if (showGrandTotal) footerHtml += fRow('GRAND TOTAL:', Math.round(grandTotal).toLocaleString('en-US'), true);
+    if (showGrandTotal) footerHtml += fRow('GRAND TOTAL:', grandTotal.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}), true);
 
     // ── After-table sections (order matches Python generator) ──────────────────────
     const td = termsData || {};

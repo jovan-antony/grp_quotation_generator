@@ -1484,7 +1484,9 @@ class TankInvoiceGenerator:
                     capacity = float(row.iloc[1])
                     diameter = float(row.iloc[2])
                     height = float(row.iloc[3])
-                    if current_section == 'PVC_HORIZONTAL':
+                    if capacity in dimensions[current_section]:
+                        pass  # first entry wins – skip duplicates (e.g. PVC Vertical 1000 gal)
+                    elif current_section == 'PVC_HORIZONTAL':
                         raw_len = row.iloc[4]
                         length = float(raw_len) if pd.notna(raw_len) else 0.0
                         dimensions[current_section][capacity] = {
@@ -1861,7 +1863,7 @@ class TankInvoiceGenerator:
             ground_location = tank.get('ground_location', 'Above Ground')
             capacity        = tank.get('capacity', 0.0)
             size_str        = tank.get('size', '')
-            warranty        = '3 YEAR'
+            warranty        = '1 YEAR' if material == 'GRP' else '3 YEAR'
 
             # Build ground text: "ABOVE GROUND-{n} LAYER" / "ABOVE GROUND" / "BELOW GROUND-{n} LAYER" / "BELOW GROUND"
             is_above = (ground_location or 'Above Ground').strip().lower() != 'below ground'

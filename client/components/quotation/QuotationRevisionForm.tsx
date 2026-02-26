@@ -469,7 +469,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
         const descLines   = [
           `<div style="font-weight:bold;text-decoration:underline;font-size:11px;">${aboveText}</div>`,
           `<div style="font-weight:bold;font-size:11px;">TYPE&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:&nbsp;${typeStr}</div>`,
-          `<div style="font-weight:bold;font-size:11px;">WARRANTY&nbsp;:&nbsp;3 YEAR</div>`,
+          `<div style="font-weight:bold;font-size:11px;">WARRANTY&nbsp;:&nbsp;${material === 'GRP' ? '1' : '3'} YEAR</div>`,
           capacity ? `<div style="font-weight:bold;font-size:11px;">CAPACITY&nbsp;&nbsp;:&nbsp;${capacity} ${gallonAbbr}</div>` : '',
           `<div style="font-weight:bold;font-size:11px;">SIZE&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:&nbsp;${size}</div>`,
         ].filter(Boolean).join('');

@@ -193,10 +193,10 @@ export default function TankForm({ tankNumber, data, onChange }: TankFormProps) 
             <AutocompleteInput
               id={`tankType-${tankNumber}-${idx}`}
               options={[
-                { value: 'HOT PRESSED â€“ NON INSULATED', label: 'HOT PRESSED â€“ NON INSULATED' },
-                { value: 'HOT PRESSED â€“ 5 SIDE INSULATED (BOTTOM & MANHOLE NON â€“ INSULATED)', label: 'HOT PRESSED â€“ 5 SIDE INSULATED (BOTTOM & MANHOLE NON â€“ INSULATED)' },
-                { value: 'HOT PRESSED â€“ 6 SIDE INSULATED (MANHOLE NON â€“ INSULATED)', label: 'HOT PRESSED â€“ 6 SIDE INSULATED (MANHOLE NON â€“ INSULATED)' },
-                { value: 'HOT PRESSED â€“ 6 SIDE INSULATED (BOTTOM & MANHOLE INSULATED)', label: 'HOT PRESSED â€“ 6 SIDE INSULATED (BOTTOM & MANHOLE INSULATED)' },
+                { value: 'HOT PRESSED - NON INSULATED', label: 'HOT PRESSED - NON INSULATED' },
+                { value: 'HOT PRESSED - 5 SIDE INSULATED (BOTTOM & MANHOLE NON - INSULATED)', label: 'HOT PRESSED - 5 SIDE INSULATED (BOTTOM & MANHOLE NON - INSULATED)' },
+                { value: 'HOT PRESSED - 6 SIDE INSULATED (MANHOLE NON - INSULATED)', label: 'HOT PRESSED - 6 SIDE INSULATED (MANHOLE NON - INSULATED)' },
+                { value: 'HOT PRESSED - 6 SIDE INSULATED (BOTTOM & MANHOLE INSULATED)', label: 'HOT PRESSED - 6 SIDE INSULATED (BOTTOM & MANHOLE INSULATED)' },
               ]}
               value={option.tankType}
               onValueChange={(value) => {

@@ -363,7 +363,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
     const cellBorder = '1px solid #000000';
     const noBorder   = 'none';
 
-    const tankRowsHtml = tanks.flatMap((tank, tIdx) => {
+    const tankRowsHtml = (!panelEnabled ? [] : tanks.flatMap((tank, tIdx) => {
       const numOpts = tank.options.length;
       return tank.options.map((opt, oIdx) => {
         const qty      = Number(opt.quantity)  || 0;
@@ -436,7 +436,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
             <td style="border:${cellBorder};padding:5px 6px;text-align:right;vertical-align:middle;font-weight:bold;font-size:11px;font-family:Calibri,sans-serif;">${total ? total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : ''}</td>
           </tr>`;
       });
-    }).join('');
+    })).join('');
 
     // ── Build dismantling rows HTML ──────────────────────────────────────────
     let dismantlingRowsHtml = '';

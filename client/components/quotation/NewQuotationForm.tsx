@@ -1094,6 +1094,10 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
             gallonType: formattedGallonType,
             tanks: panelEnabled ? tanks : [],
             panelEnabled,
+            dismantlingTanks: dismantlingEnabled ? dismantlingTanks : [],
+            dismantlingEnabled,
+            cylindricalTanks: cylindricalEnabled ? cylindricalTanks : [],
+            cylindricalEnabled,
           },
           formOptions: {
             showSubTotal,
@@ -1275,6 +1279,10 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
                 gallonType: formattedGallonType,
                 tanks: panelEnabled ? tanks : [],
                 panelEnabled,
+                dismantlingTanks: dismantlingEnabled ? dismantlingTanks : [],
+                dismantlingEnabled,
+                cylindricalTanks: cylindricalEnabled ? cylindricalTanks : [],
+                cylindricalEnabled,
               },
               formOptions: {
                 showSubTotal,

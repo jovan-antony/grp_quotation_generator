@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 import os
 import tempfile
 
@@ -31,6 +31,65 @@ except Exception as network_import_error:
     print(f"⚠ Network storage support disabled: {network_import_error}")
 
 app = FastAPI()
+
+
+TERMS_FIELD_MAP = {
+    'note': 'note',
+    'materialSpecification': 'material_specifications',
+    'warrantyExclusions': 'warranty_conditions',
+    'termsConditions': 'terms_and_conditions',
+    'supplierScope': 'supplier_scope',
+    'customerScope': 'customer_scope',
+    'extraNote': 'note_second',
+    'scopeOfWork': 'scope_of_work',
+    'workExcluded': 'work_excluded',
+}
+
+COMPANY_POLICY_PREFIX = 'COMPANY_POLICY::'
+
+
+def _company_policy_key(company_code: str) -> str:
+    return f"{COMPANY_POLICY_PREFIX}{company_code.strip().upper()}"
+
+
+def _terms_to_frontend(contractual_terms: Optional[ContractualTermsSpecifications]) -> Dict[str, Any]:
+    if not contractual_terms:
+        return {}
+
+    terms_data: Dict[str, Any] = {}
+    for frontend_key, db_column in TERMS_FIELD_MAP.items():
+        db_value = getattr(contractual_terms, db_column, None)
+        if db_value is not None:
+            terms_data[frontend_key] = db_value
+    return terms_data
+
+
+def _load_company_policy_terms(session: Session, company_code: str) -> Optional[ContractualTermsSpecifications]:
+    policy_key = _company_policy_key(company_code)
+    statement = select(ContractualTermsSpecifications).where(
+        ContractualTermsSpecifications.full_main_quote_number == policy_key
+    )
+    return session.exec(statement).first()
+
+
+def _build_contractual_terms_payload(terms: Dict[str, Any]) -> Dict[str, Any]:
+    payload: Dict[str, Any] = {}
+    for frontend_key, db_column in TERMS_FIELD_MAP.items():
+        if frontend_key in terms:
+            term_value = terms[frontend_key]
+            if isinstance(term_value, BaseModel):
+                payload[db_column] = term_value.model_dump()
+            elif hasattr(term_value, "model_dump"):
+                payload[db_column] = term_value.model_dump()
+            elif isinstance(term_value, dict):
+                payload[db_column] = term_value
+            else:
+                payload[db_column] = {
+                    "action": "yes" if term_value else "no",
+                    "details": [],
+                    "custom": [],
+                }
+    return payload
 
 
 def resolve_docker_mount_path(network_path: str, company_code: str) -> Optional[str]:
@@ -179,7 +238,7 @@ class CylindricalTankItem(BaseModel):
 
 
 class TermSection(BaseModel):
-    action: str
+    action: Union[str, bool]
     details: List[str]
     custom: List[str]
 
@@ -217,6 +276,11 @@ class QuotationRequest(BaseModel):
     tanks: List[TankData]
     dismantlingTanks: Optional[List[DismantlingTankItem]] = []
     cylindricalTanks: Optional[List[CylindricalTankItem]] = []
+    terms: Dict[str, TermSection]
+
+
+class CompanyPolicyTermsRequest(BaseModel):
+    companyCode: str
     terms: Dict[str, TermSection]
 
 
@@ -1157,7 +1221,8 @@ async def get_company_details(name: str, session: Session = Depends(get_session)
             "company_name": company.company_name,
             "template_path": company.template_path or "",
             "seal_path": company.seal_path or "",
-            "company_domain": company.company_domain or ""
+            "company_domain": company.company_domain or "",
+            "policy_terms": _terms_to_frontend(_load_company_policy_terms(session, company.code)),
         }
         
         return details
@@ -1169,6 +1234,58 @@ async def get_company_details(name: str, session: Session = Depends(get_session)
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error reading company details: {str(e)}")
+
+
+@app.post("/api/company-policy-terms")
+async def save_company_policy_terms(request: CompanyPolicyTermsRequest, session: Session = Depends(get_session)):
+    """Save shared contractual term defaults for a company."""
+    try:
+        company_code = request.companyCode.strip().upper()
+        if not company_code:
+            raise HTTPException(status_code=400, detail="companyCode is required")
+
+        company = session.exec(
+            select(CompanyDetails).where(CompanyDetails.code == company_code)
+        ).first()
+        if not company:
+            raise HTTPException(status_code=404, detail=f"Company not found: {company_code}")
+
+        policy_key = _company_policy_key(company_code)
+        existing_terms = session.exec(
+            select(ContractualTermsSpecifications).where(
+                ContractualTermsSpecifications.full_main_quote_number == policy_key
+            )
+        ).first()
+
+        terms_data = _build_contractual_terms_payload(request.terms)
+
+        if existing_terms:
+            for db_column, value in terms_data.items():
+                setattr(existing_terms, db_column, value)
+            existing_terms.last_updated_time = datetime.utcnow()
+        else:
+            session.add(
+                ContractualTermsSpecifications(
+                    full_main_quote_number=policy_key,
+                    **terms_data,
+                )
+            )
+
+        session.commit()
+        return {
+            "success": True,
+            "message": "Company policy terms saved successfully",
+            "companyCode": company_code,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        session.rollback()
+        print(f"Error saving company policy terms: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error saving company policy terms: {str(e)}")
 
 
 @app.get("/api/recipients")

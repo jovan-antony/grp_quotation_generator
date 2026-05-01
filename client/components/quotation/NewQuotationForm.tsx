@@ -85,6 +85,7 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
   const [showSubTotal, setShowSubTotal] = useState(true);
   const [showVat, setShowVat] = useState(true);
   const [showGrandTotal, setShowGrandTotal] = useState(true);
+  const [isSavingPolicy, setIsSavingPolicy] = useState(false);
   const [recipientTitle, setRecipientTitle] = useState('Mr.');
   const [recipientName, setRecipientName] = useState('');
   const [role, setRole] = useState('');
@@ -745,6 +746,7 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
       setCompanyCode('');
       setCompanyShortName('');
       setTemplatePath('');
+      setTerms(createDefaultTerms());
       return;
     }
     
@@ -758,6 +760,9 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
         setCompanyShortName(data.company_name || '');
         setTemplatePath(data.template_path || '');
         setCompanyDomain(data.company_domain || '');
+        if (data.policy_terms) {
+          setTerms(normalizeTermsPayload(data.policy_terms));
+        }
       } else {
         console.error('Failed to fetch company details:', response.status);
         setCompanyCode('');
@@ -771,6 +776,45 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
       setCompanyShortName('');
       setTemplatePath('');
       setCompanyDomain('');
+      setTerms(createDefaultTerms());
+    }
+  };
+
+  const saveCompanyPolicy = async () => {
+    if (!companyCode) {
+      toast.error('Select a company before saving policy defaults');
+      return;
+    }
+
+    setIsSavingPolicy(true);
+    try {
+      const formattedTerms = Object.fromEntries(
+        Object.entries(terms).map(([key, value]) => [
+          key,
+          {
+            ...value,
+            action: value.action ? 'yes' : 'no',
+          },
+        ])
+      );
+
+      const response = await fetch(getApiUrl('api/company-policy-terms'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyCode, terms: formattedTerms }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Failed to save company policy');
+      }
+
+      toast.success('Company policy saved as shared defaults');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to save company policy';
+      toast.error(message);
+    } finally {
+      setIsSavingPolicy(false);
     }
   };
 
@@ -1447,18 +1491,47 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
     }
   ];
 
-  const [terms, setTerms] = useState<Record<string, {
+  type TermsState = Record<string, {
     action: boolean;
     details: string[];
     custom: string[];
     newPoint?: string;
-  }>>(
-    Object.fromEntries(termsList.map(term => [term.key, {
+  }>;
+
+  const createDefaultTerms = (): TermsState => Object.fromEntries(
+    termsList.map(term => [term.key, {
       action: term.default === 'yes',
-      details: term.details,
-      custom: [],
-    }]))
-  );
+      details: [...term.details],
+      custom: [] as string[],
+    }])
+  ) as TermsState;
+
+  const normalizeTermsPayload = (source: any) => {
+    const baseTerms = createDefaultTerms();
+
+    if (!source) {
+      return baseTerms;
+    }
+
+    Object.keys(source).forEach(key => {
+      if (key === '_order' || !baseTerms[key]) return;
+      const termData = source[key];
+      baseTerms[key] = {
+        ...baseTerms[key],
+        action: termData?.action === 'yes' || termData?.action === true,
+        details: Array.isArray(termData?.details)
+          ? [...termData.details]
+          : Array.isArray(termData)
+            ? [...termData]
+            : [...baseTerms[key].details],
+        custom: Array.isArray(termData?.custom) ? [...termData.custom] : [],
+      };
+    });
+
+    return baseTerms;
+  };
+
+  const [terms, setTerms] = useState<TermsState>(createDefaultTerms());
 
   // Re-run preview when terms change (declared here to avoid TDZ error at earlier useEffect)
   useEffect(() => {
@@ -2451,6 +2524,17 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
           <p className="text-sm text-gray-500 mt-1">Drag the grip icon to reorder points within each section</p>
         </CardHeader>
         <CardContent className="pt-3 space-y-3 px-6">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!companyCode || isSavingPolicy}
+              onClick={saveCompanyPolicy}
+              className="border-blue-200 text-blue-600 hover:bg-blue-50"
+            >
+              {isSavingPolicy ? 'Saving policy...' : 'Save as Company Policy'}
+            </Button>
+          </div>
           <div className="space-y-6">
             {termsList.map(term => {
               const allPoints = [...terms[term.key].details, ...terms[term.key].custom];

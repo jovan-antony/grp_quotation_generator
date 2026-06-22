@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, Trash2, FileDown, GripVertical } from 'lucide-react';
 import TankForm from './TankForm';
 import DismantlingTankForm, { DismantlingTankItem } from './DismantlingTankForm';
@@ -123,6 +124,16 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
   const [rightPersonSig, setRightPersonSig] = useState({ name: '', title: '', mobile: '', email: '', signatureImage: '' });
   const [salesPersonOptions, setSalesPersonOptions] = useState<Array<{value: string; label: string}>>([]);
   const [officePersonOptions, setOfficePersonOptions] = useState<Array<{value: string; label: string}>>([]);
+  const [showPersonDialog, setShowPersonDialog] = useState(false);
+  const [personDialogType, setPersonDialogType] = useState<'sales' | 'office'>('sales');
+  const [personDialogName, setPersonDialogName] = useState('');
+  const [personDialogCode, setPersonDialogCode] = useState('');
+  const [personDialogDesignation, setPersonDialogDesignation] = useState('');
+  const [personDialogPhone, setPersonDialogPhone] = useState('');
+  const [personDialogEmail, setPersonDialogEmail] = useState('');
+  const [personDialogFile, setPersonDialogFile] = useState<File | null>(null);
+  const [personDialogPreview, setPersonDialogPreview] = useState('');
+  const [isSavingPerson, setIsSavingPerson] = useState(false);
   const [tanks, setTanks] = useState<TankData[]>([
     {
       tankNumber: 1,
@@ -872,6 +883,107 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
     }
   };
 
+  // Fetch sales person names (shared function)
+  const fetchSalesPersons = async () => {
+    try {
+      const response = await fetch(getApiUrl('api/person-names/sales'));
+      if (response.ok) {
+        const data = await response.json();
+        setSalesPersonOptions(
+          data.names.map((name: string) => ({ value: name, label: name }))
+        );
+      }
+    } catch (error) {
+      console.error('Error fetching sales person names:', error);
+    }
+  };
+
+  const openPersonDialog = (personType: 'sales' | 'office') => {
+    setPersonDialogType(personType);
+    setPersonDialogName('');
+    setPersonDialogCode('');
+    setPersonDialogDesignation(personType === 'sales' ? 'Sales Executive' : 'Manager - Projects');
+    setPersonDialogPhone('');
+    setPersonDialogEmail('');
+    setPersonDialogFile(null);
+    setPersonDialogPreview('');
+    setShowPersonDialog(true);
+  };
+
+  const closePersonDialog = () => {
+    setShowPersonDialog(false);
+    setPersonDialogFile(null);
+    setPersonDialogPreview('');
+  };
+
+  const handlePersonFileChange = (file: File | null) => {
+    setPersonDialogFile(file);
+    setPersonDialogPreview(file ? URL.createObjectURL(file) : '');
+  };
+
+  const handleSavePerson = async () => {
+    if (!personDialogName.trim()) {
+      toast.error('Please enter the person name');
+      return;
+    }
+    if (!personDialogCode.trim()) {
+      toast.error('Please enter the code');
+      return;
+    }
+    if (!personDialogFile) {
+      toast.error('Please upload the signature image');
+      return;
+    }
+
+    try {
+      setIsSavingPerson(true);
+      const formData = new FormData();
+      formData.append('person_type', personDialogType);
+      formData.append('name', personDialogName.trim());
+      formData.append('code', personDialogCode.trim().toUpperCase());
+      formData.append('designation', personDialogDesignation.trim());
+      formData.append('phone_number', personDialogPhone.trim());
+      formData.append('email_name', personDialogEmail.trim());
+      formData.append('signature_file', personDialogFile);
+
+      const response = await fetch(getApiUrl('api/person-details'), {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to save person details');
+      }
+
+      const savedPerson = await response.json();
+
+      await Promise.all([fetchSalesPersons(), fetchOfficePersons()]);
+
+      if (personDialogType === 'sales') {
+        setSalesPersonName(personDialogName.trim());
+        if (quotationFrom === 'Sales') {
+          await fetchPersonDetails(personDialogName.trim(), 'sales', setLeftPersonSig);
+          await fetchPersonCode(personDialogName.trim(), 'sales');
+        }
+      } else {
+        setOfficePersonName(personDialogName.trim());
+        if (quotationFrom === 'Office' || quotationFrom === 'Sales') {
+          await fetchPersonDetails(personDialogName.trim(), 'office', setRightPersonSig);
+          await fetchPersonCode(personDialogName.trim(), 'office');
+        }
+      }
+
+      toast.success(`${savedPerson.name} saved successfully`);
+      closePersonDialog();
+    } catch (error) {
+      console.error('Error saving person details:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to save person details');
+    } finally {
+      setIsSavingPerson(false);
+    }
+  };
+
   // Fetch recipient list
   const fetchRecipients = async () => {
     try {
@@ -983,22 +1095,16 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
     onCompanyChange?.(companyCode);
   }, [companyCode]);
 
-  // Fetch sales person names when quotationFrom changes to 'Sales'
   useEffect(() => {
-    const fetchSalesPersons = async () => {
-      try {
-        const response = await fetch(getApiUrl('api/person-names/sales'));
-        if (response.ok) {
-          const data = await response.json();
-          setSalesPersonOptions(
-            data.names.map((name: string) => ({ value: name, label: name }))
-          );
-        }
-      } catch (error) {
-        console.error('Error fetching sales person names:', error);
+    return () => {
+      if (personDialogPreview) {
+        URL.revokeObjectURL(personDialogPreview);
       }
     };
+  }, [personDialogPreview]);
 
+  // Fetch sales person names when quotationFrom changes to 'Sales'
+  useEffect(() => {
     if (quotationFrom === 'Sales') {
       fetchSalesPersons();
       // Also fetch office persons for the second field
@@ -2085,7 +2191,19 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
             {quotationFrom === 'Sales' && (
               <>
                 <div>
-                  <Label htmlFor="salesPerson">Sales Person Name</Label>
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <Label htmlFor="salesPerson">Sales Person Name</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs text-blue-600 hover:text-blue-700"
+                      onClick={() => openPersonDialog('sales')}
+                    >
+                      <Plus className="mr-1 h-3.5 w-3.5" />
+                      Add New
+                    </Button>
+                  </div>
                   <AutocompleteInput
                     options={salesPersonOptions}
                     value={salesPersonName}
@@ -2101,7 +2219,19 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
                   />
                 </div>
                 <div>
-                  <Label htmlFor="officePersonSales">Office Person Name</Label>
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <Label htmlFor="officePersonSales">Office Person Name</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs text-blue-600 hover:text-blue-700"
+                      onClick={() => openPersonDialog('office')}
+                    >
+                      <Plus className="mr-1 h-3.5 w-3.5" />
+                      Add New
+                    </Button>
+                  </div>
                   <AutocompleteInput
                     options={officePersonOptions}
                     value={officePersonName}
@@ -2121,7 +2251,19 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
 
             {quotationFrom === 'Office' && (
               <div>
-                <Label htmlFor="officePerson">Office Person Name</Label>
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <Label htmlFor="officePerson">Office Person Name</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs text-blue-600 hover:text-blue-700"
+                    onClick={() => openPersonDialog('office')}
+                  >
+                    <Plus className="mr-1 h-3.5 w-3.5" />
+                    Add New
+                  </Button>
+                </div>
                 <AutocompleteInput
                   options={officePersonOptions}
                   value={officePersonName}
@@ -2458,6 +2600,110 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
                           }
                           className="accent-blue-500"
                         />
+
+                      <Dialog open={showPersonDialog} onOpenChange={(open) => (open ? setShowPersonDialog(true) : closePersonDialog())}>
+                        <DialogContent className="max-w-2xl">
+                          <DialogHeader>
+                            <DialogTitle>
+                              {personDialogType === 'sales' ? 'Add Sales Person' : 'Add Office Person'}
+                            </DialogTitle>
+                            <DialogDescription>
+                              Create or update a person record and upload the signature image as {personDialogType === 'sales' ? 'code_sign' : 'code_sign'}.
+                            </DialogDescription>
+                          </DialogHeader>
+
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <div className="space-y-2 md:col-span-1">
+                              <Label htmlFor="personDialogType">Person Type</Label>
+                              <select
+                                id="personDialogType"
+                                value={personDialogType}
+                                onChange={(e) => setPersonDialogType(e.target.value as 'sales' | 'office')}
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                              >
+                                <option value="sales">Sales</option>
+                                <option value="office">Office</option>
+                              </select>
+                            </div>
+                            <div className="space-y-2 md:col-span-1">
+                              <Label htmlFor="personDialogCode">Code</Label>
+                              <Input
+                                id="personDialogCode"
+                                value={personDialogCode}
+                                onChange={(e) => setPersonDialogCode(e.target.value.toUpperCase())}
+                                placeholder="e.g. VV"
+                              />
+                            </div>
+                            <div className="space-y-2 md:col-span-2">
+                              <Label htmlFor="personDialogName">Name</Label>
+                              <Input
+                                id="personDialogName"
+                                value={personDialogName}
+                                onChange={(e) => setPersonDialogName(e.target.value)}
+                                placeholder="Enter person name"
+                              />
+                            </div>
+                            <div className="space-y-2 md:col-span-2">
+                              <Label htmlFor="personDialogDesignation">Designation</Label>
+                              <Input
+                                id="personDialogDesignation"
+                                value={personDialogDesignation}
+                                onChange={(e) => setPersonDialogDesignation(e.target.value)}
+                                placeholder="Enter designation"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="personDialogPhone">Phone Number</Label>
+                              <Input
+                                id="personDialogPhone"
+                                value={personDialogPhone}
+                                onChange={(e) => setPersonDialogPhone(e.target.value)}
+                                placeholder="+971 ..."
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="personDialogEmail">Email Name</Label>
+                              <Input
+                                id="personDialogEmail"
+                                value={personDialogEmail}
+                                onChange={(e) => setPersonDialogEmail(e.target.value)}
+                                placeholder="email prefix only"
+                              />
+                            </div>
+                            <div className="space-y-2 md:col-span-2">
+                              <Label htmlFor="personDialogFile">Signature Image</Label>
+                              <Input
+                                id="personDialogFile"
+                                type="file"
+                                accept="image/png,image/jpeg,image/webp"
+                                onChange={(e) => handlePersonFileChange(e.target.files?.[0] || null)}
+                              />
+                              {personDialogFile && (
+                                <p className="text-xs text-slate-500">Selected file: {personDialogFile.name}</p>
+                              )}
+                            </div>
+                            {personDialogPreview && (
+                              <div className="md:col-span-2 rounded-lg border border-dashed border-slate-200 p-3">
+                                <p className="mb-2 text-xs font-medium text-slate-600">Signature Preview</p>
+                                <img
+                                  src={personDialogPreview}
+                                  alt="Signature preview"
+                                  className="max-h-28 max-w-full object-contain"
+                                />
+                              </div>
+                            )}
+                          </div>
+
+                          <DialogFooter>
+                            <Button type="button" variant="outline" onClick={closePersonDialog} disabled={isSavingPerson}>
+                              Cancel
+                            </Button>
+                            <Button type="button" onClick={handleSavePerson} disabled={isSavingPerson}>
+                              {isSavingPerson ? 'Saving...' : 'Save Person'}
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
                         <Label htmlFor={`option-${index + 1}`} className="cursor-pointer text-sm font-medium text-gray-700">
                           Enable Option Numbers
                         </Label>

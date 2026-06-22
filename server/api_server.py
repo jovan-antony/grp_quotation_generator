@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, File, Form, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -126,6 +126,59 @@ def resolve_docker_mount_path(network_path: str, company_code: str) -> Optional[
 
     mount_path = os.path.join(mount_base, *trailing_parts) if trailing_parts else mount_base
     return mount_path
+
+
+def get_data_path() -> str:
+    """Return the absolute DATA path used for signatures and templates."""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    env_file = os.path.join(script_dir, '.env')
+
+    if os.path.exists(env_file):
+        try:
+            from dotenv import load_dotenv
+            load_dotenv(dotenv_path=env_file, override=True)
+        except Exception:
+            pass
+
+    env_path = os.getenv('DATA_PATH', '').strip()
+    if env_path:
+        if os.path.isabs(env_path):
+            data_path = env_path
+        else:
+            data_path = os.path.join(script_dir, env_path)
+    else:
+        data_path = os.path.join(script_dir, 'DATA')
+
+    return os.path.abspath(data_path)
+
+
+def _save_signature_upload(code: str, signature_file: UploadFile) -> str:
+    """Save a signature file as {code}_sign.<ext> inside DATA/signs&seals."""
+    data_path = get_data_path()
+    signs_dir = os.path.join(data_path, 'signs&seals')
+    os.makedirs(signs_dir, exist_ok=True)
+
+    safe_code = code.strip().upper()
+    _, ext = os.path.splitext(signature_file.filename or '')
+    ext = (ext or '.png').lower()
+    if ext not in {'.png', '.jpg', '.jpeg', '.webp'}:
+        ext = '.png'
+
+    base_name = f"{safe_code}_sign"
+
+    for existing_ext in ('.png', '.jpg', '.jpeg', '.webp'):
+        existing_path = os.path.join(signs_dir, base_name + existing_ext)
+        if os.path.exists(existing_path):
+            try:
+                os.remove(existing_path)
+            except Exception:
+                pass
+
+    target_path = os.path.join(signs_dir, base_name + ext)
+    with open(target_path, 'wb') as target_file:
+        target_file.write(signature_file.file.read())
+
+    return f"{base_name}"
 
 # Database setup disabled
 
@@ -2297,6 +2350,101 @@ async def get_person_code(name: str, type: str, session: Session = Depends(get_s
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error reading person CODE: {str(e)}")
+
+
+@app.post("/api/person-details")
+async def create_or_update_person_details(
+    person_type: str = Form(...),
+    name: str = Form(...),
+    code: str = Form(...),
+    designation: str = Form(""),
+    phone_number: str = Form(""),
+    email_name: str = Form(""),
+    signature_file: UploadFile = File(...),
+    session: Session = Depends(get_session),
+):
+    """Create or update a sales person or office person from the frontend."""
+    try:
+        normalized_type = person_type.strip().lower()
+        normalized_name = name.strip()
+        normalized_code = code.strip().upper()
+
+        if normalized_type not in {"sales", "office"}:
+            raise HTTPException(status_code=400, detail="Invalid person_type. Use 'sales' or 'office'")
+        if not normalized_name:
+            raise HTTPException(status_code=400, detail="name is required")
+        if not normalized_code:
+            raise HTTPException(status_code=400, detail="code is required")
+
+        sign_path = _save_signature_upload(normalized_code, signature_file)
+
+        if normalized_type == "sales":
+            existing = session.exec(
+                select(SalesDetails).where(SalesDetails.code == normalized_code)
+            ).first()
+            if existing:
+                existing.sales_person_name = normalized_name
+                existing.designation = designation.strip() or existing.designation
+                existing.phone_number = phone_number.strip() or existing.phone_number
+                existing.email_name = email_name.strip() or existing.email_name
+                existing.sign_path = sign_path
+                existing.last_updated_time = datetime.utcnow()
+            else:
+                session.add(
+                    SalesDetails(
+                        sales_person_name=normalized_name,
+                        code=normalized_code,
+                        sign_path=sign_path,
+                        designation=designation.strip() or None,
+                        phone_number=phone_number.strip() or None,
+                        email_name=email_name.strip() or None,
+                        created_time=datetime.utcnow(),
+                        last_updated_time=datetime.utcnow(),
+                    )
+                )
+        else:
+            existing = session.exec(
+                select(ProjectManagerDetails).where(ProjectManagerDetails.code == normalized_code)
+            ).first()
+            if existing:
+                existing.manager_name = normalized_name
+                existing.designation = designation.strip() or existing.designation
+                existing.phone_number = phone_number.strip() or existing.phone_number
+                existing.email_name = email_name.strip() or existing.email_name
+                existing.sign_path = sign_path
+                existing.last_updated_time = datetime.utcnow()
+            else:
+                session.add(
+                    ProjectManagerDetails(
+                        manager_name=normalized_name,
+                        code=normalized_code,
+                        sign_path=sign_path,
+                        designation=designation.strip() or None,
+                        phone_number=phone_number.strip() or None,
+                        email_name=email_name.strip() or None,
+                        created_time=datetime.utcnow(),
+                        last_updated_time=datetime.utcnow(),
+                    )
+                )
+
+        session.commit()
+
+        return {
+            "success": True,
+            "personType": normalized_type,
+            "name": normalized_name,
+            "code": normalized_code,
+            "signPath": sign_path,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        session.rollback()
+        print(f"⚠ Error saving person details: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error saving person details: {str(e)}")
 
 
 @app.get("/api/person-details")

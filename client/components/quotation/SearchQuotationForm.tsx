@@ -39,6 +39,8 @@ export default function SearchQuotationForm({
     tankType: false,
     supportSystem: false,
     tankSize: false,
+    revisionedOnly: false,
+    tankPartition: false,
   });
 
   const [searchValues, setSearchValues] = useState({
@@ -61,6 +63,9 @@ export default function SearchQuotationForm({
     tankLength: '',
     tankWidth: '',
     tankHeight: '',
+    revisionFilter: 'revised',
+    customRevisionNumber: '',
+    partitionFilter: '',
   });
 
   const [dateFilterType, setDateFilterType] = useState<'day' | 'week' | 'month'>('day');
@@ -191,6 +196,25 @@ export default function SearchQuotationForm({
         if (searchValues.tankHeight) {
           params.append('tank_height', searchValues.tankHeight);
         }
+      }
+
+      if (filters.revisionedOnly) {
+        const revisionMode = searchValues.revisionFilter || 'all';
+
+        if (revisionMode === 'custom') {
+          const customRevision = searchValues.customRevisionNumber.trim();
+          if (customRevision) {
+            params.append('revision_filter', `R${customRevision}`);
+          } else {
+            params.append('revision_filter', 'all');
+          }
+        } else {
+          params.append('revision_filter', revisionMode);
+        }
+      }
+
+      if (filters.tankPartition && searchValues.partitionFilter) {
+        params.append('partition_filter', searchValues.partitionFilter);
       }
       
       const response = await fetch(getApiUrl(`api/quotations?${params.toString()}`));
@@ -388,7 +412,9 @@ export default function SearchQuotationForm({
           desc.push(`<div style="font-weight:bold;font-size:11px;">${supportLabel()}</div>`);
         }
 
-        const partSuffix = opt.hasPartition ? ' (WITH PARTITION)' : '';
+        const partSuffix = opt.hasPartition
+          ? ' (WITH PARTITION)'
+          : ' (WITHOUT PARTITION)';
         const tankName   = ((opt.tankName || '') + partSuffix).trim().toUpperCase();
         if (tankName)  desc.push(`<div style="font-weight:bold;text-decoration:underline;font-size:11px;">${tankName}</div>`);
 
@@ -771,6 +797,36 @@ export default function SearchQuotationForm({
               />
               <Label htmlFor="filterTankSize" className="cursor-pointer">
                 Tank Size
+              </Label>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="filterRevisionedOnly"
+                checked={filters.revisionedOnly}
+                onCheckedChange={(checked) => {
+                  const enabled = checked as boolean;
+                  setFilters({ ...filters, revisionedOnly: enabled });
+                  if (enabled && (!searchValues.revisionFilter || searchValues.revisionFilter === 'all')) {
+                    setSearchValues({ ...searchValues, revisionFilter: 'revised' });
+                  }
+                }}
+              />
+              <Label htmlFor="filterRevisionedOnly" className="cursor-pointer">
+                Revision Filter
+              </Label>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="filterTankPartition"
+                checked={filters.tankPartition}
+                onCheckedChange={(checked) =>
+                  setFilters({ ...filters, tankPartition: checked as boolean })
+                }
+              />
+              <Label htmlFor="filterTankPartition" className="cursor-pointer">
+                Tank Partition
               </Label>
             </div>
           </div>
@@ -1198,6 +1254,77 @@ export default function SearchQuotationForm({
                 </div>
               </div>
             )}
+
+            {filters.tankPartition && (
+              <div>
+                <Label htmlFor="searchTankPartition">Tank Partition</Label>
+                <select
+                  id="searchTankPartition"
+                  value={searchValues.partitionFilter}
+                  onChange={(e) =>
+                    setSearchValues({
+                      ...searchValues,
+                      partitionFilter: e.target.value,
+                    })
+                  }
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">All</option>
+                  <option value="with">With Partition</option>
+                  <option value="without">Without Partition</option>
+                </select>
+              </div>
+            )}
+
+            {filters.revisionedOnly && (
+              <div className="space-y-2">
+                <Label htmlFor="searchRevisionFilter">Revision</Label>
+                <select
+                  id="searchRevisionFilter"
+                  value={searchValues.revisionFilter}
+                  onChange={(e) =>
+                    setSearchValues({
+                      ...searchValues,
+                      revisionFilter: e.target.value,
+                    })
+                  }
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="all">All</option>
+                  <option value="revised">All Revised (R1+)</option>
+                  <option value="original">Original Only (R0)</option>
+                  <option value="R1">R1</option>
+                  <option value="R2">R2</option>
+                  <option value="R3">R3</option>
+                  <option value="R4">R4</option>
+                  <option value="R5">R5</option>
+                  <option value="custom">Custom Rn</option>
+                </select>
+
+                {searchValues.revisionFilter === 'custom' && (
+                  <div>
+                    <Label htmlFor="searchCustomRevision" className="text-xs text-gray-600">
+                      Custom Revision Number
+                    </Label>
+                    <Input
+                      id="searchCustomRevision"
+                      type="number"
+                      min="0"
+                      step="1"
+                      placeholder="e.g., 6"
+                      value={searchValues.customRevisionNumber}
+                      onChange={(e) =>
+                        setSearchValues({
+                          ...searchValues,
+                          customRevisionNumber: e.target.value,
+                        })
+                      }
+                      autoComplete="off"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <Button
@@ -1230,7 +1357,9 @@ export default function SearchQuotationForm({
                     <div className="flex-1 grid grid-cols-2 md:grid-cols-5 gap-2 text-sm cursor-pointer" onClick={() => handleSelectQuotation(quotation)}>
                       <div>
                         <span className="font-semibold">Quote No:</span>{' '}
-                        {quotation.full_main_quote_number}
+                        {quotation.revision_number > 0
+                          ? `${quotation.full_main_quote_number}-R${quotation.revision_number}`
+                          : quotation.full_main_quote_number}
                       </div>
                       <div>
                         <span className="font-semibold">Recipient:</span>{' '}

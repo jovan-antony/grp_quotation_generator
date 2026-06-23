@@ -398,7 +398,9 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
           desc.push(`<div style="font-weight:bold;font-size:11px;">${supportLabel()}</div>`);
         }
 
-        const partSuffix = opt.hasPartition ? ' (WITH PARTITION)' : '';
+        const partSuffix = opt.hasPartition
+          ? ' (WITH PARTITION)'
+          : ' (WITHOUT PARTITION)';
         const tankName   = ((opt.tankName || '') + partSuffix).trim().toUpperCase();
         if (tankName)  desc.push(`<div style="font-weight:bold;text-decoration:underline;font-size:11px;">${tankName}</div>`);
 
@@ -480,7 +482,11 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
         const material    = (tank.material || 'PVC').toUpperCase();
         const orientation = (tank.orientation || 'Vertical').toUpperCase();
         const layers      = tank.layers;
-        const isAbove     = (tank.groundLocation || 'Above Ground').toLowerCase() !== 'below ground';
+        const groundLocation =
+          (tank.groundLocation || '').trim().toLowerCase();
+
+        const isBelow = groundLocation.includes('below');
+        const isAbove = !isBelow;
         const aboveText   = isAbove
           ? (layers ? `ABOVE GROUND-${layers} LAYER` : 'ABOVE GROUND')
           : (layers ? `BELOW GROUND-${layers} LAYER` : 'BELOW GROUND');
@@ -493,6 +499,11 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
           `<div style="font-weight:bold;font-size:11px;">WARRANTY&nbsp;:&nbsp;${material === 'GRP' ? '1' : '3'} YEAR</div>`,
           capacity ? `<div style="font-weight:bold;font-size:11px;">CAPACITY&nbsp;&nbsp;:&nbsp;${capacity} ${gallonAbbr}</div>` : '',
           `<div style="font-weight:bold;font-size:11px;">SIZE&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:&nbsp;${size}</div>`,
+          ...( isBelow ? [
+            `<div style="font-weight:bold;font-size:11px;margin-top:8px">
+              NOTE: MAXIMUM INSTALLATION DEPTH 20 CM BELOW FROM THE GROUND LEVEL
+            </div>`
+          ] : [] ),
         ].filter(Boolean).join('');
         cylindricalRowsHtml += `
           <tr>

@@ -1899,6 +1899,19 @@ class TankInvoiceGenerator:
             _add_desc_line(desc_cell, "CAPACITY", f"{int(capacity)} {gal_label}")
             _add_desc_line(desc_cell, "SIZE",     size_str if size_str else "N/A")
 
+            # Add note for below ground tanks
+            if not is_above:
+                p = desc_cell.add_paragraph()
+                p.paragraph_format.space_before = Pt(0)
+                p.paragraph_format.space_after = Pt(0)
+
+                r = p.add_run(
+                    "\nNOTE: MAXIMUM INSTALLATION DEPTH 20 CM BELOW FROM THE GROUND LEVEL"
+                )
+                r.bold = True
+                r.font.name = "Calibri"
+                r.font.size = Pt(10)
+
             # UNIT
             unit_cell = row.cells[2]
             unit_cell.text = tank.get('unit', '')
@@ -2609,7 +2622,7 @@ class TankInvoiceGenerator:
             # Check if skid is common
             skid_is_common = "skid" in common_types
             # Add partition status to tank name
-            partition_status = " (WITH PARTITION)" if tank.get('partition', False) else ""
+            partition_status = " (WITH PARTITION)" if tank.get('partition', False) else " (WITHOUT PARTITION)"
             # Always show skid (including 'WITHOUT SKID') if present and not common
             if tank_skid and not skid_is_common:
                 run = paragraph.add_run(tank_name + partition_status)

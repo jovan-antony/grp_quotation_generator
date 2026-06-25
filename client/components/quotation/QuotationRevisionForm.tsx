@@ -1030,14 +1030,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
     // API returns data with 'quotation' object for full details from /api/quotations/{id}
     // or direct quotation data from search results
     const quotationData = loadQuotationData.quotation || loadQuotationData;
-    console.log("LOAD FROM SEARCH");
-    console.log(quotationData.additionalData);
-
-    setGrpBrand(
-      quotationData.additionalData?.tankBrand === 'COLEX'
-        ? 'COLEX'
-        : 'PIPECO'
-    );
+    
     console.log('📋 Extracted quotation data:', quotationData);
 
     // Set form fields from loaded data

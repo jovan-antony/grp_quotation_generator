@@ -1396,6 +1396,24 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
 
       // Send all data to Python backend for document generation
       console.log(`👤 Export - QuotationFrom: ${quotationFrom}, SalesPerson: ${salesPersonName}, OfficePerson: ${officePersonName}, GeneratedBy: ${generatedBy}`);
+      
+      // =====================================================
+      // CHECK DUPLICATE QUOTATION NUMBER
+      // =====================================================
+
+      const checkResponse = await fetch(
+        getApiUrl(`api/check-quotation-number/${quotationNumber}`)
+      );
+
+      const checkResult = await checkResponse.json();
+
+      if (checkResult.exists) {
+        toast.error(
+          `Quotation number ${quotationNumber} already exists`
+        );
+        return;
+      }
+
       const response = await fetch('/api/generate-quotation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -66,6 +66,7 @@ export default function SearchQuotationForm({
     revisionFilter: 'revised',
     customRevisionNumber: '',
     partitionFilter: '',
+    tankPartition: 'all',
   });
 
   const [dateFilterType, setDateFilterType] = useState<'day' | 'week' | 'month'>('day');
@@ -198,6 +199,13 @@ export default function SearchQuotationForm({
         }
       }
 
+      if (filters.tankPartition) {
+        params.append(
+          "partition_filter",
+          searchValues.tankPartition
+        );
+      }
+
       if (filters.revisionedOnly) {
         const revisionMode = searchValues.revisionFilter || 'all';
 
@@ -217,6 +225,19 @@ export default function SearchQuotationForm({
         params.append('partition_filter', searchValues.partitionFilter);
       }
       
+      if (filters.revisionedOnly) {
+        params.append("revision_filter", searchValues.revisionFilter);
+
+        if (
+          searchValues.revisionFilter === "custom" &&
+          searchValues.customRevisionNumber
+        ) {
+          params.append(
+            "custom_revision",
+            searchValues.customRevisionNumber
+          );
+        }
+      }
       const response = await fetch(getApiUrl(`api/quotations?${params.toString()}`));
       
       if (!response.ok) {
@@ -1202,13 +1223,20 @@ export default function SearchQuotationForm({
             {filters.tankSize && (
               <div className="space-y-2">
                 <Label>Tank Size (Meters)</Label>
+
                 <div className="grid grid-cols-3 gap-2">
+
                   <div>
-                    <Label htmlFor="searchTankLength" className="text-xs text-gray-600">Length (M)</Label>
+                    <Label
+                      htmlFor="searchTankLength"
+                      className="text-xs text-gray-600"
+                    >
+                      Length (M)
+                    </Label>
+
                     <Input
                       id="searchTankLength"
-                      type="number"
-                      step="0.1"
+                      type="text"
                       value={searchValues.tankLength}
                       onChange={(e) =>
                         setSearchValues({
@@ -1216,16 +1244,22 @@ export default function SearchQuotationForm({
                           tankLength: e.target.value,
                         })
                       }
-                      placeholder="L"
+                      placeholder="8 or 8(4+4)"
                       autoComplete="off"
                     />
                   </div>
+
                   <div>
-                    <Label htmlFor="searchTankWidth" className="text-xs text-gray-600">Width (M)</Label>
+                    <Label
+                      htmlFor="searchTankWidth"
+                      className="text-xs text-gray-600"
+                    >
+                      Width (M)
+                    </Label>
+
                     <Input
                       id="searchTankWidth"
-                      type="number"
-                      step="0.1"
+                      type="text"
                       value={searchValues.tankWidth}
                       onChange={(e) =>
                         setSearchValues({
@@ -1233,16 +1267,22 @@ export default function SearchQuotationForm({
                           tankWidth: e.target.value,
                         })
                       }
-                      placeholder="W"
+                      placeholder="7 or 7(3+4)"
                       autoComplete="off"
                     />
                   </div>
+
                   <div>
-                    <Label htmlFor="searchTankHeight" className="text-xs text-gray-600">Height (M)</Label>
+                    <Label
+                      htmlFor="searchTankHeight"
+                      className="text-xs text-gray-600"
+                    >
+                      Height (M)
+                    </Label>
+
                     <Input
                       id="searchTankHeight"
-                      type="number"
-                      step="0.1"
+                      type="text"
                       value={searchValues.tankHeight}
                       onChange={(e) =>
                         setSearchValues({
@@ -1250,10 +1290,11 @@ export default function SearchQuotationForm({
                           tankHeight: e.target.value,
                         })
                       }
-                      placeholder="H"
+                      placeholder="4 or 4(2+2)"
                       autoComplete="off"
                     />
                   </div>
+
                 </div>
               </div>
             )}
@@ -1393,11 +1434,6 @@ export default function SearchQuotationForm({
                               throw new Error('Failed to fetch quotation details');
                             }
                             const data = await response.json();
-                            console.log("SEARCH PAGE LOADED DATA");
-                            console.log(data);
-                            console.log(data.quotation);
-                            console.log(data.quotation.additionalData);
-                            console.log(data.quotation.additionalData?.tankBrand);
                             onLoadQuotation(data);
                             toast.success('Loading quotation to Revision page...');
                           } catch (error) {

@@ -301,6 +301,7 @@ class AdditionalDetail(BaseModel):
 
 class QuotationRequest(BaseModel):
     fromCompany: str
+    tankBrand: Optional[str] = "PIPECO"
     companyCode: Optional[str] = ""
     companyShortName: Optional[str] = ""  # company_name from company_details.xlsx
     templatePath: Optional[str] = ""
@@ -464,8 +465,13 @@ async def generate_quotation(request: QuotationRequest, session: Session = Depen
         
         # Set company full name from frontend (for "Yours truly" and NOTE sections)
         generator.company_full_name = request.fromCompany
-        # Set company short name from frontend (for tank description)
-        generator.company_short_name = request.companyShortName if request.companyShortName else None
+        # Set company short name for tank warranty brand line.
+        # For GRP template, allow explicit brand selection from frontend.
+        if request.fromCompany == "GRP TANKS TRADING L.L.C":
+            selected_brand = (request.tankBrand or "PIPECO").strip().upper()
+            generator.company_short_name = "COLEX KOREA" if selected_brand == "COLEX" else "PIPECO TANKS® MALAYSIA"
+        else:
+            generator.company_short_name = request.companyShortName if request.companyShortName else None
         
         # Process tanks data - convert from UI format to generator format
         generator.tanks = []
@@ -1830,9 +1836,6 @@ async def search_quotations(
     tank_length: Optional[str] = None,
     tank_width: Optional[str] = None,
     tank_height: Optional[str] = None,
-    revisioned_only: Optional[bool] = False,
-    revision_filter: Optional[str] = None,
-    partition_filter: Optional[str] = None,
     session: Session = Depends(get_session)
 ):
     """
@@ -1857,9 +1860,6 @@ async def search_quotations(
     - tank_length: Filter by tank length in meters
     - tank_width: Filter by tank width in meters
     - tank_height: Filter by tank height in meters
-    - revisioned_only: Filter only revised quotations when true
-    - revision_filter: Revision mode (all/revised/original/R1/R2/...)
-    - partition_filter: Filter tanks by partition status (with/without)
     """
     try:
         print(f"\n{'='*60}")
@@ -1873,7 +1873,6 @@ async def search_quotations(
         print(f"  sales_person={sales_person}, office_person={office_person}")
         print(f"  tank_type={tank_type}, support_system={support_system}")
         print(f"  tank_length={tank_length}, tank_width={tank_width}, tank_height={tank_height}")
-        print(f"  revisioned_only={revisioned_only}, revision_filter={revision_filter}, partition_filter={partition_filter}")
         
         # Build query
         statement = select(QuotationWebpageInputDetailsSave)
@@ -1943,69 +1942,16 @@ async def search_quotations(
                     continue
             elif office_person:
                 continue
-
-            # Revision filter
-            # Some records may keep revision in quote suffix (e.g. .../1234-R1)
-            # while revision_number can be 0. Use an effective value for filtering.
-            stored_revision_no = quotation.revision_number or 0
-            effective_revision_no = stored_revision_no
-            if effective_revision_no <= 0:
-                full_quote_no = (quotation.full_main_quote_number or "").upper()
-                if "-R" in full_quote_no:
-                    try:
-                        suffix_part = full_quote_no.rsplit("-R", 1)[1]
-                        digits_only = "".join(ch for ch in suffix_part if ch.isdigit())
-                        if digits_only:
-                            effective_revision_no = int(digits_only)
-                    except Exception:
-                        # Keep fallback value if parsing fails.
-                        effective_revision_no = stored_revision_no
-
-            if revision_filter:
-                normalized_revision_filter = revision_filter.strip().lower()
-
-                # "all" means no revision restriction.
-                if normalized_revision_filter in ("all", ""):
-                    pass
-                elif normalized_revision_filter in ("revised", "revisioned"):
-                    if effective_revision_no <= 0:
-                        continue
-                elif normalized_revision_filter in ("original", "0", "r0"):
-                    if effective_revision_no != 0:
-                        continue
-                else:
-                    if normalized_revision_filter.startswith("r"):
-                        normalized_revision_filter = normalized_revision_filter[1:]
-                    if not normalized_revision_filter.isdigit():
-                        raise HTTPException(status_code=400, detail="Invalid revision_filter. Use all, revised, original, or R<number>")
-                    target_revision = int(normalized_revision_filter)
-                    if effective_revision_no != target_revision:
-                        continue
-            elif revisioned_only:
-                # Backward compatibility with existing frontend boolean flag.
-                if effective_revision_no <= 0:
-                    continue
             
             # Tank-related filters (search in tanks_data JSON)
             tanks_data = quotation.tanks_data or {}
             tanks = tanks_data.get('tanks', []) if isinstance(tanks_data, dict) else []
-
-            # Flatten both tank-level and option-level nodes for robust matching.
-            tank_nodes = []
-            for tank in tanks:
-                if isinstance(tank, dict):
-                    tank_nodes.append(tank)
-                    options = tank.get('options', [])
-                    if isinstance(options, list):
-                        for option in options:
-                            if isinstance(option, dict):
-                                tank_nodes.append(option)
             
             # Tank Type filtering (insulated/non-insulated)
-            if tank_type and tank_nodes:
+            if tank_type and tanks:
                 tank_type_match = False
-                for tank in tank_nodes:
-                    tank_type_str = tank.get('type', '') or tank.get('tankType', '') or ''
+                for tank in tanks:
+                    tank_type_str = tank.get('type', '') or ''
                     if tank_type.lower() in tank_type_str.lower():
                         tank_type_match = True
                         break
@@ -2015,9 +1961,9 @@ async def search_quotations(
                 continue
             
             # Support System filtering
-            if support_system and tank_nodes:
+            if support_system and tanks:
                 support_match = False
-                for tank in tank_nodes:
+                for tank in tanks:
                     tank_support = tank.get('supportSystem', '') or tank.get('support_system', '') or ''
                     if support_system.lower() in tank_support.lower():
                         support_match = True
@@ -2026,53 +1972,18 @@ async def search_quotations(
                     continue
             elif support_system:
                 continue
-
-            # Partition filtering
-            if partition_filter and tank_nodes:
-                normalized_partition = partition_filter.strip().lower()
-                partition_match = False
-                for tank in tank_nodes:
-                    has_partition_raw = tank.get('hasPartition', tank.get('partition', None))
-                    tank_name = (tank.get('tankName', '') or tank.get('name', '') or '').upper()
-
-                    if normalized_partition == "with":
-                        if has_partition_raw is True or "(WITH PARTITION)" in tank_name:
-                            partition_match = True
-                            break
-                    elif normalized_partition == "without":
-                        if has_partition_raw is False or "(WITHOUT PARTITION)" in tank_name:
-                            partition_match = True
-                            break
-
-                if not partition_match:
-                    continue
-            elif partition_filter:
-                continue
             
             # Tank Size filtering (length, width, height)
-            if (tank_length or tank_width or tank_height) and tank_nodes:
+            if (tank_length or tank_width or tank_height) and tanks:
                 size_match = False
-                for tank in tank_nodes:
+                for tank in tanks:
                     match = True
-
-                    def parse_dimension_value(value):
-                        if value is None:
-                            return 0.0
-                        if isinstance(value, (int, float)):
-                            return float(value)
-                        value_str = str(value)
-                        clean = value_str.split('(')[0].strip()
-                        clean = ''.join(ch for ch in clean if ch.isdigit() or ch == '.')
-                        try:
-                            return float(clean) if clean else 0.0
-                        except (ValueError, TypeError):
-                            return 0.0
                     
                     # Check length
                     if tank_length:
                         try:
                             search_length = float(tank_length)
-                            tank_length_val = parse_dimension_value(tank.get('length', 0))
+                            tank_length_val = float(tank.get('length', 0) or 0)
                             # Allow small tolerance (0.1m)
                             if abs(tank_length_val - search_length) > 0.1:
                                 match = False
@@ -2083,7 +1994,7 @@ async def search_quotations(
                     if tank_width and match:
                         try:
                             search_width = float(tank_width)
-                            tank_width_val = parse_dimension_value(tank.get('width', 0))
+                            tank_width_val = float(tank.get('width', 0) or 0)
                             if abs(tank_width_val - search_width) > 0.1:
                                 match = False
                         except (ValueError, TypeError):
@@ -2093,7 +2004,7 @@ async def search_quotations(
                     if tank_height and match:
                         try:
                             search_height = float(tank_height)
-                            tank_height_val = parse_dimension_value(tank.get('height', 0))
+                            tank_height_val = float(tank.get('height', 0) or 0)
                             if abs(tank_height_val - search_height) > 0.1:
                                 match = False
                         except (ValueError, TypeError):
@@ -2206,6 +2117,16 @@ async def get_quotation_by_id(quotation_id: int, session: Session = Depends(get_
         
         # Get quotation
         quotation = session.get(QuotationWebpageInputDetailsSave, quotation_id)
+
+        print("====================================")
+        print("LOADING QUOTATION")
+        print("ID:", quotation_id)
+
+        if quotation:
+            print("DB additional_data:")
+            print(quotation.additional_data)
+
+        print("====================================")
         
         if not quotation:
             raise HTTPException(status_code=404, detail=f"Quotation not found with ID: {quotation_id}")
@@ -2243,7 +2164,11 @@ async def get_quotation_by_id(quotation_id: int, session: Session = Depends(get_
                 db_value = getattr(contractual_terms, db_column, None)
                 if db_value:
                     terms_data[frontend_key] = db_value
-        
+        print("================================")
+        print("QUOTATION additional_data")
+        print(quotation.additional_data)
+        print("================================")
+
         # Build response
         response = {
             "quotation": {

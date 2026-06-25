@@ -62,7 +62,12 @@ interface TankData {
 }
 
 export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isActive = true, isPageReload = false }: NewQuotationFormProps) {
+  const GRP_FLEX_BRAND_COMPANY = 'GRP TANKS TRADING L.L.C';
+  const PIPECO_FIXED_COMPANY = 'GRP PIPECO TANKS TRADING L.L.C';
+  const COLEX_FIXED_COMPANY = 'COLEX TANKS TRADING L.L.C';
+
   const [fromCompany, setFromCompany] = useState('');
+  const [grpBrand, setGrpBrand] = useState<'PIPECO' | 'COLEX'>('PIPECO');
   // Confirm-before-action dialog
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [pendingAction, setPendingAction] = useState<'save' | 'export' | null>(null);
@@ -155,6 +160,25 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
       ],
     },
   ]);
+
+  const getSelectedTankBrandCode = () => {
+    if (fromCompany === GRP_FLEX_BRAND_COMPANY) {
+      return grpBrand;
+    }
+    if (fromCompany === COLEX_FIXED_COMPANY || companyCode === 'CLX') {
+      return 'COLEX';
+    }
+    if (fromCompany === PIPECO_FIXED_COMPANY) {
+      return 'PIPECO';
+    }
+    return companyCode === 'CLX' ? 'COLEX' : 'PIPECO';
+  };
+
+  const getSelectedTankBrandLabel = () => {
+    return getSelectedTankBrandCode() === 'COLEX'
+      ? 'COLEX KOREA'
+      : 'PIPECO TANKS\u00AE MALAYSIA';
+  };
 
   const handleNumberOfTanksChange = (value: string) => {
     const num = parseInt(value) || 1;
@@ -267,9 +291,7 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
     const quoteBoxTextColor = '#147BC5';                        // sky-blue for header box text
 
     // Brand name shown in the common row (mirrors Python logic)
-    const brandName = companyShortName
-      ? companyShortName.toUpperCase()
-      : (isColex ? 'COLEX KOREA' : 'PIPECO TANKS\u00AE\u2013MALAYSIA');
+    const brandName = getSelectedTankBrandLabel();
 
     // ── Gallon settings ──────────────────────────────────────────────────────
     const isImpGallon   = gallonType === 'Imperial Gallons' || gallonType === 'IMP Gallons';
@@ -696,7 +718,7 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
   useEffect(() => {
     generatePreview();
   }, [
-    fromCompany, recipientTitle, recipientName, role, companyName, location,
+    fromCompany, grpBrand, recipientTitle, recipientName, role, companyName, location,
     phoneNumber, email, quotationDate, quotationFrom, salesPersonName,
     quotationNumber, revisionEnabled, revisionNumber, subject, projectLocation,
     additionalDetails, gallonType, tanks, showSubTotal, showVat, showGrandTotal, personCode, officePersonName, companyCode,
@@ -1100,6 +1122,20 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
     }
   }, [fromCompany]);
 
+  useEffect(() => {
+    if (fromCompany === COLEX_FIXED_COMPANY) {
+      setGrpBrand('COLEX');
+      return;
+    }
+    if (fromCompany === PIPECO_FIXED_COMPANY) {
+      setGrpBrand('PIPECO');
+      return;
+    }
+    if (fromCompany === GRP_FLEX_BRAND_COMPANY) {
+      setGrpBrand((prev) => prev || 'PIPECO');
+    }
+  }, [fromCompany]);
+
   // Log when company code updates and notify parent
   useEffect(() => {
     console.log(`📝 Company Code updated: "${companyCode}"`);
@@ -1266,7 +1302,8 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
             showGrandTotal
           },
           additionalData: {
-            additionalDetails
+            additionalDetails,
+            tankBrand: getSelectedTankBrandCode(),
           },
           terms: formattedTerms,
           revisionNumber: parseInt(revisionNumber) || 0,
@@ -1364,6 +1401,7 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fromCompany,
+          tankBrand: getSelectedTankBrandCode(),
           companyCode,
           companyShortName,
           templatePath,
@@ -1451,7 +1489,8 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
                 showGrandTotal
               },
               additionalData: {
-                additionalDetails
+                additionalDetails,
+                tankBrand: getSelectedTankBrandCode(),
               },
               terms: formattedTerms,
               revisionNumber: parseInt(revisionNumber) || 0,
@@ -1868,6 +1907,7 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
         
         // Restore all form state
         if (formData.fromCompany !== undefined) setFromCompany(formData.fromCompany);
+        if (formData.grpBrand !== undefined) setGrpBrand(formData.grpBrand);
         if (formData.companyCode !== undefined) setCompanyCode(formData.companyCode);
         if (formData.companyShortName !== undefined) setCompanyShortName(formData.companyShortName);
         if (formData.templatePath !== undefined) setTemplatePath(formData.templatePath);
@@ -1916,6 +1956,7 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
     
     const formData = {
       fromCompany,
+      grpBrand,
       companyCode,
       companyShortName,
       templatePath,
@@ -1955,7 +1996,7 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
     sessionStorage.setItem('newQuotationFormData', JSON.stringify(formData));
   }, [
     isActive,
-    fromCompany, companyCode, companyShortName, templatePath,
+    fromCompany, grpBrand, companyCode, companyShortName, templatePath,
     showSubTotal, showVat, showGrandTotal,
     recipientTitle, recipientName, role, companyName, location, phoneNumber, email,
     quotationDate, quotationFrom, salesPersonName, officePersonName,
@@ -2002,6 +2043,21 @@ export default function NewQuotationForm({ onPreviewUpdate, onCompanyChange, isA
               }}
             />
           </div>
+
+          {fromCompany === GRP_FLEX_BRAND_COMPANY && (
+            <div>
+              <Label htmlFor="grpTankBrand">Tank Brand</Label>
+              <select
+                id="grpTankBrand"
+                value={grpBrand}
+                onChange={(e) => setGrpBrand(e.target.value as 'PIPECO' | 'COLEX')}
+                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="PIPECO">PIPECO TANKS\u00AE MALAYSIA</option>
+                <option value="COLEX">COLEX KOREA</option>
+              </select>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2 grid grid-cols-4 gap-2">

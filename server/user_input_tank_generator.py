@@ -2617,7 +2617,7 @@ class TankInvoiceGenerator:
         # Tank name with underline and optionally skid in brackets
         tank_name = (tank.get('name', '') or '').upper()
         tank_skid = (tank.get('skid', '') or '').upper()
-        
+        partition_status = " (WITH PARTITION)" if tank.get('partition', False) else " (WITHOUT PARTITION)"
         if tank_name:
             # Check if skid is common
             skid_is_common = "skid" in common_types
@@ -2654,6 +2654,12 @@ class TankInvoiceGenerator:
         elif tank_skid and "skid" not in common_types:
             # Always print skid (including 'WITHOUT SKID') without brackets if no name
             run = paragraph.add_run(tank_skid)
+            run.font.bold = True
+            run.font.name = 'Calibri'
+            run.font.size = Pt(10)
+        else:
+            run = paragraph.add_run(partition_status)
+            run.underline = True
             run.font.bold = True
             run.font.name = 'Calibri'
             run.font.size = Pt(10)

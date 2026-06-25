@@ -62,6 +62,10 @@ interface TankData {
 }
 
 export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange, loadQuotationData, isActive = true, isPageReload = false }: QuotationRevisionFormProps) {
+  const GRP_FLEX_BRAND_COMPANY = 'GRP TANKS TRADING L.L.C';
+  const PIPECO_FIXED_COMPANY = 'GRP PIPECO TANKS TRADING L.L.C';
+  const COLEX_FIXED_COMPANY = 'COLEX TANKS TRADING L.L.C';
+
   // Load functionality states
   const [loadSearchInput, setLoadSearchInput] = useState('');
   const [isQuotationLoaded, setIsQuotationLoaded] = useState(false);
@@ -74,6 +78,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
   const [confirmQuoteNo, setConfirmQuoteNo] = useState('');
   
   const [fromCompany, setFromCompany] = useState('');
+  const [grpBrand, setGrpBrand] = useState<'PIPECO' | 'COLEX'>('PIPECO');
   const [companyCode, setCompanyCode] = useState(''); // CODE from company_details.xlsx
   const [companyShortName, setCompanyShortName] = useState(''); // company_name (brand name) from company_details.xlsx
   const [templatePath, setTemplatePath] = useState(''); // template_path from company_details.xlsx
@@ -151,6 +156,25 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
       ],
     },
   ]);
+
+  const getSelectedTankBrandCode = () => {
+    if (fromCompany === GRP_FLEX_BRAND_COMPANY) {
+      return grpBrand;
+    }
+    if (fromCompany === COLEX_FIXED_COMPANY || companyCode === 'CLX') {
+      return 'COLEX';
+    }
+    if (fromCompany === PIPECO_FIXED_COMPANY) {
+      return 'PIPECO';
+    }
+    return companyCode === 'CLX' ? 'COLEX' : 'PIPECO';
+  };
+
+  const getSelectedTankBrandLabel = () => {
+    return getSelectedTankBrandCode() === 'COLEX'
+      ? 'COLEX KOREA'
+      : 'PIPECO TANKS® MALAYSIA';
+  };
 
   const handleNumberOfTanksChange = (value: string) => {
     const num = parseInt(value) || 1;
@@ -277,9 +301,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
     const headerRowColor  = isColex ? '#A3B463' : '#5F9EA0';
     const quoteBoxTextColor = '#147BC5';
 
-    const brandName = companyShortName
-      ? companyShortName.toUpperCase()
-      : (isColex ? 'COLEX KOREA' : 'PIPECO TANKS\u00AE\u2013MALAYSIA');
+    const brandName = getSelectedTankBrandLabel();
 
     // ── Gallon settings ─────────────────────────────────────────────────────────
     const isImpGallon   = gallonType === 'Imperial Gallons' || gallonType === 'IMP Gallons';
@@ -687,7 +709,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
   useEffect(() => {
     generatePreview();
   }, [
-    fromCompany, recipientTitle, recipientName, role, companyName, location,
+    fromCompany, grpBrand, recipientTitle, recipientName, role, companyName, location,
     phoneNumber, email, quotationDate, quotationFrom, salesPersonName,
     quotationNumber, revisionEnabled, revisionNumber, subject, projectLocation,
     additionalDetails, gallonType, tanks, showSubTotal, showVat, showGrandTotal, personCode, officePersonName, companyCode,
@@ -1008,7 +1030,14 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
     // API returns data with 'quotation' object for full details from /api/quotations/{id}
     // or direct quotation data from search results
     const quotationData = loadQuotationData.quotation || loadQuotationData;
-    
+    console.log("LOAD FROM SEARCH");
+    console.log(quotationData.additionalData);
+
+    setGrpBrand(
+      quotationData.additionalData?.tankBrand === 'COLEX'
+        ? 'COLEX'
+        : 'PIPECO'
+    );
     console.log('📋 Extracted quotation data:', quotationData);
 
     // Set form fields from loaded data
@@ -1165,7 +1194,11 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
       setOriginalRevisionNumber(data.revisionNumber || 0);
       setOriginalFullQuoteNumber(data.fullQuoteNumber);
       setIsQuotationLoaded(true);
-
+      setGrpBrand(
+        data.additionalData?.tankBrand === 'COLEX'
+          ? 'COLEX'
+          : 'PIPECO'
+      );
       // Load company details
       setFromCompany(data.fromCompany);
       await fetchCompanyDetails(data.fromCompany);
@@ -1357,7 +1390,8 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
             showGrandTotal
           },
           additionalData: {
-            additionalDetails
+            additionalDetails,
+            tankBrand: getSelectedTankBrandCode(),
           },
           terms: formattedTerms,
           revisionNumber: parseInt(revisionNumber) || 0,
@@ -1456,6 +1490,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fromCompany,
+          tankBrand: getSelectedTankBrandCode(),
           companyCode,
           companyShortName,
           templatePath,
@@ -1541,7 +1576,8 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
                 showGrandTotal
               },
               additionalData: {
-                additionalDetails
+                additionalDetails,
+                tankBrand: getSelectedTankBrandCode(),
               },
               terms: formattedTerms,
               revisionNumber: parseInt(revisionNumber) || 0,
@@ -2064,6 +2100,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
         if (formData.originalRevisionNumber !== undefined) setOriginalRevisionNumber(formData.originalRevisionNumber);
         if (formData.originalFullQuoteNumber !== undefined) setOriginalFullQuoteNumber(formData.originalFullQuoteNumber);
         if (formData.fromCompany !== undefined) setFromCompany(formData.fromCompany);
+        if (formData.grpBrand !== undefined) setGrpBrand(formData.grpBrand);
         if (formData.companyCode !== undefined) setCompanyCode(formData.companyCode);
         if (formData.companyShortName !== undefined) setCompanyShortName(formData.companyShortName);
         if (formData.templatePath !== undefined) setTemplatePath(formData.templatePath);
@@ -2117,6 +2154,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
       originalRevisionNumber,
       originalFullQuoteNumber,
       fromCompany,
+      grpBrand,
       companyCode,
       companyShortName,
       templatePath,
@@ -2157,7 +2195,7 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
   }, [
     isActive,
     loadSearchInput, isQuotationLoaded, originalQuotationNumber, originalRevisionNumber, originalFullQuoteNumber,
-    fromCompany, companyCode, companyShortName, templatePath,
+    fromCompany, grpBrand, companyCode, companyShortName, templatePath,
     showSubTotal, showVat, showGrandTotal,
     recipientTitle, recipientName, role, companyName, location, phoneNumber, email,
     quotationDate, quotationFrom, salesPersonName, officePersonName,
@@ -2239,6 +2277,21 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
               }}
             />
           </div>
+
+          {fromCompany === GRP_FLEX_BRAND_COMPANY && (
+            <div>
+              <Label htmlFor="grpTankBrand">Tank Brand</Label>
+              <select
+                id="grpTankBrand"
+                value={grpBrand}
+                onChange={(e) => setGrpBrand(e.target.value as 'PIPECO' | 'COLEX')}
+                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="PIPECO">PIPECO TANKS® MALAYSIA</option>
+                <option value="COLEX">COLEX KOREA</option>
+              </select>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2 grid grid-cols-4 gap-2">

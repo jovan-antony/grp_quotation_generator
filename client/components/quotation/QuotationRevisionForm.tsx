@@ -36,7 +36,6 @@ interface QuotationRevisionFormProps {
   onCompanyChange?: (code: string) => void;
   loadQuotationData?: any;
   isActive?: boolean;
-  isPageReload?: boolean;
 }
 
 interface TankData {
@@ -61,7 +60,7 @@ interface TankData {
   }>;
 }
 
-export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange, loadQuotationData, isActive = true, isPageReload = false }: QuotationRevisionFormProps) {
+export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange, loadQuotationData, isActive = true }: QuotationRevisionFormProps) {
   const GRP_FLEX_BRAND_COMPANY = 'GRP TANKS TRADING L.L.C';
   const PIPECO_FIXED_COMPANY = 'GRP PIPECO TANKS TRADING L.L.C';
   const COLEX_FIXED_COMPANY = 'COLEX TANKS TRADING L.L.C';
@@ -2067,14 +2066,8 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
     );
   }
 
-  // Load form data from sessionStorage on component mount (only if not a page reload)
+  // Load form data from sessionStorage on component mount
   useEffect(() => {
-    // Don't restore from sessionStorage on page reload
-    if (isPageReload) {
-      console.log('⏭ Skipping sessionStorage restore - page reload detected');
-      return;
-    }
-    
     // Don't restore from sessionStorage if we're loading a quotation from search
     if (loadQuotationData) {
       console.log('⏭ Skipping sessionStorage restore - loading from search data');
@@ -2134,12 +2127,10 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
         console.error('Error restoring revision form data:', error);
       }
     }
-  }, [loadQuotationData, isPageReload]); // Re-run when loadQuotationData or isPageReload changes
+  }, [loadQuotationData]);
 
-  // Save form data to sessionStorage whenever state changes (only when active)
+  // Save form data to sessionStorage whenever state changes
   useEffect(() => {
-    if (!isActive) return; // Only save when this tab is active
-    
     const formData = {
       loadSearchInput,
       isQuotationLoaded,
@@ -2186,7 +2177,6 @@ export default function QuotationRevisionForm({ onPreviewUpdate, onCompanyChange
     
     sessionStorage.setItem('quotationRevisionFormData', JSON.stringify(formData));
   }, [
-    isActive,
     loadSearchInput, isQuotationLoaded, originalQuotationNumber, originalRevisionNumber, originalFullQuoteNumber,
     fromCompany, grpBrand, companyCode, companyShortName, templatePath,
     showSubTotal, showVat, showGrandTotal,
